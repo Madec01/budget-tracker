@@ -1,0 +1,3151 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mon Suivi Budgétaire</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --primary: #2563eb;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --bg-light: #f8fafc;
+            --bg-dark: #1e293b;
+            --text-light: #334155;
+            --text-dark: #e2e8f0;
+            --border: #e2e8f0;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: var(--bg-light);
+            color: var(--text-light);
+            padding: 20px;
+            transition: background 0.3s, color 0.3s;
+        }
+
+        body.dark-mode {
+            background: var(--bg-dark);
+            color: var(--text-dark);
+        }
+
+        body.dark-mode .container {
+            background: #0f172a;
+        }
+
+        body.dark-mode .card {
+            background: #1e293b;
+            border-color: #334155;
+        }
+
+        body.dark-mode input, 
+        body.dark-mode select,
+        body.dark-mode table {
+            background: #0f172a;
+            color: var(--text-dark);
+            border-color: #334155;
+        }
+
+        body.dark-mode .tab {
+            background: #334155;
+            color: var(--text-dark);
+        }
+
+        body.dark-mode .tab.active {
+            background: var(--primary);
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 16px;
+            padding: 30px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+            flex-wrap: wrap;
+            gap: 20px;
+        }
+
+        h1 {
+            font-size: 2em;
+            color: var(--primary);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .controls {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .year-selector {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .year-selector button {
+            background: var(--primary);
+            color: white;
+            border: none;
+            padding: 8px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 18px;
+        }
+
+        .year-selector span {
+            font-size: 1.2em;
+            font-weight: bold;
+            min-width: 60px;
+            text-align: center;
+        }
+
+        .theme-toggle {
+            background: #64748b;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        .theme-toggle:hover {
+            background: #475569;
+        }
+
+        .tabs {
+            display: flex;
+            gap: 5px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+            border-bottom: 2px solid var(--border);
+        }
+
+        .tab {
+            padding: 12px 20px;
+            background: #e2e8f0;
+            border: none;
+            border-radius: 8px 8px 0 0;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.3s;
+        }
+
+        .tab:hover {
+            background: #cbd5e1;
+        }
+
+        .tab.active {
+            background: var(--primary);
+            color: white;
+        }
+
+        .tab.dashboard {
+            background: var(--success);
+            color: white;
+        }
+
+        .tab.dashboard:hover {
+            background: #059669;
+        }
+
+        .month-content {
+            display: none;
+        }
+
+        .month-content.active {
+            display: block;
+        }
+
+        .card {
+            background: #f8fafc;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 25px;
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .card-title {
+            font-size: 1.3em;
+            font-weight: 600;
+            color: var(--primary);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+
+        .btn-primary {
+            background: var(--primary);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #1d4ed8;
+        }
+
+        .btn-success {
+            background: var(--success);
+            color: white;
+        }
+
+        .btn-success:hover {
+            background: #059669;
+        }
+
+        .btn-danger {
+            background: var(--danger);
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #dc2626;
+        }
+
+        .btn-warning {
+            background: var(--warning);
+            color: white;
+        }
+
+        .btn-small {
+            padding: 4px 8px;
+            font-size: 12px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 15px;
+        }
+
+        th {
+            background: var(--primary);
+            color: white;
+            padding: 12px;
+            text-align: left;
+            font-weight: 600;
+        }
+
+        td {
+            padding: 10px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        tr:hover {
+            background: rgba(37, 99, 235, 0.05);
+        }
+
+        input[type="text"],
+        input[type="number"],
+        input[type="date"],
+        select {
+            padding: 8px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            font-size: 14px;
+            width: 100%;
+        }
+
+        input[type="checkbox"] {
+            width: 20px;
+            height: 20px;
+            cursor: pointer;
+        }
+
+        .total-row {
+            font-weight: bold;
+            background: #dbeafe !important;
+            font-size: 1.1em;
+        }
+
+        .summary-section {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .summary-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+
+        .summary-card.green {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+        }
+
+        .summary-card.orange {
+            background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+        }
+
+        .summary-card.red {
+            background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+        }
+
+        .summary-card.blue {
+            background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+        }
+
+        .summary-label {
+            font-size: 0.9em;
+            opacity: 0.9;
+            margin-bottom: 5px;
+        }
+
+        .summary-value {
+            font-size: 2em;
+            font-weight: bold;
+        }
+
+        .summary-detail {
+            font-size: 0.85em;
+            opacity: 0.8;
+            margin-top: 5px;
+        }
+
+        .budget-bar {
+            height: 30px;
+            background: #e2e8f0;
+            border-radius: 15px;
+            overflow: hidden;
+            margin: 20px 0;
+            position: relative;
+        }
+
+        .budget-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--success) 0%, var(--warning) 70%, var(--danger) 100%);
+            transition: width 0.5s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+        }
+
+        .chart-container {
+            height: 300px;
+            margin: 20px 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .savings-toggle {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin: 15px 0;
+            padding: 15px;
+            background: #f1f5f9;
+            border-radius: 8px;
+        }
+
+        .switch {
+            position: relative;
+            width: 60px;
+            height: 30px;
+        }
+
+        .switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #ccc;
+            transition: .4s;
+            border-radius: 30px;
+        }
+
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 22px;
+            width: 22px;
+            left: 4px;
+            bottom: 4px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+
+        input:checked + .slider {
+            background-color: var(--success);
+        }
+
+        input:checked + .slider:before {
+            transform: translateX(30px);
+        }
+
+        .priority-badge {
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+            display: inline-block;
+        }
+
+        .priority-essential {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .priority-important {
+            background: #fed7aa;
+            color: #9a3412;
+        }
+
+        .priority-wishlist {
+            background: #dbeafe;
+            color: #1e40af;
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 5px;
+        }
+
+        .export-section {
+            margin-top: 20px;
+            padding: 15px;
+            background: #f1f5f9;
+            border-radius: 8px;
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 15px;
+            }
+
+            h1 {
+                font-size: 1.5em;
+            }
+
+            table {
+                font-size: 12px;
+            }
+
+            .summary-section {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .alert {
+            padding: 12px;
+            border-radius: 8px;
+            margin: 10px 0;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .alert-warning {
+            background: #fef3c7;
+            color: #92400e;
+            border-left: 4px solid var(--warning);
+        }
+
+        .alert-danger {
+            background: #fee2e2;
+            color: #991b1b;
+            border-left: 4px solid var(--danger);
+        }
+
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 20px;
+        }
+
+        canvas {
+            max-width: 100%;
+        }
+
+        .comparison-table {
+            overflow-x: auto;
+        }
+
+        .trend-indicator {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            font-weight: bold;
+        }
+
+        .trend-up {
+            color: var(--success);
+        }
+
+        .trend-down {
+            color: var(--danger);
+        }
+
+        /* Popups modernes */
+        .popup-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.7);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+            backdrop-filter: blur(5px);
+        }
+
+        .popup-overlay.active {
+            display: flex;
+        }
+
+        .popup {
+            background: white;
+            border-radius: 16px;
+            padding: 30px;
+            max-width: 800px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            animation: popupSlideIn 0.3s ease;
+        }
+
+        body.dark-mode .popup {
+            background: #1e293b;
+            color: var(--text-dark);
+        }
+
+        @keyframes popupSlideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-50px) scale(0.9);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+        }
+
+        .popup-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 25px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid var(--border);
+        }
+
+        .popup-title {
+            font-size: 1.5em;
+            font-weight: 600;
+            color: var(--primary);
+        }
+
+        .popup-close {
+            background: none;
+            border: none;
+            font-size: 2em;
+            cursor: pointer;
+            color: #64748b;
+            line-height: 1;
+            padding: 0;
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            transition: all 0.2s;
+        }
+
+        .popup-close:hover {
+            background: #f1f5f9;
+            color: var(--danger);
+        }
+
+        body.dark-mode .popup-close:hover {
+            background: #334155;
+        }
+
+        .popup-content {
+            margin-top: 20px;
+        }
+
+        .category-item {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 10px;
+            align-items: center;
+            padding: 10px;
+            background: #f8fafc;
+            border-radius: 8px;
+            transition: all 0.2s;
+        }
+
+        body.dark-mode .category-item {
+            background: #0f172a;
+        }
+
+        .category-item:hover {
+            background: #f1f5f9;
+        }
+
+        body.dark-mode .category-item:hover {
+            background: #334155;
+        }
+
+        .category-item input {
+            flex: 1;
+        }
+
+        .epargne-input-large {
+            font-size: 2em;
+            text-align: center;
+            padding: 20px;
+            border: 2px solid var(--primary);
+            border-radius: 12px;
+            width: 100%;
+            font-weight: bold;
+        }
+
+        .popup-actions {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+            margin-top: 20px;
+            padding-top: 20px;
+            border-top: 1px solid var(--border);
+        }
+
+        .readonly-table {
+            opacity: 0.8;
+        }
+
+        .readonly-table input, 
+        .readonly-table select,
+        .readonly-table button {
+            pointer-events: none;
+            cursor: not-allowed;
+        }
+
+        .readonly-badge {
+            display: inline-block;
+            background: #e0e7ff;
+            color: #3730a3;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 0.85em;
+            font-weight: 600;
+            margin-left: 10px;
+        }
+
+        .locked-badge {
+            display: inline-block;
+            background: #fecaca;
+            color: #991b1b;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 0.85em;
+            font-weight: 600;
+            margin-left: 10px;
+        }
+
+        .locked-month {
+            opacity: 0.7;
+        }
+
+        .locked-month input:not([type="checkbox"]),
+        .locked-month select,
+        .locked-month button:not(.unlock-btn):not(.popup-close) {
+            pointer-events: none;
+            cursor: not-allowed;
+            opacity: 0.6;
+        }
+
+        .tab.locked::after {
+            content: ' 🔒';
+            font-size: 0.9em;
+        }
+
+        .validate-btn {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-size: 1.1em;
+            font-weight: 600;
+            cursor: pointer;
+            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+            transition: all 0.3s;
+        }
+
+        .validate-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(16, 185, 129, 0.4);
+        }
+
+        .validate-btn:disabled {
+            background: #9ca3af;
+            cursor: not-allowed;
+            box-shadow: none;
+            transform: none;
+        }
+
+        .unlock-btn {
+            background: #ef4444;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-size: 0.9em;
+            cursor: pointer;
+            margin-left: 10px;
+        }
+
+        .validation-options {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            margin: 20px 0;
+        }
+
+        .validation-option {
+            padding: 20px;
+            border: 2px solid #e5e7eb;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .validation-option:hover {
+            border-color: var(--primary);
+            background: #f0f9ff;
+        }
+
+        body.dark-mode .validation-option:hover {
+            background: #1e3a5f;
+        }
+
+        .validation-option input[type="radio"] {
+            margin-right: 10px;
+            width: 20px;
+            height: 20px;
+            cursor: pointer;
+        }
+
+        .validation-option label {
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 1.1em;
+        }
+
+        .validation-option p {
+            margin-top: 8px;
+            color: #64748b;
+            margin-left: 30px;
+        }
+
+
+        /* Popups personnalisés */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            animation: fadeIn 0.3s;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        .modal-content {
+            background-color: white;
+            margin: 5% auto;
+            padding: 0;
+            border-radius: 12px;
+            width: 90%;
+            max-width: 600px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+            animation: slideIn 0.3s;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+
+        body.dark-mode .modal-content {
+            background-color: #1e293b;
+            color: var(--text-dark);
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateY(-50px);
+                opacity: 0;
+            }
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+
+        .modal-header {
+            padding: 20px 25px;
+            border-bottom: 2px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: linear-gradient(135deg, var(--primary) 0%, #1d4ed8 100%);
+            color: white;
+            border-radius: 12px 12px 0 0;
+        }
+
+        .modal-header h2 {
+            margin: 0;
+            font-size: 1.5em;
+        }
+
+        .modal-close {
+            background: rgba(255, 255, 255, 0.2);
+            border: none;
+            color: white;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+            width: 35px;
+            height: 35px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+        }
+
+        .modal-close:hover {
+            background: rgba(255, 255, 255, 0.3);
+            transform: rotate(90deg);
+        }
+
+        .modal-body {
+            padding: 25px;
+        }
+
+        .modal-footer {
+            padding: 15px 25px;
+            border-top: 1px solid var(--border);
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+        }
+
+        .category-list {
+            list-style: none;
+            margin: 0;
+            padding: 0;
+        }
+
+        .category-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 15px;
+            margin-bottom: 8px;
+            background: #f8fafc;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            transition: all 0.2s;
+        }
+
+        body.dark-mode .category-item {
+            background: #0f172a;
+        }
+
+        .category-item:hover {
+            background: #e2e8f0;
+            transform: translateX(5px);
+        }
+
+        body.dark-mode .category-item:hover {
+            background: #334155;
+        }
+
+        .category-item.protected {
+            opacity: 0.6;
+        }
+
+        .category-name {
+            font-weight: 500;
+            flex: 1;
+        }
+
+        .category-actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .input-group {
+            margin-bottom: 20px;
+        }
+
+        .input-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: var(--primary);
+        }
+
+        .input-group input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid var(--border);
+            border-radius: 8px;
+            font-size: 16px;
+            transition: all 0.2s;
+        }
+
+        .input-group input:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+        }
+
+        .badge {
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 600;
+            margin-left: 8px;
+        }
+
+        .badge-protected {
+            background: #fef3c7;
+            color: #92400e;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>💰 Mon Suivi Budgétaire</h1>
+            <div class="controls">
+                <div class="year-selector">
+                    <button onclick="changeYear(-1)">◀</button>
+                    <span id="currentYear">2025</span>
+                    <button onclick="changeYear(1)">▶</button>
+                </div>
+                <button class="btn btn-primary" onclick="addCategory()">➕ Ajouter une catégorie</button>
+                <button class="btn btn-danger" onclick="resetAllData()">🗑️ Réinitialiser tout</button>
+                <button class="theme-toggle" onclick="toggleTheme()">🌓 Mode Sombre</button>
+            </div>
+        </div>
+
+        <div class="tabs" id="monthTabs"></div>
+
+        <!-- Contenu des mois -->
+        <div id="monthsContainer"></div>
+
+        <!-- Dashboard annuel -->
+        <div id="dashboard" class="month-content">
+            <div class="card">
+                <div class="card-header">
+                    <h2 class="card-title">📊 Tableau de Bord Annuel</h2>
+                </div>
+                
+                <div class="summary-section" id="annualSummary"></div>
+                
+                <div class="dashboard-grid">
+                    <div class="card">
+                        <h3>Evolution mensuelle</h3>
+                        <canvas id="monthlyChart"></canvas>
+                    </div>
+                    <div class="card">
+                        <h3>Répartition des dépenses</h3>
+                        <canvas id="categoryChart"></canvas>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <h3>Comparaison des mois</h3>
+                    <div class="comparison-table">
+                        <table id="comparisonTable">
+                            <thead>
+                                <tr>
+                                    <th>Mois</th>
+                                    <th>Revenus</th>
+                                    <th>Dépenses</th>
+                                    <th>Épargne</th>
+                                    <th>Reste</th>
+                                    <th>Tendance</th>
+                                </tr>
+                            </thead>
+                            <tbody id="comparisonBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Popups -->
+    <!-- Popup Catégories -->
+    <div id="popup-categories" class="popup-overlay">
+        <div class="popup">
+            <div class="popup-header">
+                <h2 class="popup-title">🏷️ Gérer les catégories</h2>
+                <button class="popup-close" onclick="closePopup('popup-categories')">&times;</button>
+            </div>
+            <div class="popup-content">
+                <div id="categories-list"></div>
+                <button class="btn btn-success" onclick="addNewCategoryInPopup()" style="margin-top: 15px;">➕ Ajouter une catégorie</button>
+            </div>
+            <div class="popup-actions">
+                <button class="btn btn-primary" onclick="closePopup('popup-categories')">Fermer</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Popup Épargne -->
+    <div id="popup-epargne" class="popup-overlay">
+        <div class="popup">
+            <div class="popup-header">
+                <h2 class="popup-title">💰 Modifier l'épargne</h2>
+                <button class="popup-close" onclick="closePopup('popup-epargne')">&times;</button>
+            </div>
+            <div class="popup-content">
+                <p style="text-align: center; margin-bottom: 20px; font-size: 1.1em; color: #64748b;">
+                    Montant actuel de votre épargne :
+                </p>
+                <input type="number" id="epargne-input" class="epargne-input-large" step="0.01">
+            </div>
+            <div class="popup-actions">
+                <button class="btn btn-primary" onclick="saveEpargneFromPopup()">💾 Enregistrer</button>
+                <button class="btn" style="background: #64748b; color: white;" onclick="closePopup('popup-epargne')">Annuler</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Popup Dépenses Récurrentes -->
+    <div id="popup-recurrentes" class="popup-overlay">
+        <div class="popup">
+            <div class="popup-header">
+                <h2 class="popup-title">⚙️ Gérer les dépenses récurrentes</h2>
+                <button class="popup-close" onclick="closePopup('popup-recurrentes')">&times;</button>
+            </div>
+            <div class="popup-content">
+                <p style="color: #64748b; margin-bottom: 15px;">
+                    ℹ️ Ces dépenses seront appliquées au mois actuel et tous les mois suivants. Les mois précédents ne seront pas modifiés.
+                </p>
+                <button class="btn btn-success" onclick="addRecurrenteInTemplate()" style="margin-bottom: 15px;">+ Ajouter une dépense</button>
+                <table id="template-recurrentes">
+                    <thead>
+                        <tr>
+                            <th>Catégorie</th>
+                            <th>Libellé</th>
+                            <th>Montant</th>
+                            <th>Date</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+            <div class="popup-actions">
+                <button class="btn btn-primary" onclick="saveRecurrentesTemplate()">💾 Appliquer aux mois futurs</button>
+                <button class="btn" style="background: #64748b; color: white;" onclick="closePopup('popup-recurrentes')">Annuler</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Popup Validation du mois -->
+    <div id="popup-validation" class="popup-overlay">
+        <div class="popup">
+            <div class="popup-header">
+                <h2 class="popup-title">🔒 Valider le mois</h2>
+                <button class="popup-close" onclick="closePopup('popup-validation')">&times;</button>
+            </div>
+            <div class="popup-content">
+                <p style="font-size: 1.1em; margin-bottom: 20px;">
+                    Vous êtes sur le point de verrouiller <strong id="validation-month-name"></strong>. 
+                    Cette action rendra le mois non modifiable (sauf en mode développeur).
+                </p>
+                <div id="validation-savings-section"></div>
+            </div>
+            <div class="popup-actions">
+                <button class="btn btn-primary" onclick="confirmValidation()">✅ Valider le mois</button>
+                <button class="btn" style="background: #64748b; color: white;" onclick="closePopup('popup-validation')">Annuler</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Popup Ajustement épargne -->
+    <div id="popup-ajustement-epargne" class="popup-overlay">
+        <div class="popup">
+            <div class="popup-header">
+                <h2 class="popup-title">💰 Ajuster l'épargne</h2>
+                <button class="popup-close" onclick="closePopup('popup-ajustement-epargne')">&times;</button>
+            </div>
+            <div class="popup-content">
+                <p style="text-align: center; margin-bottom: 20px; font-size: 1.1em;">
+                    Épargne prévue : <strong id="epargne-prevue-display">0 €</strong>
+                </p>
+                <p style="text-align: center; margin-bottom: 20px; color: #64748b;">
+                    Combien souhaitez-vous garder disponible pour le mois prochain ?
+                </p>
+                <input type="number" id="montant-garder" class="epargne-input-large" step="0.01" placeholder="0.00">
+                <div style="margin-top: 20px; padding: 15px; background: #f0f9ff; border-radius: 8px; border-left: 4px solid var(--primary);">
+                    <p><strong>Répartition :</strong></p>
+                    <p id="repartition-info" style="margin-top: 10px;"></p>
+                </div>
+            </div>
+            <div class="popup-actions">
+                <button class="btn btn-primary" onclick="confirmAjustementEpargne()">✅ Confirmer</button>
+                <button class="btn" style="background: #64748b; color: white;" onclick="closePopup('popup-ajustement-epargne')">Annuler</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        // Données globales
+        let currentYear = 2025;
+        let currentMonth = 'janvier';
+        let budgetData = {};
+        let recurrentesTemplate = []; // Template global des dépenses récurrentes
+        let currentEditingMonth = ''; // Mois en cours d'édition pour l'épargne
+        let currentValidatingMonth = ''; // Mois en cours de validation
+        let validationChoice = ''; // Choix de validation (full, adjust, none)
+        let developerMode = false; // Mode développeur pour déverrouiller
+
+        const months = [
+            'janvier', 'février', 'mars', 'avril', 'mai', 'juin',
+            'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'
+        ];
+
+        let categories = [
+            'Logement', 'Énergie', 'Télécoms', 'Transport', 
+            'Alimentation', 'Santé', 'Loisirs', 'Livret A', 'Autre'
+        ];
+
+        const categoriesRevenus = ['Salaire', 'Prime', 'Livret A', 'Autres'];
+
+        // Charger les catégories personnalisées
+        function loadCategories() {
+            const saved = localStorage.getItem('customCategories');
+            if (saved) {
+                const custom = JSON.parse(saved);
+                categories = [...new Set([...categories, ...custom])];
+            }
+        }
+
+        // Ajouter une catégorie
+        function addCategory() {
+            openCategoriesPopup();
+        }
+
+        // Ouvrir la popup de gestion des catégories
+        function openCategoriesPopup() {
+            renderCategoriesList();
+            document.getElementById('popup-categories').classList.add('active');
+        }
+
+        // Rendre la liste des catégories dans la popup
+        function renderCategoriesList() {
+            const container = document.getElementById('categories-list');
+            container.innerHTML = '';
+            
+            const defaultCats = ['Logement', 'Énergie', 'Télécoms', 'Transport', 'Alimentation', 'Santé', 'Loisirs', 'Livret A', 'Autre'];
+            
+            categories.forEach((cat, index) => {
+                const isDefault = defaultCats.includes(cat);
+                const div = document.createElement('div');
+                div.className = 'category-item';
+                div.innerHTML = `
+                    <input type="text" value="${cat}" onchange="updateCategoryName(${index}, this.value)" ${isDefault ? 'disabled' : ''}>
+                    ${!isDefault ? `<button class="btn btn-danger btn-small" onclick="deleteCategory(${index})">🗑️</button>` : '<span style="color: #64748b; font-size: 0.85em;">Catégorie par défaut</span>'}
+                `;
+                container.appendChild(div);
+            });
+        }
+
+        // Ajouter une nouvelle catégorie dans la popup
+        function addNewCategoryInPopup() {
+            const newCat = 'Nouvelle catégorie';
+            categories.push(newCat);
+            saveCategories();
+            renderCategoriesList();
+        }
+
+        // Mettre à jour le nom d'une catégorie
+        function updateCategoryName(index, newName) {
+            if (newName && newName.trim()) {
+                categories[index] = newName.trim();
+                saveCategories();
+                // Recharger tous les selects
+                months.forEach(month => {
+                    if (document.getElementById(`month-${month}`)) {
+                        renderRevenus(month);
+                        renderDepensesRecurrentes(month);
+                        renderDepensesPrevues(month);
+                        renderDepensesImprevues(month);
+                    }
+                });
+            }
+        }
+
+        // Supprimer une catégorie
+        function deleteCategory(index) {
+            if (confirm(`Supprimer la catégorie "${categories[index]}" ?`)) {
+                categories.splice(index, 1);
+                saveCategories();
+                renderCategoriesList();
+                // Recharger tous les selects
+                months.forEach(month => {
+                    if (document.getElementById(`month-${month}`)) {
+                        renderRevenus(month);
+                        renderDepensesRecurrentes(month);
+                        renderDepensesPrevues(month);
+                        renderDepensesImprevues(month);
+                    }
+                });
+            }
+        }
+
+        // Sauvegarder les catégories
+        function saveCategories() {
+            const defaultCats = ['Logement', 'Énergie', 'Télécoms', 'Transport', 'Alimentation', 'Santé', 'Loisirs', 'Livret A', 'Autre'];
+            const custom = categories.filter(c => !defaultCats.includes(c));
+            localStorage.setItem('customCategories', JSON.stringify(custom));
+        }
+
+        // Valider un mois
+        function validateMonth(month) {
+            const data = getMonthData(month);
+            
+            if (data.isLocked) {
+                alert('Ce mois est déjà verrouillé !');
+                return;
+            }
+            
+            currentValidatingMonth = month;
+            document.getElementById('validation-month-name').textContent = month.charAt(0).toUpperCase() + month.slice(1) + ' ' + currentYear;
+            
+            // Générer les options selon l'épargne
+            const savingsSection = document.getElementById('validation-savings-section');
+            
+            if (data.savingsEnabled && data.savingsAmount > 0) {
+                savingsSection.innerHTML = `
+                    <p style="font-size: 1.1em; margin-bottom: 15px;">
+                        Vous avez prévu <strong>${data.savingsAmount.toFixed(2)} €</strong> d'épargne. Que souhaitez-vous faire ?
+                    </p>
+                    <div class="validation-options">
+                        <div class="validation-option" onclick="selectValidationOption('full')">
+                            <label>
+                                <input type="radio" name="validation-choice" value="full" checked>
+                                ✅ Transférer toute l'épargne (${data.savingsAmount.toFixed(2)} €)
+                            </label>
+                            <p>L'épargne complète sera ajoutée à l'épargne actuelle du mois suivant.</p>
+                        </div>
+                        <div class="validation-option" onclick="selectValidationOption('adjust')">
+                            <label>
+                                <input type="radio" name="validation-choice" value="adjust">
+                                ⚖️ Ajuster l'épargne
+                            </label>
+                            <p>Choisir combien garder disponible pour le mois suivant.</p>
+                        </div>
+                        <div class="validation-option" onclick="selectValidationOption('none')">
+                            <label>
+                                <input type="radio" name="validation-choice" value="none">
+                                ❌ Ne pas transférer l'épargne
+                            </label>
+                            <p>L'épargne prévue ne sera pas prise en compte.</p>
+                        </div>
+                    </div>
+                `;
+                validationChoice = 'full';
+            } else {
+                savingsSection.innerHTML = `
+                    <p style="color: #64748b; text-align: center;">
+                        Aucune épargne prévue pour ce mois.
+                    </p>
+                `;
+                validationChoice = 'none';
+            }
+            
+            document.getElementById('popup-validation').classList.add('active');
+        }
+
+        // Sélectionner une option de validation
+        function selectValidationOption(choice) {
+            validationChoice = choice;
+            document.querySelectorAll('input[name="validation-choice"]').forEach(radio => {
+                radio.checked = (radio.value === choice);
+            });
+        }
+
+        // Confirmer la validation
+        function confirmValidation() {
+            const data = getMonthData(currentValidatingMonth);
+            
+            if (validationChoice === 'adjust') {
+                // Ouvrir la popup d'ajustement
+                closePopup('popup-validation');
+                openAjustementEpargnePopup();
+            } else {
+                // Valider directement
+                processValidation();
+            }
+        }
+
+        // Ouvrir la popup d'ajustement d'épargne
+        function openAjustementEpargnePopup() {
+            const data = getMonthData(currentValidatingMonth);
+            document.getElementById('epargne-prevue-display').textContent = data.savingsAmount.toFixed(2) + ' €';
+            document.getElementById('montant-garder').value = '';
+            document.getElementById('montant-garder').max = data.savingsAmount;
+            updateRepartitionInfo();
+            
+            // Mettre à jour en temps réel
+            document.getElementById('montant-garder').oninput = updateRepartitionInfo;
+            
+            document.getElementById('popup-ajustement-epargne').classList.add('active');
+        }
+
+        // Mettre à jour l'info de répartition
+        function updateRepartitionInfo() {
+            const data = getMonthData(currentValidatingMonth);
+            const montantGarder = parseFloat(document.getElementById('montant-garder').value) || 0;
+            const montantEpargne = data.savingsAmount - montantGarder;
+            
+            const info = document.getElementById('repartition-info');
+            if (montantGarder > data.savingsAmount) {
+                info.innerHTML = `<span style="color: var(--danger);">⚠️ Le montant à garder ne peut pas dépasser ${data.savingsAmount.toFixed(2)} €</span>`;
+            } else {
+                info.innerHTML = `
+                    → <strong>${montantEpargne.toFixed(2)} €</strong> iront dans l'épargne actuelle du mois suivant<br>
+                    → <strong>${montantGarder.toFixed(2)} €</strong> seront ajoutés aux revenus du mois suivant
+                `;
+            }
+        }
+
+        // Confirmer l'ajustement d'épargne
+        function confirmAjustementEpargne() {
+            const data = getMonthData(currentValidatingMonth);
+            const montantGarder = parseFloat(document.getElementById('montant-garder').value) || 0;
+            
+            if (montantGarder > data.savingsAmount) {
+                alert('Le montant à garder ne peut pas dépasser l\'épargne prévue !');
+                return;
+            }
+            
+            closePopup('popup-ajustement-epargne');
+            processValidation(montantGarder);
+        }
+
+        // Traiter la validation finale
+        function processValidation(montantGarder = 0) {
+            const data = getMonthData(currentValidatingMonth);
+            const monthIndex = months.indexOf(currentValidatingMonth);
+            
+            // Appliquer la logique d'épargne
+            if (validationChoice === 'full' && data.savingsEnabled) {
+                // Transférer toute l'épargne au mois suivant
+                if (monthIndex < 11) {
+                    const nextMonth = months[monthIndex + 1];
+                    const nextData = getMonthData(nextMonth);
+                    nextData.epargneActuelle += data.savingsAmount;
+                }
+            } else if (validationChoice === 'adjust' && data.savingsEnabled) {
+                // Répartir l'épargne
+                const montantEpargne = data.savingsAmount - montantGarder;
+                
+                if (monthIndex < 11) {
+                    const nextMonth = months[monthIndex + 1];
+                    const nextData = getMonthData(nextMonth);
+                    nextData.epargneActuelle += montantEpargne;
+                    
+                    // Ajouter le montant gardé aux revenus du mois suivant
+                    if (montantGarder > 0) {
+                        nextData.revenus.push({
+                            id: Date.now(),
+                            categorie: 'Autres',
+                            libelle: `Report de ${currentValidatingMonth}`,
+                            montant: montantGarder,
+                            date: '01/' + (monthIndex + 2).toString().padStart(2, '0') + '/' + currentYear,
+                            recu: false
+                        });
+                    }
+                }
+            }
+            
+            // Verrouiller le mois
+            data.isLocked = true;
+            
+            // Mettre à jour l'affichage
+            applyLockedState(currentValidatingMonth);
+            
+            // Sauvegarder
+            saveData();
+            
+            closePopup('popup-validation');
+            alert(`✅ Le mois de ${currentValidatingMonth} a été verrouillé avec succès !`);
+        }
+
+        // Appliquer l'état verrouillé visuellement
+        function applyLockedState(month) {
+            const monthDiv = document.getElementById(`month-${month}`);
+            if (monthDiv) {
+                monthDiv.classList.add('locked-month');
+            }
+            
+            // Mettre à jour les boutons
+            const validateBtn = document.getElementById(`validate-btn-${month}`);
+            const unlockBtn = document.getElementById(`unlock-btn-${month}`);
+            if (validateBtn) {
+                validateBtn.style.display = 'none';
+            }
+            if (unlockBtn && developerMode) {
+                unlockBtn.style.display = 'inline-block';
+            }
+            
+            // Ajouter le badge sur l'onglet
+            const tab = document.querySelector(`.tab[data-month="${month}"]`);
+            if (tab) {
+                tab.classList.add('locked');
+            }
+        }
+
+        // Déverrouiller un mois (mode développeur uniquement)
+        function unlockMonth(month) {
+            if (!developerMode) {
+                alert('⚠️ Mode développeur requis pour déverrouiller un mois.');
+                return;
+            }
+            
+            if (confirm(`Êtes-vous sûr de vouloir déverrouiller ${month} ?`)) {
+                const data = getMonthData(month);
+                data.isLocked = false;
+                
+                const monthDiv = document.getElementById(`month-${month}`);
+                if (monthDiv) {
+                    monthDiv.classList.remove('locked-month');
+                }
+                
+                const validateBtn = document.getElementById(`validate-btn-${month}`);
+                const unlockBtn = document.getElementById(`unlock-btn-${month}`);
+                if (validateBtn) {
+                    validateBtn.style.display = 'inline-block';
+                }
+                if (unlockBtn) {
+                    unlockBtn.style.display = 'none';
+                }
+                
+                const tab = document.querySelector(`.tab[data-month="${month}"]`);
+                if (tab) {
+                    tab.classList.remove('locked');
+                }
+                
+                saveData();
+                alert(`✅ ${month} a été déverrouillé.`);
+            }
+        }
+
+        // Activer le mode développeur (Ctrl+Shift+D)
+        document.addEventListener('keydown', function(e) {
+            if (e.ctrlKey && e.shiftKey && e.key === 'D') {
+                developerMode = !developerMode;
+                if (developerMode) {
+                    alert('🔓 Mode développeur activé ! Vous pouvez maintenant déverrouiller les mois.');
+                    // Afficher tous les boutons de déverrouillage
+                    document.querySelectorAll('.unlock-btn').forEach(btn => {
+                        const month = btn.id.replace('unlock-btn-', '');
+                        const data = budgetData[currentYear] && budgetData[currentYear][month];
+                        if (data && data.isLocked) {
+                            btn.style.display = 'inline-block';
+                        }
+                    });
+                } else {
+                    alert('🔒 Mode développeur désactivé.');
+                    document.querySelectorAll('.unlock-btn').forEach(btn => {
+                        btn.style.display = 'none';
+                    });
+                }
+            }
+        });
+
+        // Créer le mois test
+        function createTestMonth() {
+            const container = document.getElementById('monthsContainer');
+            const testDiv = document.createElement('div');
+            testDiv.id = 'month-test';
+            testDiv.className = 'month-content';
+            testDiv.innerHTML = createMonthHTML('test');
+            container.appendChild(testDiv);
+        }
+
+        // Initialiser le mois test avec des données de démo
+        function initializeTestMonth() {
+            if (!budgetData[currentYear]) budgetData[currentYear] = {};
+            
+            // Créer les données de test seulement si elles n'existent pas
+            if (!budgetData[currentYear]['test']) {
+                budgetData[currentYear]['test'] = {
+                    revenus: [
+                        { id: 1, categorie: 'Salaire', libelle: 'Salaire mensuel', montant: 2800, date: '01/10/2025', recu: true },
+                        { id: 2, categorie: 'Prime', libelle: 'Prime trimestre', montant: 500, date: '15/10/2025', recu: false },
+                        { id: 3, categorie: 'Autres', libelle: 'Remboursement mutuelle', montant: 120, date: '20/10/2025', recu: true }
+                    ],
+                    depensesRecurrentes: [
+                        { id: 1, categorie: 'Logement', libelle: 'Loyer', montant: 950, date: '05/10/2025', paye: true },
+                        { id: 2, categorie: 'Énergie', libelle: 'Électricité', montant: 85, date: '10/10/2025', paye: true },
+                        { id: 3, categorie: 'Énergie', libelle: 'Gaz', montant: 65, date: '10/10/2025', paye: false },
+                        { id: 4, categorie: 'Télécoms', libelle: 'Internet + Mobile', montant: 45, date: '15/10/2025', paye: true },
+                        { id: 5, categorie: 'Transport', libelle: 'Abonnement transport', montant: 75, date: '01/10/2025', paye: true },
+                        { id: 6, categorie: 'Télécoms', libelle: 'Netflix', montant: 15.99, date: '20/10/2025', paye: false },
+                        { id: 7, categorie: 'Télécoms', libelle: 'Spotify', montant: 10.99, date: '22/10/2025', paye: false },
+                        { id: 8, categorie: 'Santé', libelle: 'Mutuelle', montant: 60, date: '01/10/2025', paye: true },
+                        { id: 9, categorie: 'Livret A', libelle: 'Versement épargne auto', montant: 200, date: '01/10/2025', paye: true }
+                    ],
+                    depensesPrevues: [
+                        { id: 1, categorie: 'Alimentation', description: 'Courses du mois', montantEstime: 350, date: '08/10/2025', priorite: 'Essentielle', paye: true, montantReel: 375, prevue: true },
+                        { id: 2, categorie: 'Loisirs', description: 'Restaurant anniversaire', montantEstime: 120, date: '18/10/2025', priorite: 'Important', paye: false, montantReel: 0, prevue: true },
+                        { id: 3, categorie: 'Transport', description: 'Essence', montantEstime: 80, date: '12/10/2025', priorite: 'Essentielle', paye: true, montantReel: 85, prevue: true },
+                        { id: 4, categorie: 'Santé', description: 'Dentiste', montantEstime: 150, date: '25/10/2025', priorite: 'Important', paye: false, montantReel: 0, prevue: true },
+                        { id: 5, categorie: 'Autre', description: 'Cadeau maman', montantEstime: 60, date: '28/10/2025', priorite: 'Souhaitable', paye: false, montantReel: 0, prevue: true }
+                    ],
+                    depensesImprevues: [
+                        { id: 1, categorie: 'Transport', description: 'Réparation vélo', montant: 45, date: '07/10/2025', prevue: false },
+                        { id: 2, categorie: 'Alimentation', description: 'Dîner imprévu', montant: 35, date: '14/10/2025', prevue: false },
+                        { id: 3, categorie: 'Autre', description: 'Cadeau collègue', montant: 25, date: '16/10/2025', prevue: false }
+                    ],
+                    savingsEnabled: true,
+                    savingsAmount: 300,
+                    epargneActuelle: 21680, // 21480 + 200 du versement Livret A
+                    depassementReporte: 0,
+                    depassementAReporter: 0,
+                    lissageMoisSuivantActive: true
+                };
+            }
+            
+            // Rendre tous les tableaux
+            renderRevenus('test');
+            renderDepensesRecurrentes('test');
+            renderDepensesPrevues('test');
+            renderDepensesImprevues('test');
+            updateMonthSummary('test');
+        }
+
+        // Initialisation
+        function init() {
+            loadCategories();
+            loadRecurrentesTemplate();
+            loadData();
+            createTabs();
+            createMonthsContent();
+            switchMonth('janvier');
+            updateDashboard();
+        }
+
+        // Gestion du thème
+        function toggleTheme() {
+            document.body.classList.toggle('dark-mode');
+            localStorage.setItem('darkMode', document.body.classList.contains('dark-mode'));
+        }
+
+        // Charger le thème sauvegardé
+        if (localStorage.getItem('darkMode') === 'true') {
+            document.body.classList.add('dark-mode');
+        }
+
+        // Changement d'année
+        function changeYear(delta) {
+            currentYear += delta;
+            document.getElementById('currentYear').textContent = currentYear;
+            loadData();
+            createMonthsContent();
+            switchMonth(currentMonth);
+            updateDashboard();
+        }
+
+        // Créer les onglets
+        function createTabs() {
+            const tabsContainer = document.getElementById('monthTabs');
+            tabsContainer.innerHTML = '';
+
+            months.forEach(month => {
+                const tab = document.createElement('button');
+                tab.className = 'tab';
+                tab.textContent = month.charAt(0).toUpperCase() + month.slice(1);
+                tab.onclick = () => switchMonth(month);
+                tab.dataset.month = month;
+                tabsContainer.appendChild(tab);
+            });
+
+            const dashboardTab = document.createElement('button');
+            dashboardTab.className = 'tab dashboard';
+            dashboardTab.textContent = '📊 Vue Annuelle';
+            dashboardTab.onclick = () => switchMonth('dashboard');
+            dashboardTab.dataset.month = 'dashboard';
+            tabsContainer.appendChild(dashboardTab);
+
+            const testTab = document.createElement('button');
+            testTab.className = 'tab';
+            testTab.style.background = 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)';
+            testTab.style.color = 'white';
+            testTab.textContent = '🧪 Test';
+            testTab.onclick = () => switchMonth('test');
+            testTab.dataset.month = 'test';
+            tabsContainer.appendChild(testTab);
+        }
+
+        // Changer de mois
+        function switchMonth(month) {
+            currentMonth = month;
+            
+            // Mettre à jour les onglets
+            document.querySelectorAll('.tab').forEach(tab => {
+                tab.classList.remove('active');
+                if (tab.dataset.month === month) {
+                    tab.classList.add('active');
+                }
+            });
+
+            // Afficher le contenu
+            document.querySelectorAll('.month-content').forEach(content => {
+                content.classList.remove('active');
+            });
+
+            if (month === 'dashboard') {
+                document.getElementById('dashboard').classList.add('active');
+                updateDashboard();
+            } else if (month === 'test') {
+                if (!document.getElementById('month-test')) {
+                    createTestMonth();
+                }
+                document.getElementById('month-test').classList.add('active');
+                initializeTestMonth();
+            } else {
+                document.getElementById(`month-${month}`).classList.add('active');
+                updateMonthSummary(month);
+            }
+        }
+
+        // Créer le contenu des mois
+        function createMonthsContent() {
+            const container = document.getElementById('monthsContainer');
+            container.innerHTML = '';
+
+            months.forEach(month => {
+                const monthDiv = document.createElement('div');
+                monthDiv.id = `month-${month}`;
+                monthDiv.className = 'month-content';
+                monthDiv.innerHTML = createMonthHTML(month);
+                container.appendChild(monthDiv);
+            });
+
+            // Créer le mois test
+            const testDiv = document.createElement('div');
+            testDiv.id = 'month-test';
+            testDiv.className = 'month-content';
+            testDiv.innerHTML = createMonthHTML('test');
+            container.appendChild(testDiv);
+        }
+
+        // HTML pour un mois
+        function createMonthHTML(month) {
+            const monthData = getMonthData(month);
+            const weeksInMonth = month === 'test' ? 4 : getWeeksInMonth(month);
+            const displayName = month === 'test' ? 'Test (Novembre 2025)' : `${month.charAt(0).toUpperCase() + month.slice(1)} ${currentYear}`;
+
+            return `
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                    <h2 style="color: var(--primary);">${displayName}</h2>
+                    ${month !== 'test' ? `<button class="btn btn-warning" onclick="copyFromPreviousMonth('${month}')">📋 Copier le mois précédent</button>` : ''}
+                </div>
+
+                <!-- Résumé rapide -->
+                <div class="summary-section" id="summary-${month}">
+                    ${createSummaryCards(month)}
+                </div>
+
+                <!-- Barre de progression -->
+                <div class="budget-bar">
+                    <div class="budget-fill" id="bar-${month}" style="width: 0%">0%</div>
+                </div>
+
+                <!-- Alertes -->
+                <div id="alerts-${month}"></div>
+
+                <!-- Revenus -->
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">💵 Revenus</h3>
+                        <button class="btn btn-success" onclick="addRevenu('${month}')">+ Ajouter</button>
+                    </div>
+                    <table id="revenus-${month}">
+                        <thead>
+                            <tr>
+                                <th>Catégorie</th>
+                                <th>Libellé</th>
+                                <th>Montant</th>
+                                <th>Date</th>
+                                <th>Reçu</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+
+                <!-- Dépenses récurrentes -->
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">
+                            🔄 Dépenses récurrentes
+                            <span class="readonly-badge">📖 Lecture seule</span>
+                        </h3>
+                        <button class="btn btn-primary" onclick="openRecurrentesPopup()">⚙️ Gérer les récurrentes</button>
+                    </div>
+                    <div class="readonly-table">
+                        <table id="recurrentes-${month}">
+                            <thead>
+                                <tr>
+                                    <th>Catégorie</th>
+                                    <th>Libellé</th>
+                                    <th>Montant</th>
+                                    <th>Date</th>
+                                    <th>Payé</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Dépenses ponctuelles prévues -->
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">💳 Dépenses ponctuelles prévues</h3>
+                        <button class="btn btn-success" onclick="addDepensePonctuelle('${month}', true)">+ Ajouter</button>
+                    </div>
+                    <table id="ponctuelles-prevues-${month}">
+                        <thead>
+                            <tr>
+                                <th>Catégorie</th>
+                                <th>Description</th>
+                                <th>Montant estimé</th>
+                                <th>Date</th>
+                                <th>Priorité</th>
+                                <th>Payé</th>
+                                <th>Montant réel</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+
+                <!-- Dépenses ponctuelles non prévues -->
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">⚡ Dépenses ponctuelles non prévues</h3>
+                        <button class="btn btn-success" onclick="addDepensePonctuelle('${month}', false)">+ Ajouter</button>
+                    </div>
+                    <table id="ponctuelles-imprevues-${month}">
+                        <thead>
+                            <tr>
+                                <th>Catégorie</th>
+                                <th>Description</th>
+                                <th>Montant</th>
+                                <th>Date</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+
+                <!-- Épargne -->
+                <div class="card">
+                    <h3 class="card-title">💰 Objectif d'épargne</h3>
+                    <div class="savings-toggle">
+                        <label class="switch">
+                            <input type="checkbox" id="savings-toggle-${month}" onchange="toggleSavings('${month}')" ${monthData.savingsEnabled ? 'checked' : ''}>
+                            <span class="slider"></span>
+                        </label>
+                        <span style="font-weight: 600;">Activer l'épargne</span>
+                        <input type="number" id="savings-amount-${month}" 
+                               placeholder="Montant à épargner" 
+                               value="${monthData.savingsAmount || ''}"
+                               onchange="updateMonthSummary('${month}')"
+                               style="max-width: 200px;"
+                               ${!monthData.savingsEnabled ? 'disabled' : ''}>
+                        <span>€</span>
+                    </div>
+                </div>
+
+                <!-- Budget hebdomadaire -->
+                <div class="card" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">
+                    <h3 style="color: white;">📅 Budget disponible</h3>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-top: 15px;">
+                        <div>
+                            <div style="opacity: 0.9;">Reste total</div>
+                            <div style="font-size: 2em; font-weight: bold;" id="reste-total-${month}">0 €</div>
+                        </div>
+                        <div>
+                            <div style="opacity: 0.9;">Par semaine</div>
+                            <div style="font-size: 2em; font-weight: bold;" id="reste-semaine-${month}">0 €</div>
+                            <div style="opacity: 0.8; font-size: 0.9em;">${weeksInMonth} semaines dans ${month}</div>
+                        </div>
+                        <div>
+                            <div style="opacity: 0.9;">Par jour</div>
+                            <div style="font-size: 2em; font-weight: bold;" id="reste-jour-${month}">0 €</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Dépenses par semaine -->
+                <div class="card">
+                    <h3 class="card-title">📊 Dépenses par semaine vs Budget</h3>
+                    <div id="weekly-breakdown-${month}"></div>
+                </div>
+
+                <!-- Gestion du dépassement -->
+                <div class="card" id="depassement-card-${month}" style="display: none;">
+                    <h3 class="card-title" style="color: var(--danger);">⚠️ Dépassement du budget</h3>
+                    <div id="depassement-info-${month}" style="margin-bottom: 15px;"></div>
+                    <div class="savings-toggle">
+                        <label class="switch">
+                            <input type="checkbox" id="lissage-toggle-${month}" onchange="toggleLissageMoisSuivant('${month}')" ${monthData.lissageMoisSuivantActive ? 'checked' : ''}>
+                            <span class="slider"></span>
+                        </label>
+                        <span style="font-weight: 600;">Reporter le dépassement sur le mois suivant</span>
+                    </div>
+                </div>
+
+                <!-- Export -->
+                <div class="export-section">
+                    <button class="btn btn-primary" onclick="exportToCSV('${month}')">📊 Exporter en CSV</button>
+                    <button class="btn btn-primary" onclick="exportToJSON('${month}')">💾 Sauvegarder JSON</button>
+                    <button class="btn btn-danger" onclick="resetMonth('${month}')">🗑️ Réinitialiser le mois</button>
+                    <button class="validate-btn" id="validate-btn-${month}" onclick="validateMonth('${month}')">✅ Valider le mois</button>
+                    <button class="unlock-btn" id="unlock-btn-${month}" onclick="unlockMonth('${month}')" style="display: none;">🔓 Déverrouiller</button>
+                </div>
+            `;
+        }
+
+        // Créer les cartes résumé
+        function createSummaryCards(month) {
+            return `
+                <div class="summary-card blue">
+                    <div class="summary-label">Revenus totaux</div>
+                    <div class="summary-value" id="total-revenus-${month}">0 €</div>
+                </div>
+                <div class="summary-card orange">
+                    <div class="summary-label">Dépenses totales</div>
+                    <div class="summary-value" id="total-depenses-${month}">0 €</div>
+                </div>
+                <div class="summary-card" style="background: linear-gradient(135deg, #8b5cf6 0%, #6d28d9 100%); cursor: pointer;" onclick="editEpargne('${month}')" title="Cliquez pour modifier">
+                    <div class="summary-label">💰 Épargne actuelle</div>
+                    <div class="summary-value" id="epargne-actuelle-${month}">0 €</div>
+                    <div class="summary-detail" style="font-size: 0.75em; opacity: 0.9;">Cliquez pour modifier</div>
+                </div>
+                <div class="summary-card green">
+                    <div class="summary-label">Objectif épargne mois</div>
+                    <div class="summary-value" id="total-epargne-${month}">0 €</div>
+                </div>
+                <div class="summary-card" id="reste-card-${month}">
+                    <div class="summary-label">Reste disponible</div>
+                    <div class="summary-value" id="total-reste-${month}">0 €</div>
+                </div>
+            `;
+        }
+
+        // Obtenir les données d'un mois
+        function getMonthData(month) {
+            if (!budgetData[currentYear]) budgetData[currentYear] = {};
+            
+            // Gérer le mois test avec des données pré-remplies
+            if (month === 'test' && !budgetData[currentYear][month]) {
+                budgetData[currentYear][month] = {
+                    revenus: [
+                        { id: 1, categorie: 'Salaire', libelle: 'Salaire mensuel', montant: 2800, date: '01/11/2025', recu: true },
+                        { id: 2, categorie: 'Prime', libelle: 'Prime trimestrielle', montant: 500, date: '15/11/2025', recu: false },
+                        { id: 3, categorie: 'Autres', libelle: 'Vente occasion', montant: 150, date: '20/11/2025', recu: true }
+                    ],
+                    depensesRecurrentes: [
+                        { id: 1, categorie: 'Logement', libelle: 'Loyer', montant: 850, date: '01/11/2025', paye: true },
+                        { id: 2, categorie: 'Énergie', libelle: 'Électricité', montant: 75, date: '05/11/2025', paye: true },
+                        { id: 3, categorie: 'Énergie', libelle: 'Gaz', montant: 45, date: '05/11/2025', paye: false },
+                        { id: 4, categorie: 'Télécoms', libelle: 'Forfait mobile', montant: 15, date: '10/11/2025', paye: true },
+                        { id: 5, categorie: 'Télécoms', libelle: 'Internet', montant: 30, date: '10/11/2025', paye: true },
+                        { id: 6, categorie: 'Transport', libelle: 'Abonnement transport', montant: 75, date: '01/11/2025', paye: true },
+                        { id: 7, categorie: 'Alimentation', libelle: 'Courses mensuelles', montant: 400, date: '15/11/2025', paye: false },
+                        { id: 8, categorie: 'Santé', libelle: 'Mutuelle', montant: 60, date: '01/11/2025', paye: true },
+                        { id: 9, categorie: 'Loisirs', libelle: 'Salle de sport', montant: 35, date: '01/11/2025', paye: false },
+                        { id: 10, categorie: 'Livret A', libelle: 'Épargne automatique', montant: 200, date: '05/11/2025', paye: true }
+                    ],
+                    depensesPrevues: [
+                        { id: 1, categorie: 'Loisirs', description: 'Cinéma avec amis', montantEstime: 25, date: '08/11/2025', priorite: 'Souhaitable', paye: false, montantReel: 0, prevue: true },
+                        { id: 2, categorie: 'Transport', description: 'Essence voiture', montantEstime: 80, date: '12/11/2025', priorite: 'Essentielle', paye: false, montantReel: 0, prevue: true },
+                        { id: 3, categorie: 'Santé', description: 'Dentiste', montantEstime: 120, date: '18/11/2025', priorite: 'Important', paye: false, montantReel: 0, prevue: true },
+                        { id: 4, categorie: 'Alimentation', description: 'Restaurant anniversaire', montantEstime: 60, date: '22/11/2025', priorite: 'Important', paye: false, montantReel: 0, prevue: true },
+                        { id: 5, categorie: 'Autre', description: 'Cadeau Noël', montantEstime: 150, date: '28/11/2025', priorite: 'Important', paye: false, montantReel: 0, prevue: true }
+                    ],
+                    depensesImprevues: [
+                        { id: 1, categorie: 'Transport', description: 'Réparation vélo', montant: 45, date: '04/11/2025', prevue: false },
+                        { id: 2, categorie: 'Santé', description: 'Médicaments', montant: 18, date: '10/11/2025', prevue: false }
+                    ],
+                    savingsEnabled: true,
+                    savingsAmount: 300,
+                    epargneActuelle: 21480,
+                    depassementReporte: 0,
+                    depassementAReporter: 0,
+                    lissageMoisSuivantActive: true
+                };
+                return budgetData[currentYear][month];
+            }
+            
+            if (!budgetData[currentYear][month]) {
+                // Calculer l'épargne du mois précédent
+                const monthIndex = months.indexOf(month);
+                let epargneInitiale = 21480; // Valeur par défaut pour le premier mois
+                let depassementReporte = 0;
+                
+                if (monthIndex > 0) {
+                    const previousMonth = months[monthIndex - 1];
+                    const previousData = budgetData[currentYear][previousMonth];
+                    if (previousData) {
+                        if (previousData.epargneActuelle !== undefined) {
+                            epargneInitiale = previousData.epargneActuelle;
+                        }
+                        // Vérifier si le mois précédent avait un dépassement à reporter
+                        if (previousData.depassementAReporter && previousData.lissageMoisSuivantActive) {
+                            depassementReporte = previousData.depassementAReporter;
+                        }
+                    }
+                } else if (currentYear > 2025) {
+                    // Si on est en janvier d'une année après 2025, prendre décembre de l'année précédente
+                    const previousYearData = budgetData[currentYear - 1];
+                    if (previousYearData && previousYearData['décembre']) {
+                        epargneInitiale = previousYearData['décembre'].epargneActuelle || 21480;
+                        if (previousYearData['décembre'].depassementAReporter && previousYearData['décembre'].lissageMoisSuivantActive) {
+                            depassementReporte = previousYearData['décembre'].depassementAReporter;
+                        }
+                    }
+                }
+                
+                budgetData[currentYear][month] = {
+                    revenus: [],
+                    depensesRecurrentes: JSON.parse(JSON.stringify(recurrentesTemplate)), // Copie du template
+                    depensesPrevues: [],
+                    depensesImprevues: [],
+                    savingsEnabled: false,
+                    savingsAmount: 0,
+                    epargneActuelle: epargneInitiale,
+                    depassementReporte: depassementReporte,
+                    depassementAReporter: 0,
+                    lissageMoisSuivantActive: true,
+                    isLocked: false
+                };
+            }
+            // Migration des anciennes données
+            if (budgetData[currentYear][month].depensesPonctuelles) {
+                budgetData[currentYear][month].depensesPrevues = budgetData[currentYear][month].depensesPonctuelles.filter(d => d.prevue !== false);
+                budgetData[currentYear][month].depensesImprevues = budgetData[currentYear][month].depensesPonctuelles.filter(d => d.prevue === false);
+                delete budgetData[currentYear][month].depensesPonctuelles;
+            }
+            if (budgetData[currentYear][month].epargneActuelle === undefined) {
+                // Migration: calculer l'épargne du mois précédent
+                const monthIndex = months.indexOf(month);
+                let epargneInitiale = 21480;
+                if (monthIndex > 0) {
+                    const previousMonth = months[monthIndex - 1];
+                    const previousData = budgetData[currentYear][previousMonth];
+                    if (previousData && previousData.epargneActuelle !== undefined) {
+                        epargneInitiale = previousData.epargneActuelle;
+                    }
+                }
+                budgetData[currentYear][month].epargneActuelle = epargneInitiale;
+            }
+            if (budgetData[currentYear][month].depassementReporte === undefined) {
+                budgetData[currentYear][month].depassementReporte = 0;
+            }
+            if (budgetData[currentYear][month].depassementAReporter === undefined) {
+                budgetData[currentYear][month].depassementAReporter = 0;
+            }
+            if (budgetData[currentYear][month].lissageMoisSuivantActive === undefined) {
+                budgetData[currentYear][month].lissageMoisSuivantActive = true;
+            }
+            if (budgetData[currentYear][month].isLocked === undefined) {
+                budgetData[currentYear][month].isLocked = false;
+            }
+            return budgetData[currentYear][month];
+        }
+
+        // Nombre de semaines dans un mois
+        function getWeeksInMonth(month) {
+            const monthIndex = months.indexOf(month);
+            const year = currentYear;
+            const firstDay = new Date(year, monthIndex, 1);
+            const lastDay = new Date(year, monthIndex + 1, 0);
+            const days = lastDay.getDate();
+            return Math.ceil(days / 7);
+        }
+
+        // Éditer l'épargne manuellement
+        function editEpargne(month) {
+            currentEditingMonth = month;
+            const data = getMonthData(month);
+            document.getElementById('epargne-input').value = data.epargneActuelle || 0;
+            document.getElementById('popup-epargne').classList.add('active');
+        }
+
+        // Sauvegarder l'épargne depuis la popup
+        function saveEpargneFromPopup() {
+            const newAmount = parseFloat(document.getElementById('epargne-input').value) || 0;
+            const data = getMonthData(currentEditingMonth);
+            data.epargneActuelle = newAmount;
+            updateMonthSummary(currentEditingMonth);
+            saveData();
+            closePopup('popup-epargne');
+        }
+
+        // Fermer une popup
+        function closePopup(popupId) {
+            document.getElementById(popupId).classList.remove('active');
+        }
+
+        // Fermer popup en cliquant sur l'overlay
+        document.addEventListener('click', function(e) {
+            if (e.target.classList.contains('popup-overlay')) {
+                e.target.classList.remove('active');
+            }
+        });
+
+        // Ajouter un revenu
+        function addRevenu(month) {
+            const data = getMonthData(month);
+            const revenu = {
+                id: Date.now(),
+                categorie: 'Salaire',
+                libelle: 'Nouveau revenu',
+                montant: 0,
+                date: '',
+                recu: false
+            };
+            data.revenus.push(revenu);
+            renderRevenus(month);
+            updateMonthSummary(month);
+            saveData();
+        }
+
+        // Rendre les revenus
+        function renderRevenus(month) {
+            const data = getMonthData(month);
+            const tbody = document.querySelector(`#revenus-${month} tbody`);
+            tbody.innerHTML = '';
+
+            let total = 0;
+
+            data.revenus.forEach((revenu, index) => {
+                // Migration des anciennes données
+                if (revenu.montantPrevu && !revenu.montant) {
+                    revenu.montant = revenu.montantPrevu;
+                }
+                if (!revenu.categorie) {
+                    revenu.categorie = 'Salaire';
+                }
+                total += parseFloat(revenu.montant) || 0;
+                const row = tbody.insertRow();
+                row.innerHTML = `
+                    <td>
+                        <select onchange="updateRevenu('${month}', ${index}, 'categorie', this.value)">
+                            ${categoriesRevenus.map(cat => `<option value="${cat}" ${revenu.categorie === cat ? 'selected' : ''}>${cat}</option>`).join('')}
+                        </select>
+                    </td>
+                    <td><input type="text" value="${revenu.libelle}" onchange="updateRevenu('${month}', ${index}, 'libelle', this.value)"></td>
+                    <td><input type="number" value="${revenu.montant}" onchange="updateRevenu('${month}', ${index}, 'montant', this.value)" step="0.01"></td>
+                    <td><input type="text" value="${revenu.date}" onchange="updateRevenu('${month}', ${index}, 'date', this.value)" placeholder="JJ/MM/AAAA"></td>
+                    <td><input type="checkbox" ${revenu.recu ? 'checked' : ''} onchange="updateRevenu('${month}', ${index}, 'recu', this.checked)"></td>
+                    <td>
+                        <div class="action-buttons">
+                            <button class="btn btn-danger btn-small" onclick="deleteRevenu('${month}', ${index})">🗑️</button>
+                        </div>
+                    </td>
+                `;
+            });
+
+            const totalRow = tbody.insertRow();
+            totalRow.className = 'total-row';
+            totalRow.innerHTML = `
+                <td colspan="2">TOTAL</td>
+                <td>${total.toFixed(2)} €</td>
+                <td colspan="3"></td>
+            `;
+        }
+
+        // Mettre à jour un revenu
+        function updateRevenu(month, index, field, value) {
+            const data = getMonthData(month);
+            const oldValue = data.revenus[index];
+            
+            if (field === 'montant') {
+                value = parseFloat(value) || 0;
+            }
+            
+            // Si on change le montant ou la catégorie et que c'est Livret A
+            if ((field === 'montant' || field === 'categorie') && oldValue.categorie === 'Livret A') {
+                // Annuler l'ancien impact
+                const oldMontant = parseFloat(oldValue.montant) || 0;
+                data.epargneActuelle = (data.epargneActuelle || 0) + oldMontant;
+            }
+            
+            data.revenus[index][field] = value;
+            
+            // Appliquer le nouvel impact si Livret A
+            if (data.revenus[index].categorie === 'Livret A') {
+                const montant = parseFloat(data.revenus[index].montant) || 0;
+                data.epargneActuelle = (data.epargneActuelle || 0) - montant;
+            }
+            
+            renderRevenus(month);
+            updateMonthSummary(month);
+            saveData();
+        }
+
+        // Supprimer un revenu
+        function deleteRevenu(month, index) {
+            const data = getMonthData(month);
+            data.revenus.splice(index, 1);
+            renderRevenus(month);
+            updateMonthSummary(month);
+            saveData();
+        }
+
+        // Ajouter une dépense récurrente
+        // Ouvrir la popup de gestion des dépenses récurrentes
+        function openRecurrentesPopup() {
+            renderRecurrentesTemplate();
+            document.getElementById('popup-recurrentes').classList.add('active');
+        }
+
+        // Rendre le template des dépenses récurrentes
+        function renderRecurrentesTemplate() {
+            const tbody = document.querySelector('#template-recurrentes tbody');
+            tbody.innerHTML = '';
+
+            let total = 0;
+
+            recurrentesTemplate.forEach((depense, index) => {
+                total += parseFloat(depense.montant) || 0;
+                const row = tbody.insertRow();
+                row.innerHTML = `
+                    <td>
+                        <select onchange="updateRecurrenteTemplate(${index}, 'categorie', this.value)">
+                            ${categories.map(cat => `<option value="${cat}" ${depense.categorie === cat ? 'selected' : ''}>${cat}</option>`).join('')}
+                        </select>
+                    </td>
+                    <td><input type="text" value="${depense.libelle}" onchange="updateRecurrenteTemplate(${index}, 'libelle', this.value)"></td>
+                    <td><input type="number" value="${depense.montant}" onchange="updateRecurrenteTemplate(${index}, 'montant', this.value)" step="0.01"></td>
+                    <td><input type="text" value="${depense.date}" onchange="updateRecurrenteTemplate(${index}, 'date', this.value)" placeholder="JJ/MM/AAAA"></td>
+                    <td>
+                        <button class="btn btn-danger btn-small" onclick="deleteRecurrenteTemplate(${index})">🗑️</button>
+                    </td>
+                `;
+            });
+
+            const totalRow = tbody.insertRow();
+            totalRow.className = 'total-row';
+            totalRow.innerHTML = `
+                <td colspan="2">TOTAL</td>
+                <td>${total.toFixed(2)} €</td>
+                <td colspan="2"></td>
+            `;
+        }
+
+        // Ajouter une dépense dans le template
+        function addRecurrenteInTemplate() {
+            recurrentesTemplate.push({
+                id: Date.now(),
+                categorie: 'Autre',
+                libelle: 'Nouvelle dépense',
+                montant: 0,
+                date: '',
+                paye: false
+            });
+            renderRecurrentesTemplate();
+        }
+
+        // Mettre à jour une dépense du template
+        function updateRecurrenteTemplate(index, field, value) {
+            if (field === 'montant') {
+                value = parseFloat(value) || 0;
+            }
+            recurrentesTemplate[index][field] = value;
+            renderRecurrentesTemplate();
+        }
+
+        // Supprimer une dépense du template
+        function deleteRecurrenteTemplate(index) {
+            if (confirm('Supprimer cette dépense récurrente ?')) {
+                recurrentesTemplate.splice(index, 1);
+                renderRecurrentesTemplate();
+            }
+        }
+
+        // Sauvegarder le template et l'appliquer aux mois futurs
+        function saveRecurrentesTemplate() {
+            const currentMonthIndex = months.indexOf(currentMonth);
+            
+            // Appliquer le template au mois actuel et tous les suivants
+            months.forEach((month, index) => {
+                if (index >= currentMonthIndex) {
+                    const data = budgetData[currentYear][month];
+                    if (data) {
+                        // Conserver les états "payé" existants si possible
+                        const oldPaye = {};
+                        data.depensesRecurrentes.forEach(d => {
+                            oldPaye[d.libelle] = d.paye;
+                        });
+                        
+                        // Copier le template
+                        data.depensesRecurrentes = JSON.parse(JSON.stringify(recurrentesTemplate));
+                        
+                        // Restaurer les états "payé"
+                        data.depensesRecurrentes.forEach(d => {
+                            if (oldPaye[d.libelle] !== undefined) {
+                                d.paye = oldPaye[d.libelle];
+                            }
+                        });
+                        
+                        renderDepensesRecurrentes(month);
+                        updateMonthSummary(month);
+                    }
+                }
+            });
+            
+            saveData();
+            saveRecurrentesTemplateToStorage();
+            closePopup('popup-recurrentes');
+            alert('✅ Dépenses récurrentes appliquées au mois actuel et aux mois suivants !');
+        }
+
+        // Sauvegarder le template dans le localStorage
+        function saveRecurrentesTemplateToStorage() {
+            localStorage.setItem('recurrentesTemplate', JSON.stringify(recurrentesTemplate));
+        }
+
+        // Charger le template depuis le localStorage
+        function loadRecurrentesTemplate() {
+            const saved = localStorage.getItem('recurrentesTemplate');
+            if (saved) {
+                recurrentesTemplate = JSON.parse(saved);
+            }
+        }
+
+        // Rendre les dépenses récurrentes (lecture seule dans les mois)
+        function renderDepensesRecurrentes(month) {
+            const data = getMonthData(month);
+            const tbody = document.querySelector(`#recurrentes-${month} tbody`);
+            if (!tbody) return;
+            tbody.innerHTML = '';
+
+            let total = 0;
+
+            data.depensesRecurrentes.forEach((depense, index) => {
+                total += parseFloat(depense.montant) || 0;
+                const row = tbody.insertRow();
+                row.innerHTML = `
+                    <td>${depense.categorie}</td>
+                    <td>${depense.libelle}</td>
+                    <td>${parseFloat(depense.montant).toFixed(2)} €</td>
+                    <td>${depense.date || ''}</td>
+                    <td><input type="checkbox" ${depense.paye ? 'checked' : ''} onchange="togglePayeRecurrente('${month}', ${index}, this.checked)"></td>
+                `;
+            });
+
+            const totalRow = tbody.insertRow();
+            totalRow.className = 'total-row';
+            totalRow.innerHTML = `
+                <td colspan="2">TOTAL</td>
+                <td>${total.toFixed(2)} €</td>
+                <td colspan="2"></td>
+            `;
+        }
+
+        // Toggle payé pour une dépense récurrente
+        function togglePayeRecurrente(month, index, checked) {
+            const data = getMonthData(month);
+            data.depensesRecurrentes[index].paye = checked;
+            saveData();
+        }
+
+        // Ajouter une dépense ponctuelle
+        function addDepensePonctuelle(month, prevue) {
+            const data = getMonthData(month);
+            const depense = {
+                id: Date.now(),
+                categorie: 'Autre',
+                description: 'Nouvelle dépense',
+                montant: 0,
+                date: '',
+                prevue: prevue
+            };
+            
+            if (prevue) {
+                depense.priorite = 'Important';
+                depense.paye = false;
+                depense.montantEstime = 0;
+                depense.montantReel = 0;
+                data.depensesPrevues.push(depense);
+                renderDepensesPrevues(month);
+            } else {
+                data.depensesImprevues.push(depense);
+                renderDepensesImprevues(month);
+            }
+            
+            updateMonthSummary(month);
+            saveData();
+        }
+
+        // Rendre les dépenses prévues
+        function renderDepensesPrevues(month) {
+            const data = getMonthData(month);
+            const tbody = document.querySelector(`#ponctuelles-prevues-${month} tbody`);
+            tbody.innerHTML = '';
+
+            let total = 0;
+
+            data.depensesPrevues.forEach((depense, index) => {
+                total += parseFloat(depense.montantEstime) || 0;
+                const row = tbody.insertRow();
+                
+                row.innerHTML = `
+                    <td>
+                        <select onchange="updateDepensePrevue('${month}', ${index}, 'categorie', this.value)">
+                            ${categories.map(cat => `<option value="${cat}" ${depense.categorie === cat ? 'selected' : ''}>${cat}</option>`).join('')}
+                        </select>
+                    </td>
+                    <td><input type="text" value="${depense.description}" onchange="updateDepensePrevue('${month}', ${index}, 'description', this.value)"></td>
+                    <td><input type="number" value="${depense.montantEstime}" onchange="updateDepensePrevue('${month}', ${index}, 'montantEstime', this.value)" step="0.01"></td>
+                    <td><input type="text" value="${depense.date}" onchange="updateDepensePrevue('${month}', ${index}, 'date', this.value)" placeholder="JJ/MM/AAAA"></td>
+                    <td>
+                        <select onchange="updateDepensePrevue('${month}', ${index}, 'priorite', this.value)">
+                            <option value="Essentielle" ${depense.priorite === 'Essentielle' ? 'selected' : ''}>Essentielle</option>
+                            <option value="Important" ${depense.priorite === 'Important' ? 'selected' : ''}>Important</option>
+                            <option value="Souhaitable" ${depense.priorite === 'Souhaitable' ? 'selected' : ''}>Souhaitable</option>
+                        </select>
+                    </td>
+                    <td><input type="checkbox" ${depense.paye ? 'checked' : ''} onchange="updateDepensePrevue('${month}', ${index}, 'paye', this.checked)"></td>
+                    <td><input type="number" value="${depense.montantReel || ''}" onchange="updateDepensePrevue('${month}', ${index}, 'montantReel', this.value)" step="0.01"></td>
+                    <td>
+                        <div class="action-buttons">
+                            <button class="btn btn-danger btn-small" onclick="deleteDepensePrevue('${month}', ${index})">🗑️</button>
+                        </div>
+                    </td>
+                `;
+            });
+
+            const totalRow = tbody.insertRow();
+            totalRow.className = 'total-row';
+            totalRow.innerHTML = `
+                <td colspan="2">TOTAL</td>
+                <td>${total.toFixed(2)} €</td>
+                <td colspan="5"></td>
+            `;
+        }
+
+        // Rendre les dépenses imprévues
+        function renderDepensesImprevues(month) {
+            const data = getMonthData(month);
+            const tbody = document.querySelector(`#ponctuelles-imprevues-${month} tbody`);
+            tbody.innerHTML = '';
+
+            let total = 0;
+
+            data.depensesImprevues.forEach((depense, index) => {
+                total += parseFloat(depense.montant) || 0;
+                const row = tbody.insertRow();
+                
+                row.innerHTML = `
+                    <td>
+                        <select onchange="updateDepenseImprevue('${month}', ${index}, 'categorie', this.value)">
+                            ${categories.map(cat => `<option value="${cat}" ${depense.categorie === cat ? 'selected' : ''}>${cat}</option>`).join('')}
+                        </select>
+                    </td>
+                    <td><input type="text" value="${depense.description}" onchange="updateDepenseImprevue('${month}', ${index}, 'description', this.value)"></td>
+                    <td><input type="number" value="${depense.montant}" onchange="updateDepenseImprevue('${month}', ${index}, 'montant', this.value)" step="0.01"></td>
+                    <td><input type="text" value="${depense.date}" onchange="updateDepenseImprevue('${month}', ${index}, 'date', this.value)" placeholder="JJ/MM/AAAA"></td>
+                    <td>
+                        <div class="action-buttons">
+                            <button class="btn btn-danger btn-small" onclick="deleteDepenseImprevue('${month}', ${index})">🗑️</button>
+                        </div>
+                    </td>
+                `;
+            });
+
+            const totalRow = tbody.insertRow();
+            totalRow.className = 'total-row';
+            totalRow.innerHTML = `
+                <td colspan="2">TOTAL</td>
+                <td>${total.toFixed(2)} €</td>
+                <td colspan="2"></td>
+            `;
+        }
+
+        // Mettre à jour une dépense prévue
+        function updateDepensePrevue(month, index, field, value) {
+            const data = getMonthData(month);
+            const oldValue = data.depensesPrevues[index];
+            
+            if (field === 'montantEstime' || field === 'montantReel') {
+                value = parseFloat(value) || 0;
+            }
+            
+            // Si on change le montant estimé ou la catégorie et que c'est Livret A
+            if ((field === 'montantEstime' || field === 'categorie') && oldValue.categorie === 'Livret A') {
+                // Annuler l'ancien impact
+                const oldMontant = parseFloat(oldValue.montantEstime) || 0;
+                data.epargneActuelle = (data.epargneActuelle || 0) - oldMontant;
+            }
+            
+            data.depensesPrevues[index][field] = value;
+            
+            // Appliquer le nouvel impact si Livret A
+            if (data.depensesPrevues[index].categorie === 'Livret A') {
+                const montant = parseFloat(data.depensesPrevues[index].montantEstime) || 0;
+                data.epargneActuelle = (data.epargneActuelle || 0) + montant;
+            }
+            
+            renderDepensesPrevues(month);
+            updateMonthSummary(month);
+            saveData();
+        }
+
+        // Supprimer une dépense prévue
+        function deleteDepensePrevue(month, index) {
+            const data = getMonthData(month);
+            data.depensesPrevues.splice(index, 1);
+            renderDepensesPrevues(month);
+            updateMonthSummary(month);
+            saveData();
+        }
+
+        // Mettre à jour une dépense imprévue
+        function updateDepenseImprevue(month, index, field, value) {
+            const data = getMonthData(month);
+            const oldValue = data.depensesImprevues[index];
+            
+            if (field === 'montant') {
+                value = parseFloat(value) || 0;
+            }
+            
+            // Si on change le montant ou la catégorie et que c'est Livret A
+            if ((field === 'montant' || field === 'categorie') && oldValue.categorie === 'Livret A') {
+                // Annuler l'ancien impact
+                const oldMontant = parseFloat(oldValue.montant) || 0;
+                data.epargneActuelle = (data.epargneActuelle || 0) - oldMontant;
+            }
+            
+            data.depensesImprevues[index][field] = value;
+            
+            // Appliquer le nouvel impact si Livret A
+            if (data.depensesImprevues[index].categorie === 'Livret A') {
+                const montant = parseFloat(data.depensesImprevues[index].montant) || 0;
+                data.epargneActuelle = (data.epargneActuelle || 0) + montant;
+            }
+            
+            renderDepensesImprevues(month);
+            updateMonthSummary(month);
+            saveData();
+        }
+
+        // Supprimer une dépense imprévue
+        function deleteDepenseImprevue(month, index) {
+            const data = getMonthData(month);
+            data.depensesImprevues.splice(index, 1);
+            renderDepensesImprevues(month);
+            updateMonthSummary(month);
+            saveData();
+        }
+
+        // Toggle épargne
+        function toggleSavings(month) {
+            const data = getMonthData(month);
+            const toggle = document.getElementById(`savings-toggle-${month}`);
+            const input = document.getElementById(`savings-amount-${month}`);
+            
+            data.savingsEnabled = toggle.checked;
+            input.disabled = !toggle.checked;
+            
+            updateMonthSummary(month);
+            saveData();
+        }
+
+        // Mettre à jour le résumé du mois
+        function updateMonthSummary(month) {
+            const data = getMonthData(month);
+            
+            // Calculer les totaux
+            const totalRevenus = data.revenus.reduce((sum, r) => sum + (parseFloat(r.montant) || 0), 0);
+            const totalRecurrentes = data.depensesRecurrentes.reduce((sum, d) => sum + (parseFloat(d.montant) || 0), 0);
+            const totalPrevues = data.depensesPrevues.reduce((sum, d) => sum + (parseFloat(d.montantEstime) || 0), 0);
+            const totalImprevues = data.depensesImprevues.reduce((sum, d) => sum + (parseFloat(d.montant) || 0), 0);
+            const totalDepenses = totalRecurrentes + totalPrevues + totalImprevues;
+            
+            const savingsAmount = data.savingsEnabled ? (parseFloat(document.getElementById(`savings-amount-${month}`).value) || 0) : 0;
+            data.savingsAmount = savingsAmount;
+            
+            const resteTotal = totalRevenus - totalDepenses - savingsAmount;
+            const weeksInMonth = getWeeksInMonth(month);
+            const resteSemaine = resteTotal / weeksInMonth;
+            const resteJour = resteTotal / 30; // Approximation
+
+            // Mettre à jour l'affichage
+            document.getElementById(`total-revenus-${month}`).textContent = totalRevenus.toFixed(2) + ' €';
+            document.getElementById(`total-depenses-${month}`).textContent = totalDepenses.toFixed(2) + ' €';
+            document.getElementById(`epargne-actuelle-${month}`).textContent = (data.epargneActuelle || 0).toFixed(2) + ' €';
+            document.getElementById(`total-epargne-${month}`).textContent = savingsAmount.toFixed(2) + ' €';
+            document.getElementById(`total-reste-${month}`).textContent = resteTotal.toFixed(2) + ' €';
+            
+            document.getElementById(`reste-total-${month}`).textContent = resteTotal.toFixed(2) + ' €';
+            document.getElementById(`reste-semaine-${month}`).textContent = resteSemaine.toFixed(2) + ' €';
+            document.getElementById(`reste-jour-${month}`).textContent = resteJour.toFixed(2) + ' €';
+
+            // Couleur de la carte reste
+            const resteCard = document.getElementById(`reste-card-${month}`);
+            resteCard.className = 'summary-card';
+            if (resteTotal < 0) {
+                resteCard.classList.add('red');
+            } else if (resteTotal < 200) {
+                resteCard.classList.add('orange');
+            } else {
+                resteCard.classList.add('green');
+            }
+
+            // Barre de progression
+            const percentDepenses = totalRevenus > 0 ? (totalDepenses / totalRevenus) * 100 : 0;
+            const bar = document.getElementById(`bar-${month}`);
+            bar.style.width = Math.min(percentDepenses, 100) + '%';
+            bar.textContent = percentDepenses.toFixed(0) + '%';
+
+            // Alertes
+            updateAlerts(month, resteTotal, totalDepenses, totalRevenus);
+
+            // Vue hebdomadaire
+            updateWeeklyBreakdown(month);
+
+            // Appliquer l'état verrouillé si nécessaire
+            if (data.isLocked) {
+                applyLockedState(month);
+            }
+
+            saveData();
+        }
+
+        // Mettre à jour les alertes
+        function updateAlerts(month, reste, depenses, revenus) {
+            const alertsContainer = document.getElementById(`alerts-${month}`);
+            alertsContainer.innerHTML = '';
+
+            if (reste < 0) {
+                alertsContainer.innerHTML += `
+                    <div class="alert alert-danger">
+                        ⚠️ <strong>Attention !</strong> Vos dépenses dépassent vos revenus de ${Math.abs(reste).toFixed(2)} €
+                    </div>
+                `;
+            } else if (reste < 100) {
+                alertsContainer.innerHTML += `
+                    <div class="alert alert-warning">
+                        💡 Votre budget est serré. Il reste ${reste.toFixed(2)} € pour le mois.
+                    </div>
+                `;
+            }
+
+            const percentDepenses = revenus > 0 ? (depenses / revenus) * 100 : 0;
+            if (percentDepenses > 80) {
+                alertsContainer.innerHTML += `
+                    <div class="alert alert-warning">
+                        📊 Vous avez utilisé ${percentDepenses.toFixed(0)}% de vos revenus en dépenses.
+                    </div>
+                `;
+            }
+        }
+
+        // Mettre à jour la vue hebdomadaire avec lissage
+        function updateWeeklyBreakdown(month) {
+            const data = getMonthData(month);
+            const container = document.getElementById(`weekly-breakdown-${month}`);
+            if (!container) return;
+            
+            const weeksInMonth = getWeeksInMonth(month);
+            const totalRevenus = data.revenus.reduce((sum, r) => sum + (parseFloat(r.montant) || 0), 0);
+            const totalRecurrentes = data.depensesRecurrentes.reduce((sum, d) => sum + (parseFloat(d.montant) || 0), 0);
+            const totalPrevues = data.depensesPrevues.reduce((sum, d) => sum + (parseFloat(d.montantEstime) || 0), 0);
+            const totalImprevues = data.depensesImprevues.reduce((sum, d) => sum + (parseFloat(d.montant) || 0), 0);
+            const savingsAmount = data.savingsEnabled ? (data.savingsAmount || 0) : 0;
+            
+            // Le reste disponible exclut les dépenses récurrentes, l'épargne et le dépassement reporté du mois précédent
+            let resteTotal = totalRevenus - totalRecurrentes - savingsAmount - (data.depassementReporte || 0);
+            let budgetSemaineBase = resteTotal / weeksInMonth;
+
+            // Répartir uniquement les dépenses ponctuelles par semaine
+            const weeklyExpenses = Array(weeksInMonth).fill(0);
+            
+            // Fonction pour obtenir le numéro de semaine à partir d'une date
+            const getWeekNumber = (dateStr) => {
+                if (!dateStr) return 0;
+                const parts = dateStr.split('/');
+                if (parts.length >= 1) {
+                    const day = parseInt(parts[0]) || 1;
+                    return Math.min(Math.floor((day - 1) / 7), weeksInMonth - 1);
+                }
+                return 0;
+            };
+
+            // Ajouter les dépenses prévues selon leur date
+            data.depensesPrevues.forEach(d => {
+                const weekNum = getWeekNumber(d.date);
+                weeklyExpenses[weekNum] += parseFloat(d.montantEstime) || 0;
+            });
+
+            // Ajouter les dépenses imprévues selon leur date
+            data.depensesImprevues.forEach(d => {
+                const weekNum = getWeekNumber(d.date);
+                weeklyExpenses[weekNum] += parseFloat(d.montant) || 0;
+            });
+
+            // Calculer le lissage progressif
+            let budgetParSemaine = Array(weeksInMonth).fill(budgetSemaineBase);
+            let depassementCumule = 0;
+
+            for (let i = 0; i < weeksInMonth; i++) {
+                const diff = budgetParSemaine[i] - weeklyExpenses[i];
+                
+                if (diff < 0) {
+                    // Dépassement sur cette semaine
+                    depassementCumule += Math.abs(diff);
+                    
+                    // Redistribuer sur les semaines restantes
+                    const semainesRestantes = weeksInMonth - i - 1;
+                    if (semainesRestantes > 0) {
+                        const ajustementParSemaine = depassementCumule / semainesRestantes;
+                        for (let j = i + 1; j < weeksInMonth; j++) {
+                            budgetParSemaine[j] = budgetSemaineBase - ajustementParSemaine;
+                        }
+                    }
+                }
+            }
+
+            // Calculer le dépassement final du mois
+            const totalDepensesPonctuelles = totalPrevues + totalImprevues;
+            const depassementFinal = totalDepensesPonctuelles - resteTotal;
+            data.depassementAReporter = depassementFinal > 0 ? depassementFinal : 0;
+
+            // Générer le HTML
+            let html = '';
+            
+            // Afficher alerte si dépassement reporté du mois précédent
+            if (data.depassementReporte > 0) {
+                html += `<div class="alert alert-warning" style="margin-bottom: 15px;">
+                    📉 <strong>Dépassement du mois précédent :</strong> ${data.depassementReporte.toFixed(2)} € déduits du budget de ce mois.
+                </div>`;
+            }
+            
+            html += '<table style="width: 100%; margin-top: 15px;"><thead><tr>';
+            html += '<th>Semaine</th><th>Dépenses ponctuelles</th><th>Budget disponible</th><th>Différence</th><th>Statut</th>';
+            html += '</tr></thead><tbody>';
+
+            weeklyExpenses.forEach((expense, index) => {
+                const budget = budgetParSemaine[index];
+                const diff = budget - expense;
+                const status = diff >= 0 ? '✅ OK' : '⚠️ Dépassement';
+                const statusColor = diff >= 0 ? 'color: var(--success)' : 'color: var(--danger)';
+                const diffColor = diff >= 0 ? 'var(--success)' : 'var(--danger)';
+                
+                html += '<tr>';
+                html += `<td><strong>Semaine ${index + 1}</strong></td>`;
+                html += `<td>${expense.toFixed(2)} €</td>`;
+                html += `<td>${budget.toFixed(2)} €</td>`;
+                html += `<td style="color: ${diffColor}; font-weight: bold;">${diff >= 0 ? '+' : ''}${diff.toFixed(2)} €</td>`;
+                html += `<td style="${statusColor}; font-weight: bold;">${status}</td>`;
+                html += '</tr>';
+            });
+
+            html += '</tbody></table>';
+
+            // Résumé
+            html += '<div style="margin-top: 20px; padding: 15px; background: #f1f5f9; border-radius: 8px;">';
+            html += '<strong>💡 Résumé :</strong><br>';
+            html += `Budget disponible initial par semaine : <strong>${budgetSemaineBase.toFixed(2)} €</strong><br>`;
+            html += `Dépenses ponctuelles totales : <strong>${totalDepensesPonctuelles.toFixed(2)} €</strong><br>`;
+            html += `Dépenses ponctuelles moyennes par semaine : <strong>${(totalDepensesPonctuelles / weeksInMonth).toFixed(2)} €</strong><br>`;
+            html += `<small style="color: #64748b;">ℹ️ Les dépenses récurrentes (${totalRecurrentes.toFixed(2)} €) sont déjà déduites du budget disponible.</small>`;
+            
+            if (depassementCumule > 0) {
+                html += `<br><br><strong style="color: var(--warning);">⚠️ Lissage actif :</strong> Le budget des semaines suivantes a été ajusté pour compenser les dépassements précédents.`;
+            }
+            
+            html += '</div>';
+
+            container.innerHTML = html;
+
+            // Afficher/masquer la carte de dépassement
+            const depassementCard = document.getElementById(`depassement-card-${month}`);
+            const depassementInfo = document.getElementById(`depassement-info-${month}`);
+            
+            if (data.depassementAReporter > 0) {
+                depassementCard.style.display = 'block';
+                depassementInfo.innerHTML = `
+                    <p style="font-size: 1.1em; margin-bottom: 10px;">
+                        Dépassement total du mois : <strong style="color: var(--danger);">${data.depassementAReporter.toFixed(2)} €</strong>
+                    </p>
+                    <p style="color: #64748b;">
+                        Si vous activez le report, ce montant sera déduit du budget disponible du mois prochain.
+                    </p>
+                `;
+            } else {
+                depassementCard.style.display = 'none';
+            }
+
+            saveData();
+        }
+
+        // Toggle lissage sur le mois suivant
+        function toggleLissageMoisSuivant(month) {
+            const data = getMonthData(month);
+            const toggle = document.getElementById(`lissage-toggle-${month}`);
+            data.lissageMoisSuivantActive = toggle.checked;
+            
+            // Recalculer le mois suivant si il existe
+            const monthIndex = months.indexOf(month);
+            if (monthIndex < 11) {
+                const nextMonth = months[monthIndex + 1];
+                if (budgetData[currentYear] && budgetData[currentYear][nextMonth]) {
+                    // Forcer le recalcul du dépassement reporté
+                    const nextData = budgetData[currentYear][nextMonth];
+                    if (data.lissageMoisSuivantActive && data.depassementAReporter > 0) {
+                        nextData.depassementReporte = data.depassementAReporter;
+                    } else {
+                        nextData.depassementReporte = 0;
+                    }
+                    updateMonthSummary(nextMonth);
+                }
+            }
+            
+            saveData();
+        }
+
+        // Copier depuis le mois précédent
+        function copyFromPreviousMonth(month) {
+            const monthIndex = months.indexOf(month);
+            const previousMonth = monthIndex === 0 ? months[11] : months[monthIndex - 1];
+            const previousYear = monthIndex === 0 ? currentYear - 1 : currentYear;
+            
+            if (!budgetData[previousYear] || !budgetData[previousYear][previousMonth]) {
+                alert('Aucune donnée disponible pour le mois précédent');
+                return;
+            }
+
+            if (confirm(`Copier les dépenses récurrentes de ${previousMonth} ${previousYear} ?`)) {
+                const data = getMonthData(month);
+                const previousData = budgetData[previousYear][previousMonth];
+                
+                data.depensesRecurrentes = JSON.parse(JSON.stringify(previousData.depensesRecurrentes));
+                data.depensesRecurrentes.forEach(d => {
+                    d.paye = false;
+                    d.id = Date.now() + Math.random();
+                });
+
+                renderDepensesRecurrentes(month);
+                updateMonthSummary(month);
+                saveData();
+                
+                alert('Dépenses récurrentes copiées !');
+            }
+        }
+
+        // Réinitialiser un mois
+        function resetMonth(month) {
+            if (confirm(`Êtes-vous sûr de vouloir réinitialiser ${month} ${currentYear} ?`)) {
+                // Calculer l'épargne du mois précédent
+                const monthIndex = months.indexOf(month);
+                let epargneInitiale = 21480;
+                if (monthIndex > 0) {
+                    const previousMonth = months[monthIndex - 1];
+                    const previousData = budgetData[currentYear][previousMonth];
+                    if (previousData && previousData.epargneActuelle !== undefined) {
+                        epargneInitiale = previousData.epargneActuelle;
+                    }
+                }
+                
+                budgetData[currentYear][month] = {
+                    revenus: [],
+                    depensesRecurrentes: JSON.parse(JSON.stringify(recurrentesTemplate)),
+                    depensesPrevues: [],
+                    depensesImprevues: [],
+                    savingsEnabled: false,
+                    savingsAmount: 0,
+                    epargneActuelle: epargneInitiale,
+                    depassementReporte: 0,
+                    depassementAReporter: 0,
+                    lissageMoisSuivantActive: true
+                };
+                
+                renderRevenus(month);
+                renderDepensesRecurrentes(month);
+                renderDepensesPrevues(month);
+                renderDepensesImprevues(month);
+                updateMonthSummary(month);
+                saveData();
+            }
+        }
+
+        // Réinitialiser toutes les données
+        function resetAllData() {
+            if (confirm('⚠️ ATTENTION : Voulez-vous vraiment supprimer TOUTES les données (tous les mois, toutes les années, toutes les catégories personnalisées et le template de dépenses récurrentes) ?\n\nCela action est irréversible !')) {
+                if (confirm('Êtes-vous VRAIMENT sûr ? Toutes vos données seront perdues définitivement.')) {
+                    // Vider toutes les données
+                    budgetData = {};
+                    recurrentesTemplate = [];
+                    
+                    // Réinitialiser les catégories aux valeurs par défaut
+                    categories = [
+                        'Logement', 'Énergie', 'Télécoms', 'Transport', 
+                        'Alimentation', 'Santé', 'Loisirs', 'Livret A', 'Autre'
+                    ];
+                    
+                    // Nettoyer le localStorage
+                    localStorage.removeItem('budgetData');
+                    localStorage.removeItem('recurrentesTemplate');
+                    localStorage.removeItem('customCategories');
+                    
+                    // Recharger l'application
+                    location.reload();
+                }
+            }
+        }
+
+        // Export CSV
+        function exportToCSV(month) {
+            const data = getMonthData(month);
+            let csv = 'Type,Catégorie,Libellé,Montant,Date,Statut\n';
+            
+            data.revenus.forEach(r => {
+                csv += `Revenu,,${r.libelle},${r.montant},${r.date},${r.recu ? 'Reçu' : 'Prévu'}\n`;
+            });
+            
+            data.depensesRecurrentes.forEach(d => {
+                csv += `Dépense récurrente,${d.categorie},${d.libelle},${d.montant},${d.date},${d.paye ? 'Payé' : 'À payer'}\n`;
+            });
+            
+            data.depensesPrevues.forEach(d => {
+                csv += `Dépense prévue,${d.categorie},${d.description},${d.montantEstime},${d.date},${d.priorite}\n`;
+            });
+
+            data.depensesImprevues.forEach(d => {
+                csv += `Dépense imprévue,${d.categorie},${d.description},${d.montant},${d.date},Imprévue\n`;
+            });
+            
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `budget-${month}-${currentYear}.csv`;
+            a.click();
+        }
+
+        // Export JSON
+        function exportToJSON(month) {
+            const data = getMonthData(month);
+            const json = JSON.stringify(data, null, 2);
+            const blob = new Blob([json], { type: 'application/json' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `budget-${month}-${currentYear}.json`;
+            a.click();
+        }
+
+        // Sauvegarder les données
+        function saveData() {
+            localStorage.setItem('budgetData', JSON.stringify(budgetData));
+        }
+
+        // Charger les données
+        function loadData() {
+            const saved = localStorage.getItem('budgetData');
+            if (saved) {
+                budgetData = JSON.parse(saved);
+            }
+
+            loadCategories();
+
+            // Rendre tous les mois
+            months.forEach(month => {
+                if (document.getElementById(`month-${month}`)) {
+                    renderRevenus(month);
+                    renderDepensesRecurrentes(month);
+                    renderDepensesPrevues(month);
+                    renderDepensesImprevues(month);
+                    updateMonthSummary(month);
+                }
+            });
+
+            // Rendre le mois test
+            if (document.getElementById('month-test')) {
+                renderRevenus('test');
+                renderDepensesRecurrentes('test');
+                renderDepensesPrevues('test');
+                renderDepensesImprevues('test');
+                updateMonthSummary('test');
+            }
+        }
+
+        // Dashboard annuel
+        function updateDashboard() {
+            updateAnnualSummary();
+            updateComparisonTable();
+            updateCharts();
+        }
+
+        // Résumé annuel
+        function updateAnnualSummary() {
+            const container = document.getElementById('annualSummary');
+            let totalRevenus = 0, totalDepenses = 0, totalEpargne = 0;
+
+            months.forEach(month => {
+                const data = getMonthData(month);
+                totalRevenus += data.revenus.reduce((sum, r) => sum + (parseFloat(r.montant) || 0), 0);
+                totalDepenses += data.depensesRecurrentes.reduce((sum, d) => sum + (parseFloat(d.montant) || 0), 0);
+                totalDepenses += data.depensesPrevues.reduce((sum, d) => sum + (parseFloat(d.montantEstime) || 0), 0);
+                totalDepenses += data.depensesImprevues.reduce((sum, d) => sum + (parseFloat(d.montant) || 0), 0);
+                if (data.savingsEnabled) {
+                    totalEpargne += data.savingsAmount || 0;
+                }
+            });
+
+            const totalReste = totalRevenus - totalDepenses - totalEpargne;
+
+            container.innerHTML = `
+                <div class="summary-card blue">
+                    <div class="summary-label">Revenus annuels</div>
+                    <div class="summary-value">${totalRevenus.toFixed(2)} €</div>
+                    <div class="summary-detail">Moyenne : ${(totalRevenus / 12).toFixed(2)} €/mois</div>
+                </div>
+                <div class="summary-card orange">
+                    <div class="summary-label">Dépenses annuelles</div>
+                    <div class="summary-value">${totalDepenses.toFixed(2)} €</div>
+                    <div class="summary-detail">Moyenne : ${(totalDepenses / 12).toFixed(2)} €/mois</div>
+                </div>
+                <div class="summary-card green">
+                    <div class="summary-label">Épargne totale</div>
+                    <div class="summary-value">${totalEpargne.toFixed(2)} €</div>
+                    <div class="summary-detail">${totalRevenus > 0 ? ((totalEpargne / totalRevenus) * 100).toFixed(1) : 0}% des revenus</div>
+                </div>
+                <div class="summary-card ${totalReste >= 0 ? 'green' : 'red'}">
+                    <div class="summary-label">Solde annuel</div>
+                    <div class="summary-value">${totalReste.toFixed(2)} €</div>
+                    <div class="summary-detail">Taux d'épargne : ${totalRevenus > 0 ? ((totalEpargne / totalRevenus) * 100).toFixed(1) : 0}%</div>
+                </div>
+            `;
+        }
+
+        // Table de comparaison
+        function updateComparisonTable() {
+            const tbody = document.getElementById('comparisonBody');
+            tbody.innerHTML = '';
+
+            let previousReste = 0;
+
+            months.forEach(month => {
+                const data = getMonthData(month);
+                const revenus = data.revenus.reduce((sum, r) => sum + (parseFloat(r.montant) || 0), 0);
+                const depenses = data.depensesRecurrentes.reduce((sum, d) => sum + (parseFloat(d.montant) || 0), 0) +
+                               data.depensesPrevues.reduce((sum, d) => sum + (parseFloat(d.montantEstime) || 0), 0) +
+                               data.depensesImprevues.reduce((sum, d) => sum + (parseFloat(d.montant) || 0), 0);
+                const epargne = data.savingsEnabled ? (data.savingsAmount || 0) : 0;
+                const reste = revenus - depenses - epargne;
+
+                const trend = reste > previousReste ? '📈' : reste < previousReste ? '📉' : '➡️';
+                const trendClass = reste > previousReste ? 'trend-up' : reste < previousReste ? 'trend-down' : '';
+
+                const row = tbody.insertRow();
+                row.innerHTML = `
+                    <td><strong>${month.charAt(0).toUpperCase() + month.slice(1)}</strong></td>
+                    <td>${revenus.toFixed(2)} €</td>
+                    <td>${depenses.toFixed(2)} €</td>
+                    <td>${epargne.toFixed(2)} €</td>
+                    <td>${reste.toFixed(2)} €</td>
+                    <td><span class="trend-indicator ${trendClass}">${trend}</span></td>
+                `;
+
+                previousReste = reste;
+            });
+        }
+
+        // Graphiques
+        let monthlyChart, categoryChart;
+
+        function updateCharts() {
+            const monthlyData = {
+                labels: months.map(m => m.slice(0, 3)),
+                revenus: [],
+                depenses: [],
+                epargne: []
+            };
+
+            const categoryData = {};
+            categories.forEach(cat => categoryData[cat] = 0);
+
+            months.forEach(month => {
+                const data = getMonthData(month);
+                const revenus = data.revenus.reduce((sum, r) => sum + (parseFloat(r.montant) || 0), 0);
+                const depenses = data.depensesRecurrentes.reduce((sum, d) => sum + (parseFloat(d.montant) || 0), 0) +
+                               data.depensesPrevues.reduce((sum, d) => sum + (parseFloat(d.montantEstime) || 0), 0) +
+                               data.depensesImprevues.reduce((sum, d) => sum + (parseFloat(d.montant) || 0), 0);
+                const epargne = data.savingsEnabled ? (data.savingsAmount || 0) : 0;
+
+                monthlyData.revenus.push(revenus);
+                monthlyData.depenses.push(depenses);
+                monthlyData.epargne.push(epargne);
+
+                data.depensesRecurrentes.forEach(d => {
+                    categoryData[d.categorie] = (categoryData[d.categorie] || 0) + (parseFloat(d.montant) || 0);
+                });
+                data.depensesPrevues.forEach(d => {
+                    categoryData[d.categorie] = (categoryData[d.categorie] || 0) + (parseFloat(d.montantEstime) || 0);
+                });
+                data.depensesImprevues.forEach(d => {
+                    categoryData[d.categorie] = (categoryData[d.categorie] || 0) + (parseFloat(d.montant) || 0);
+                });
+            });
+
+            // Graphique mensuel
+            const monthlyCtx = document.getElementById('monthlyChart');
+            if (monthlyChart) monthlyChart.destroy();
+            
+            monthlyChart = new Chart(monthlyCtx, {
+                type: 'line',
+                data: {
+                    labels: monthlyData.labels,
+                    datasets: [
+                        {
+                            label: 'Revenus',
+                            data: monthlyData.revenus,
+                            borderColor: '#3b82f6',
+                            backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                            tension: 0.4
+                        },
+                        {
+                            label: 'Dépenses',
+                            data: monthlyData.depenses,
+                            borderColor: '#f59e0b',
+                            backgroundColor: 'rgba(245, 158, 11, 0.1)',
+                            tension: 0.4
+                        },
+                        {
+                            label: 'Épargne',
+                            data: monthlyData.epargne,
+                            borderColor: '#10b981',
+                            backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                            tension: 0.4
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'bottom' }
+                    }
+                }
+            });
+
+            // Graphique des catégories
+            const categoryCtx = document.getElementById('categoryChart');
+            if (categoryChart) categoryChart.destroy();
+
+            categoryChart = new Chart(categoryCtx, {
+                type: 'doughnut',
+                data: {
+                    labels: Object.keys(categoryData),
+                    datasets: [{
+                        data: Object.values(categoryData),
+                        backgroundColor: [
+                            '#3b82f6', '#f59e0b', '#10b981', '#ef4444',
+                            '#8b5cf6', '#ec4899', '#06b6d4', '#84cc16'
+                        ]
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'bottom' }
+                    }
+                }
+            });
+        }
+
+        // Initialiser au chargement
+        window.onload = init;
+    </script>
+</body>
+</html>
