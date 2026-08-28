@@ -430,10 +430,11 @@ footer.foot .sep{opacity:.4}
     </svg>
     <div>
       <h1>CubeSolver</h1>
-      <p class="sub">Photo → état → solution · Rubik's Cube 3×3</p>
+      <p class="sub" id="subTitle">Photo → état → solution</p>
     </div>
   </div>
   <div id="topActions" class="acts">
+    <select id="puzzleSel" title="Choix du puzzle"></select>
     <button class="btn" id="btnScramble" title="Mélange aléatoire de 25 coups (M)">🎲 Mélanger</button>
     <button class="btn" id="btnReset" title="Cube résolu (R)">↺ Réinitialiser</button>
     <button class="btn" id="btnPaste" title="Importer une chaîne de 54 caractères">⇥ Coller un état</button>
@@ -483,8 +484,8 @@ footer.foot .sep{opacity:.4}
   <div class="box">
     <h3>Coller un état (54 caractères)</h3>
     <p class="hint" style="margin-top:0">
-      Lettres <b class="mono">U R F D L B</b> — faces dans l'ordre U, R, F, D, L, B,
-      chaque face lue ligne par ligne de gauche à droite (§2.1).
+      <b class="mono" id="pasteLen">54</b> caractères parmi <b class="mono">U R F D L B</b> —
+      faces dans l'ordre U, R, F, D, L, B, chaque face lue ligne par ligne de gauche à droite (§2.1).
       Les couleurs sont acceptées aussi : <b class="mono">W R G Y O B</b>.
     </p>
     <textarea id="pasteInput" rows="4" spellcheck="false" placeholder="UUUUUUUUURRRRRRRRRFFFFFFFFFDDDDDDDDDLLLLLLLLLBBBBBBBBB"></textarea>
@@ -515,6 +516,308 @@ footer.foot .sep{opacity:.4}
 </div>
 <script>
 "use strict";
+/* =========================================================================
+   ===== MODULE GÉOMÉTRIE GÉNÉRIQUE (§12.1) ================================
+   Un coup = un sous-ensemble de cubies + une rotation. Rien d'autre.
+   Les permutations de stickers s'en déduisent, elles ne s'écrivent jamais
+   à la main — c'est ce qui évite les erreurs silencieuses du §11.
+   Le générateur est prouvé par le harnais : décrit géométriquement, le 3×3
+   doit reproduire EXACTEMENT les tables du §2.3 et du §2.5.
+   ========================================================================= */
+const DIR_KEYS = ['U','R','F','D','L','B'];
+/* pour chaque face : direction sortante, et l'orientation canonique de sa
+   grille (§2.1 pour le 3×3, §12.8 pour la tour) — ligne puis colonne, avec
+   l'axe concerné et le sens de parcours. */
+const DIR6 = [
+  {k:'U', v:[ 0, 1, 0], row:{ax:2, s:+1}, col:{ax:0, s:+1}},
+  {k:'R', v:[ 1, 0, 0], row:{ax:1, s:-1}, col:{ax:2, s:-1}},
+  {k:'F', v:[ 0, 0, 1], row:{ax:1, s:-1}, col:{ax:0, s:+1}},
+  {k:'D', v:[ 0,-1, 0], row:{ax:2, s:-1}, col:{ax:0, s:+1}},
+  {k:'L', v:[-1, 0, 0], row:{ax:1, s:-1}, col:{ax:2, s:+1}},
+  {k:'B', v:[ 0, 0,-1], row:{ax:1, s:-1}, col:{ax:0, s:-1}}
+];
+const DIR_OF = {}; DIR6.forEach((d, i) => { DIR_OF[d.k] = d; DIR_OF[d.k].idx = i; });
+const AXIS_OF = {U:1, D:1, R:0, L:0, F:2, B:2};
+
+/* rotation d'un quart de tour HORAIRE vue depuis la direction donnée.
+   (coordonnées entières centrées : x droite, y haut, z avant) */
+function rotVec(dirKey, v){
+  const [x, y, z] = v;
+  switch(dirKey){
+    case 'U': return [-z, y, x];
+    case 'D': return [ z, y,-x];
+    case 'R': return [ x, z,-y];
+    case 'L': return [ x,-z, y];
+    case 'F': return [ y,-x, z];
+    case 'B': return [-y, x, z];
+  }
+}
+function rotVecN(dirKey, v, n){ let r = v; for(let i=0;i<n;i++) r = rotVec(dirKey, r); return r; }
+const dirKeyOfVec = v => { for(const d of DIR6) if(d.v[0] === v[0] && d.v[1] === v[1] && d.v[2] === v[2]) return d.k; return null; };
+const vecKey = v => v[0] + ',' + v[1] + ',' + v[2];
+
+/* --- construction d'un puzzle à partir de sa seule géométrie (§12.2) --- */
+const PUZZLE_DEFS = {};
+function definePuzzle(def){ PUZZLE_DEFS[def.id] = def; return def; }
+
+function buildPuzzle(def){
+  const P = Object.assign({}, def);
+  const dims = def.dims;                                  // [nx, ny, nz]
+  const axisVals = dims.map(n => { const a = []; for(let i=0;i<n;i++) a.push(2*i - (n-1)); return a; });
+  P.axisVals = axisVals;
+  P.maxCoord = dims.map(n => n - 1);
+
+  /* --- faces et index de stickers (ordre U R F D L B, ligne par ligne) --- */
+  P.faces = DIR6.map(d => ({
+    key:d.k, dir:d.v, dirIdx:DIR_OF[d.k].idx,
+    rows:dims[d.row.ax], cols:dims[d.col.ax], row:d.row, col:d.col, offset:0, n:0
+  }));
+  let off = 0;
+  P.faces.forEach(f => { f.offset = off; f.n = f.rows*f.cols; off += f.n; });
+  P.nStickers = off;
+  P.faceKeys = P.faces.map(f => f.key);
+
+  const gridIdx = (f, c, which) => {
+    const g = f[which], n = dims[g.ax], v = c[g.ax];
+    const i = (v + (n - 1)) / 2;
+    return g.s > 0 ? i : (n - 1 - i);
+  };
+  P.stickerIndex = (c, dirKey) => {
+    const f = P.faces[DIR_OF[dirKey].idx];
+    return f.offset + gridIdx(f, c, 'row')*f.cols + gridIdx(f, c, 'col');
+  };
+
+  /* --- cubies visibles et leurs stickers --- */
+  P.cubies = [];
+  P.stickerOwner = new Array(P.nStickers);
+  for(const x of axisVals[0]) for(const y of axisVals[1]) for(const z of axisVals[2]){
+    const c = [x, y, z], st = {};
+    let nst = 0;
+    for(const d of DIR6){
+      const ax = d.v[0] ? 0 : d.v[1] ? 1 : 2;
+      const sgn = d.v[ax];
+      if(c[ax] === sgn*P.maxCoord[ax]){ st[d.k] = P.stickerIndex(c, d.k); nst++; }
+    }
+    if(!nst) continue;                                   // cubie intérieur : inutile (§8.1)
+    const cu = {c, st, i:P.cubies.length};
+    P.cubies.push(cu);
+    for(const k in st) P.stickerOwner[st[k]] = {cubie:cu.i, dir:k};
+  }
+  P.cubieAt = {};
+  P.cubies.forEach(cu => { P.cubieAt[vecKey(cu.c)] = cu; });
+
+  /* --- coups : permutation de stickers ET de cubies, dérivées de la rotation --- */
+  P.moves = def.moveDefs.map(md => {
+    const perm = new Int16Array(P.nStickers);
+    for(let i=0;i<P.nStickers;i++) perm[i] = i;
+    const cubiePerm = new Int16Array(P.cubies.length);
+    for(let i=0;i<P.cubies.length;i++) cubiePerm[i] = i;
+    const sel = [];
+    for(const cu of P.cubies){
+      if(cu.c[md.sel.ax] !== md.sel.val) continue;
+      sel.push(cu.i);
+      const nc = rotVecN(md.axis, cu.c, md.turns);
+      const dst = P.cubieAt[vecKey(nc)];
+      if(!dst) throw new Error('coup ' + md.name + ' : la rotation sort de la forme du puzzle');
+      cubiePerm[cu.i] = dst.i;
+      for(const k in cu.st){
+        const nk = dirKeyOfVec(rotVecN(md.axis, DIR_OF[k].v, md.turns));
+        perm[cu.st[k]] = P.stickerIndex(nc, nk);
+      }
+    }
+    return {name:md.name, group:md.group, axis:md.axis, turns:md.turns, sel:md.sel,
+            perm, cubiePerm, layer:sel, opposite:md.opposite};
+  });
+  P.moveNames = P.moves.map(m => m.name);
+  P.moveGroups = Array.from(new Set(P.moves.map(m => m.group)));
+  P.moveId = {}; P.moveNames.forEach((n, i) => { P.moveId[n] = i; });
+  P.nMoves = P.moves.length;
+  P.invMoveIdx = P.moves.map((m, i) => {
+    const want = m.axis, t = (4 - m.turns) % 4;
+    for(let j=0;j<P.moves.length;j++){
+      const o = P.moves[j];
+      if(o.group === m.group && o.axis === want && o.turns === t) return j;
+    }
+    /* demi-tours : leur propre inverse */
+    return i;
+  });
+
+  /* --- état résolu : chaque sticker porte la lettre de sa face --- */
+  P.solvedFacelet = (() => {
+    let s = '';
+    for(let i=0;i<P.nStickers;i++) s += P.faces.find(f => i >= f.offset && i < f.offset + f.n).key;
+    return s;
+  })();
+  P.faceOfSticker = new Uint8Array(P.nStickers);
+  P.faces.forEach((f, fi) => { for(let i=0;i<f.n;i++) P.faceOfSticker[f.offset+i] = fi; });
+
+  /* --- patron 2D : croix dépliée U / L F R B / D --- */
+  const fU = P.faces[0], fR = P.faces[1], fF = P.faces[2], fD = P.faces[3], fL = P.faces[4], fB = P.faces[5];
+  P.net = {
+    cols: fL.cols + fF.cols + fR.cols + fB.cols,
+    rows: fU.rows + fF.rows + fD.rows,
+    place: {
+      U:[0, fL.cols], L:[fU.rows, 0], F:[fU.rows, fL.cols],
+      R:[fU.rows, fL.cols + fF.cols], B:[fU.rows, fL.cols + fF.cols + fR.cols],
+      D:[fU.rows + fF.rows, fL.cols]
+    }
+  };
+  P.netCell = new Array(P.nStickers);
+  P.faces.forEach(f => {
+    const [r0, c0] = P.net.place[f.key];
+    for(let r=0;r<f.rows;r++) for(let c=0;c<f.cols;c++)
+      P.netCell[f.offset + r*f.cols + c] = [r0 + r, c0 + c];
+  });
+
+  /* --- quotas de stickers par face (§12.2) --- */
+  P.quota = {}; P.faces.forEach(f => { P.quota[f.key] = f.n; });
+  P.quotaSizes = P.faces.map(f => f.n);
+  /* --- centres : n'existent que si les faces ont des dimensions impaires --- */
+  P.centerIdx = P.faces.map(f => f.offset + (((f.rows - 1)/2)|0)*f.cols + (((f.cols - 1)/2)|0));
+  P.isCenter = new Uint8Array(P.nStickers);
+  if(def.hasCenters) P.centerIdx.forEach(i => { P.isCenter[i] = 1; });
+  /* --- familles de faces : axiales (calottes) vs latérales (§12.8) --- */
+  P.axialFacelets = new Set();
+  if(def.axialFaces) def.axialFaces.forEach(k => {
+    const f = P.faces[DIR_OF[k].idx];
+    for(let i=0;i<f.n;i++) P.axialFacelets.add(f.offset + i);
+  });
+  return P;
+}
+
+/* résolu = chaque face monochrome (vrai pour tout puzzle, avec ou sans centre) */
+function isSolvedColors(colors){
+  for(const f of PZ.faces){
+    const c0 = colors[f.offset];
+    for(let i=1;i<f.n;i++) if(colors[f.offset+i] !== c0) return false;
+  }
+  return true;
+}
+
+/* --- application d'un coup au niveau facelet (générique) --- */
+function permApply(arr, perm){
+  const out = arr.slice ? arr.slice() : Array.from(arr);
+  for(let i=0;i<perm.length;i++) out[perm[i]] = arr[i];
+  return out;
+}
+function permApplyStr(s, perm){
+  const a = s.split(''), out = a.slice();
+  for(let i=0;i<perm.length;i++) out[perm[i]] = a[i];
+  return out.join('');
+}
+/* =========================================================================
+   ===== DÉFINITIONS DE PUZZLES (§12.2) ====================================
+   Tout ce qui est spécifique à un puzzle vit ici : géométrie, coups,
+   validation, solveurs. Le reste de l'app (patron 2D, 3D, lecteur, photo)
+   ne connaît que l'objet PZ construit à partir de ces définitions.
+   ========================================================================= */
+
+/* --- Rubik 3×3×3 (§2) --- */
+definePuzzle({
+  id:'3x3x3', label:'Rubik 3×3×3', short:'3×3',
+  dims:[3,3,3],
+  hasCenters:true,          // §5.3 : les centres servent de références couleur
+  axialFaces:null,
+  scrambleLength:25,
+  view3d:{cell:54, dist:1400, scale:1},
+  moveDefs:(() => {
+    const out = [];
+    for(const k of DIR_KEYS){
+      const ax = AXIS_OF[k], d = DIR6[DIR_KEYS.indexOf(k)];
+      const n = 3, val = d.v[ax]*(n - 1);
+      const opp = {U:'D', D:'U', R:'L', L:'R', F:'B', B:'F'}[k];
+      for(let t=1;t<=3;t++)
+        out.push({name:k + (t === 1 ? '' : t === 2 ? '2' : "'"), group:k, axis:k, turns:t,
+                  sel:{ax, val}, opposite:opp});
+    }
+    return out;
+  })(),
+  validate:cols => validate3x3(cols),
+  solvers:[
+    {id:'lbl',      label:'Couche par couche · pédagogique'},
+    {id:'kociemba', label:'Kociemba 2 phases · court'}
+  ],
+  photoOrder:[2,1,5,4,0,3],
+  photoHint:[
+    'vu de dessus, F vers le bas', 'U en haut, F à gauche', 'U en haut',
+    'vu de dessous, F vers le haut', 'U en haut, B à gauche', 'U en haut, R à gauche'
+  ]
+});
+
+/* --- Rubik's Tower 2×2×4 (§12.3) ---------------------------------------
+   Repère : x et z = section carrée 2×2 (coordonnées ±1), y = axe vertical,
+   4 étages (coordonnées ±1, ±3). La spec nomme l'axe vertical « z » ; ici
+   c'est « y » (convention U = +y du moteur 3D), mais les NOMS des coups
+   restent ceux du §12.3 : Z0…Z3 pour les 4 étages, X0/X1 et Y0/Y1 pour les
+   deux tranches verticales, demi-tours uniquement.
+   Les quarts de tour verticaux sont volontairement exclus : ils déforment
+   la tour (§12.3) — la solution proposée ne la déforme donc jamais. */
+definePuzzle({
+  id:'2x2x4', label:'Rubik’s Tower 2×2×4', short:'2×2×4',
+  dims:[2,4,2],
+  hasCenters:false,         // §12.8 : aucun centre fixe, repère libre
+  axialFaces:['U','D'],     // §12.4 propriété 3 : les calottes gardent leurs couleurs
+  scrambleLength:30,
+  view3d:{cell:46, dist:1500, scale:.86},
+  moveDefs:(() => {
+    const out = [];
+    ['Z0','Z1','Z2','Z3'].forEach((nm, i) => {          // 4 étages, quart de tour
+      const val = [-3,-1,1,3][i];
+      for(let t=1;t<=3;t++)
+        out.push({name:nm + (t === 1 ? '' : t === 2 ? '2' : "'"), group:nm, axis:'U', turns:t,
+                  sel:{ax:1, val}});
+    });
+    out.push({name:'X0', group:'X0', axis:'R', turns:2, sel:{ax:0, val:-1}});
+    out.push({name:'X1', group:'X1', axis:'R', turns:2, sel:{ax:0, val: 1}});
+    out.push({name:'Y0', group:'Y0', axis:'F', turns:2, sel:{ax:2, val:-1}});
+    out.push({name:'Y1', group:'Y1', axis:'F', turns:2, sel:{ax:2, val: 1}});
+    return out;
+  })(),
+  validate:cols => validateTower(cols),
+  solvers:[{id:'tower', label:'IDA* + bases de motifs · optimal'}],
+  photoOrder:[0,2,1,5,4,3],   // §12.8 : calotte haute, puis F R B L, puis calotte basse
+  photoHint:[
+    'calotte du haut, F vers le bas', 'U en haut, F à gauche', 'U en haut',
+    'calotte du bas, F vers le haut', 'U en haut, B à gauche', 'U en haut, R à gauche'
+  ]
+});
+
+/* --- puzzle actif --- */
+let PZ = null;
+function usePuzzle(id){
+  PZ = buildPuzzle(PUZZLE_DEFS[id]);
+  return PZ;
+}
+/* --- mélange générique : jamais deux coups de suite sur la même couche,
+   ni A B A sur deux couches opposées --- */
+function randomScramble(n){
+  const seq = [];
+  let last = null, prev = null;
+  const N = PZ.nMoves;
+  while(seq.length < (n || PZ.scrambleLength)){
+    const m = (Math.random()*N)|0, g = PZ.moves[m];
+    if(last && g.group === last.group) continue;
+    if(prev && g.group === prev.group && last && last.opposite === g.group) continue;
+    seq.push(m); prev = last; last = g;
+  }
+  return seq;
+}
+function applySeqFacelet(colors, seq){
+  let c = colors;
+  for(const m of seq) c = permApply(c, PZ.moves[m].perm);
+  return c;
+}
+function invertSeqPZ(seq){ return seq.slice().reverse().map(m => PZ.invMoveIdx[m]); }
+function algToStringPZ(seq){ return seq.map(m => PZ.moveNames[m]).join(' '); }
+function parseAlgPZ(str){
+  const out = [];
+  for(const t of String(str).trim().split(/[\s,]+/).filter(Boolean)){
+    const tok = t.replace(/[’`´]/g, "'");
+    if(PZ.moveId[tok] === undefined) throw new Error('Coup inconnu : ' + t);
+    out.push(PZ.moveId[tok]);
+  }
+  return out;
+}
 /* =========================================================================
    ===== MODULE CUBE =======================================================
    Modèle de données §2 — tables recopiées telles quelles depuis la spec.
@@ -723,25 +1026,27 @@ const COLORS = [
 ];
 /* couleur par défaut de chaque face : U=blanc R=rouge F=vert D=jaune L=orange B=bleu */
 const FACE_COLOR_DEFAULT = [0,1,2,3,4,5];
-const CENTER_IDX = [4,13,22,31,40,49];
 const COLOR_KEY = {}; COLORS.forEach((c,i)=>{ COLOR_KEY[c.key] = i; });
 
+/* --- helpers génériques : ils ne connaissent que PZ (§12.2) --- */
 function solvedColors(){
-  const a = new Uint8Array(54);
-  for(let f=0; f<6; f++) for(let k=0;k<9;k++) a[f*9+k] = FACE_COLOR_DEFAULT[f];
+  const a = new Uint8Array(PZ.nStickers);
+  for(let i=0;i<PZ.nStickers;i++) a[i] = FACE_COLOR_DEFAULT[PZ.faceOfSticker[i]];
   return a;
 }
-/* chaîne 54 (lettres de face U R F D L B) → tableau de couleurs */
+/* chaîne de lettres de face → tableau de couleurs */
 function faceletToColors(str){
-  const a = new Uint8Array(54);
-  for(let i=0;i<54;i++) a[i] = FACE_COLOR_DEFAULT[FACE_IDX[str[i]]];
+  const a = new Uint8Array(PZ.nStickers);
+  for(let i=0;i<PZ.nStickers;i++) a[i] = FACE_COLOR_DEFAULT[FACE_IDX[str[i]]];
   return a;
 }
 function colorsToFaceletUnsafe(colors, colorFace){
   let s = '';
-  for(let i=0;i<54;i++){ const f = colorFace[colors[i]]; s += (f === undefined ? '?' : FACES[f]); }
+  for(let i=0;i<colors.length;i++){ const f = colorFace[colors[i]]; s += (f === undefined ? '?' : FACES[f]); }
   return s;
 }
+/* dispatcher : chaque puzzle apporte ses propres contrôles */
+function validateColors(colors){ return PZ.validate(colors); }
 
 /* =========================================================================
    ===== MODULE VALIDATION (§3) ============================================
@@ -752,12 +1057,13 @@ function permParity(p){
   for(let i=0;i<p.length;i++) for(let j=i+1;j<p.length;j++) if(p[i] > p[j]) par ^= 1;
   return par;
 }
-function validateColors(colors){
+function validate3x3(colors){
   const res = {ok:false, checks:[], bad:new Set(), facelet:null, cubie:null, counts:null, colorFace:null};
   const add = (id, label, state, msg) => res.checks.push({id, label, state, msg}); // state: ok|ko|na
   const rest = (from, msg) => { for(let k=from;k<CHECK_LABELS.length;k++) add(CHECK_LABELS[k][0], CHECK_LABELS[k][1], 'na', msg); };
 
   /* --- 1. centres --- */
+  const CENTER_IDX = PZ.centerIdx;
   const cen = CENTER_IDX.map(i => colors[i]);
   const dup = [];
   for(let a=0;a<6;a++) for(let b=a+1;b<6;b++) if(cen[a] === cen[b]) dup.push([a,b]);
@@ -853,27 +1159,33 @@ const CHECK_LABELS = [
   ['parite',   '5 · Parité']
 ];
 /* =========================================================================
-   ===== MODULE PATRON 2D (§5.4, §8.4) =====================================
-   Croix dépliée : U en haut, L F R B en bande, D en bas. Toujours éditable.
-   C'est la vue de contrôle : elle doit correspondre exactement à la chaîne 54.
+   ===== MODULE PATRON 2D (§5.4, §8.4, §12.10) =============================
+   Croix dépliée U / L F R B / D, construite à partir de PZ.net : elle
+   s'adapte seule aux faces rectangulaires de la tour 2×2×4.
    ========================================================================= */
-const NET_POS = [[0,3],[3,6],[3,3],[6,3],[3,0],[3,9]]; // U R F D L B → [ligne, colonne] du bloc 3×3
 const $  = s => document.querySelector(s);
 const $$ = s => Array.from(document.querySelectorAll(s));
-const stickerEls = new Array(54);
+let stickerEls = [];
 
 function buildNet(){
   const net = $('#net2d');
   net.innerHTML = '';
-  for(let i=0;i<54;i++){
-    const f = (i/9)|0, k = i % 9, r = (k/3)|0, c = k % 3;
+  net.style.gridTemplateColumns = 'repeat(' + PZ.net.cols + ',1fr)';
+  net.style.gridTemplateRows = 'repeat(' + PZ.net.rows + ',1fr)';
+  net.style.aspectRatio = PZ.net.cols + '/' + PZ.net.rows;
+  net.style.maxWidth = Math.min(380, PZ.net.cols*42) + 'px';
+  stickerEls = new Array(PZ.nStickers);
+  for(let i=0;i<PZ.nStickers;i++){
+    const [r, c] = PZ.netCell[i];
+    const f = PZ.faces[PZ.faceOfSticker[i]];
+    const k = i - f.offset;
     const d = document.createElement('div');
-    d.className = 'stk' + (k === 4 ? ' center' : '');
-    d.style.gridRow = (NET_POS[f][0] + r + 1);
-    d.style.gridColumn = (NET_POS[f][1] + c + 1);
+    d.className = 'stk' + (PZ.isCenter[i] ? ' center' : '');
+    d.style.gridRow = r + 1;
+    d.style.gridColumn = c + 1;
     d.dataset.i = i;
-    d.title = FACES[f] + (k + 1);
-    if(k === 4){ const s = document.createElement('span'); s.className = 'ctxt'; s.textContent = FACES[f]; d.appendChild(s); }
+    d.title = f.key + (k + 1);
+    if(PZ.isCenter[i]){ const s = document.createElement('span'); s.className = 'ctxt'; s.textContent = f.key; d.appendChild(s); }
     net.appendChild(d);
     stickerEls[i] = d;
   }
@@ -881,8 +1193,9 @@ function buildNet(){
 }
 function paintNet(){
   const v = APP.valid;
-  for(let i=0;i<54;i++){
+  for(let i=0;i<PZ.nStickers;i++){
     const el = stickerEls[i];
+    if(!el) continue;
     el.style.background = COLORS[APP.colors[i]].hex;
     el.classList.toggle('bad', !!(v && v.bad.has(i)));
     el.classList.toggle('warn', !!(APP.lowConf && APP.lowConf.has(i)));
@@ -896,8 +1209,7 @@ function flashSticker(i){
 /* --- interactions : cycle, peinture au glissé, pipette, mode centres --- */
 let painting = false;
 function applyToSticker(i, dir){
-  const isCenter = (i % 9) === 4;
-  if(isCenter && !APP.centerMode){ toast('Les centres sont verrouillés — activez « Mode centres »'); return; }
+  if(PZ.isCenter[i] && !APP.centerMode){ toast('Les centres sont verrouillés — activez « Mode centres »'); return; }
   const cols = APP.colors.slice();
   if(APP.brush !== null && dir === 0) cols[i] = APP.brush;
   else cols[i] = (cols[i] + (dir >= 0 ? 1 : 5)) % 6;
@@ -916,13 +1228,16 @@ function wireNet(net){
     applyToSticker(i, APP.brush !== null ? 0 : 1);
     e.preventDefault();
   });
-  window.addEventListener('pointerup', () => { painting = false; });
-  window.addEventListener('pointermove', e => {
-    if(!painting || APP.brush === null) return;
-    const el = document.elementFromPoint(e.clientX, e.clientY);
-    const t = el && el.closest && el.closest('.stk');
-    if(t && APP.colors[+t.dataset.i] !== APP.brush) applyToSticker(+t.dataset.i, 0);
-  });
+  if(!wireNet.global){
+    wireNet.global = true;
+    window.addEventListener('pointerup', () => { painting = false; });
+    window.addEventListener('pointermove', e => {
+      if(!painting || APP.brush === null) return;
+      const el = document.elementFromPoint(e.clientX, e.clientY);
+      const t = el && el.closest && el.closest('.stk');
+      if(t && APP.colors[+t.dataset.i] !== APP.brush) applyToSticker(+t.dataset.i, 0);
+    });
+  }
 }
 
 /* --- palette --- */
@@ -933,7 +1248,7 @@ function buildPalette(){
     const b = document.createElement('button');
     b.className = 'sw'; b.style.background = c.hex; b.dataset.c = i;
     b.title = c.name + ' — cliquer pour peindre avec cette couleur';
-    b.innerHTML = '<span class="cnt">9</span>';
+    b.innerHTML = '<span class="cnt">0</span>';
     b.addEventListener('click', () => setBrush(APP.brush === i ? null : i));
     p.appendChild(b);
   });
@@ -942,16 +1257,18 @@ function buildPalette(){
   cyc.title = 'Désélectionner le pinceau : le clic fait défiler les couleurs';
   cyc.addEventListener('click', () => setBrush(null));
   p.appendChild(cyc);
-  const cm = document.createElement('button');
-  cm.className = 'btn sm'; cm.id = 'btnCenters'; cm.textContent = '◎ Mode centres';
-  cm.title = 'Autoriser la modification des 6 centres';
-  cm.addEventListener('click', () => {
-    APP.centerMode = !APP.centerMode;
-    document.body.classList.toggle('centermode', APP.centerMode);
-    cm.classList.toggle('pri', APP.centerMode);
-    toast(APP.centerMode ? 'Mode centres actif' : 'Centres verrouillés');
-  });
-  p.appendChild(cm);
+  if(PZ.hasCenters){
+    const cm = document.createElement('button');
+    cm.className = 'btn sm'; cm.id = 'btnCenters'; cm.textContent = '◎ Mode centres';
+    cm.title = 'Autoriser la modification des 6 centres';
+    cm.addEventListener('click', () => {
+      APP.centerMode = !APP.centerMode;
+      document.body.classList.toggle('centermode', APP.centerMode);
+      cm.classList.toggle('pri', APP.centerMode);
+      toast(APP.centerMode ? 'Mode centres actif' : 'Centres verrouillés');
+    });
+    p.appendChild(cm);
+  }
 }
 function setBrush(c){
   APP.brush = c;
@@ -960,11 +1277,16 @@ function setBrush(c){
 }
 function updatePalette(){
   const counts = new Array(6).fill(0);
-  for(let i=0;i<54;i++) counts[APP.colors[i]]++;
+  for(let i=0;i<PZ.nStickers;i++) counts[APP.colors[i]]++;
+  /* quotas attendus : {9×6} sur le 3×3, {4,4,8,8,8,8} sur la tour (§12.9) */
+  const want = PZ.quotaSizes.slice().sort((a,b) => a-b).join(',');
+  const got = counts.slice().sort((a,b) => a-b).join(',');
+  const allOk = want === got;
+  const allowed = new Set(PZ.quotaSizes);
   $$('#palette .sw').forEach(el => {
     const c = +el.dataset.c, n = counts[c], span = el.querySelector('.cnt');
     span.textContent = n;
-    span.className = 'cnt ' + (n === 9 ? 'ok' : 'ko');
+    span.className = 'cnt ' + (allOk || (n && allowed.has(n)) ? 'ok' : 'ko');
   });
 }
 
@@ -973,7 +1295,8 @@ function renderValidation(){
   const v = APP.valid;
   const box = $('#statusBox'), txt = $('#statusText'), list = $('#validList');
   box.className = 'status ' + (v.ok ? 'ok' : 'ko');
-  txt.textContent = v.ok ? 'Cube valide — prêt à résoudre' : 'Cube invalide — ' + (v.checks.find(c => c.state === 'ko') || {}).label;
+  txt.textContent = v.ok ? 'Puzzle valide — prêt à résoudre'
+                         : 'Puzzle invalide — ' + ((v.checks.find(c => c.state === 'ko') || {}).label || '');
   list.innerHTML = '';
   for(const c of v.checks){
     const row = document.createElement('div');
@@ -983,102 +1306,88 @@ function renderValidation(){
     list.appendChild(row);
   }
   $('#validMeta').textContent = v.ok ? 'OK' : '';
-  $('#inputMeta').textContent = v.facelet ? v.facelet.slice(0,12) + '…' : '';
+  $('#inputMeta').textContent = v.facelet ? v.facelet.slice(0, 12) + '…' : '';
 }
 
 /* --- toast --- */
 let toastT = null;
 function toast(msg){
   const t = $('#toast'); t.textContent = msg; t.classList.add('on');
-  clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('on'), 2100);
+  clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('on'), 2400);
 }
 /* =========================================================================
-   ===== MODULE 3D (§8) ====================================================
-   CSS 3D transforms, 26 cubies (le cubie central est inutile).
-   Sens de rotation vérifiés à l'œil face par face, puis verrouillés par le
-   test §10.6 (chaîne 54 relue depuis le DOM des stickers 3D).
+   ===== MODULE 3D (§8, §12.10) ============================================
+   CSS 3D transforms. Le rendu ne connaît que PZ : 26 cubies pour le 3×3,
+   16 pour la tour, et le groupe de couche temporaire du §8.3 se construit
+   à partir du prédicat de couche du coup.
+   Sens de rotation vérifiés à l'œil puis verrouillés par les tests §10.6.
    ========================================================================= */
-const S3 = 54;                        // côté d'un cubie en px
-const DIR_LIST = ['U','R','F','D','L','B'];
-const DIR_VEC = {U:[0,1,0], R:[1,0,0], F:[0,0,1], D:[0,-1,0], L:[-1,0,0], B:[0,0,-1]};
+const DIR_LIST = DIR_KEYS;
+const DIR_VEC = {}; DIR6.forEach(d => { DIR_VEC[d.k] = d.v; });
 const STICKER_TF = {
   U:'rotateX(90deg)', D:'rotateX(-90deg)', F:'',
   B:'rotateY(180deg)', R:'rotateY(90deg)', L:'rotateY(-90deg)'
 };
-/* transformation CSS d'un quart de tour horaire, par face */
+/* transformation CSS d'un quart de tour horaire, par direction */
 const LAYER_TF = {
   U:[0,1,0,-90], D:[0,1,0,90],
   R:[1,0,0,90],  L:[1,0,0,-90],
   F:[0,0,1,90],  B:[0,0,1,-90]
 };
-/* rotation logique (x droite, y haut, z avant) d'un quart de tour horaire */
-function rotVec(face, v){
-  const [x,y,z] = v;
-  switch(face){
-    case 'U': return [-z, y, x];
-    case 'D': return [ z, y,-x];
-    case 'R': return [ x, z,-y];
-    case 'L': return [ x,-z, y];
-    case 'F': return [ y,-x, z];
-    case 'B': return [-y, x, z];
-  }
-}
-/* (x,y,z,face) → index de facelet 0–53 (§2.1) */
-function faceletIndexOf(x, y, z, face){
-  switch(face){
-    case 'U': return  0 + (z+1)*3 + (x+1);
-    case 'R': return  9 + (1-y)*3 + (1-z);
-    case 'F': return 18 + (1-y)*3 + (x+1);
-    case 'D': return 27 + (1-z)*3 + (x+1);
-    case 'L': return 36 + (1-y)*3 + (z+1);
-    case 'B': return 45 + (1-y)*3 + (1-x);
-  }
-}
-const V3 = {cubies:[], el:null, scene:null, rx:-26, ry:-34, zoom:1, vx:0, vy:0, raf:0, busy:false};
+const V3 = {cubies:[], el:null, scene:null, rx:-26, ry:-34, zoom:1, vx:0, vy:0, raf:0, busy:false, cell:54};
 
 function buildCube3D(){
   const host = document.getElementById('colB');
-  const sec = document.createElement('section');
-  sec.className = 'panel';
-  sec.innerHTML =
-    '<div class="ph">Visualisation 3D <span class="sp" id="v3meta">glissez pour orbiter</span></div>' +
-    '<div id="scene"><div id="cube"></div></div>' +
-    '<div class="viewbar">' +
-      '<button class="btn sm" id="btnView0">⌂ Vue par défaut</button>' +
-      '<button class="btn sm" id="btnViewU">↑ Dessus</button>' +
-      '<button class="btn sm" id="btnViewD">↓ Dessous</button>' +
-      '<button class="btn sm" id="btnViewB">↻ Arrière</button>' +
-      '<span class="z" id="zoomLbl">100 %</span>' +
-    '</div>';
-  host.appendChild(sec);
-  V3.scene = document.getElementById('scene');
-  V3.el = document.getElementById('cube');
-  for(let x=-1;x<=1;x++) for(let y=-1;y<=1;y++) for(let z=-1;z<=1;z++){
-    if(!x && !y && !z) continue;
+  let sec = document.getElementById('panel3d');
+  if(!sec){
+    sec = document.createElement('section');
+    sec.className = 'panel'; sec.id = 'panel3d';
+    sec.innerHTML =
+      '<div class="ph">Visualisation 3D <span class="sp" id="v3meta">glissez pour orbiter</span></div>' +
+      '<div id="scene"><div id="cube"></div></div>' +
+      '<div class="viewbar">' +
+        '<button class="btn sm" id="btnView0">⌂ Vue par défaut</button>' +
+        '<button class="btn sm" id="btnViewU">↑ Dessus</button>' +
+        '<button class="btn sm" id="btnViewD">↓ Dessous</button>' +
+        '<button class="btn sm" id="btnViewB">↻ Arrière</button>' +
+        '<span class="z" id="zoomLbl">100 %</span>' +
+      '</div>';
+    host.appendChild(sec);
+    V3.scene = document.getElementById('scene');
+    V3.el = document.getElementById('cube');
+    wireOrbit();
+  }
+  V3.el.innerHTML = '';
+  V3.cubies = [];
+  V3.cell = PZ.view3d.cell;
+  V3.zoom = PZ.view3d.scale;
+  V3.scene.style.perspective = PZ.view3d.dist + 'px';
+  const S = V3.cell;
+  for(const cu of PZ.cubies){
     const el = document.createElement('div');
     el.className = 'cubie';
-    el.style.cssText = 'left:' + (-S3/2) + 'px;top:' + (-S3/2) + 'px;width:' + S3 + 'px;height:' + S3 + 'px';
+    el.style.cssText = 'left:' + (-S/2) + 'px;top:' + (-S/2) + 'px;width:' + S + 'px;height:' + S + 'px';
     const st = {};
     for(const d of DIR_LIST){
       const s = document.createElement('div');
       s.className = 'sticker blank';
-      s.style.cssText = 'left:2px;top:2px;width:' + (S3-4) + 'px;height:' + (S3-4) + 'px;transform:' +
-        (STICKER_TF[d] ? STICKER_TF[d] + ' ' : '') + 'translateZ(' + (S3/2 - 1) + 'px)';
+      s.style.cssText = 'left:2px;top:2px;width:' + (S-4) + 'px;height:' + (S-4) + 'px;transform:' +
+        (STICKER_TF[d] ? STICKER_TF[d] + ' ' : '') + 'translateZ(' + (S/2 - 1) + 'px)';
       s.dataset.d = d;
       el.appendChild(s); st[d] = s;
     }
-    const c = {x, y, z, el, st, col:{}};
+    const c = {x:cu.c[0], y:cu.c[1], z:cu.c[2], el, st, col:{}};
     el.__c = c;
     V3.cubies.push(c);
     V3.el.appendChild(el);
     placeCubie(c);
   }
-  wireOrbit();
   applyView();
-  on('state', e => { if(!e || !e.from3d) sync3D(); });
+  if(!buildCube3D.wired){ buildCube3D.wired = true; on('state', e => { if(!e || !e.from3d) sync3D(); }); }
 }
 function placeCubie(c){
-  c.el.style.transform = 'translate3d(' + (c.x*S3) + 'px,' + (-c.y*S3) + 'px,' + (c.z*S3) + 'px)';
+  const S = V3.cell/2;
+  c.el.style.transform = 'translate3d(' + (c.x*S) + 'px,' + (-c.y*S) + 'px,' + (c.z*S) + 'px)';
 }
 function paintCubie(c){
   for(const d of DIR_LIST){
@@ -1087,31 +1396,29 @@ function paintCubie(c){
     else { s.className = 'sticker'; s.style.background = COLORS[v].hex; s.dataset.c = v; }
   }
 }
+const onFace = (c, d) => {
+  const v = DIR_VEC[d], ax = v[0] ? 0 : v[1] ? 1 : 2;
+  return [c.x, c.y, c.z][ax] === v[ax]*PZ.maxCoord[ax];
+};
 /* modèle → 3D */
 function sync3D(){
-  if(!V3.el) return;
+  if(!V3.el || !V3.cubies.length) return;
   for(const c of V3.cubies){
-    /* remise en place logique : on repart des coordonnées d'origine */
-    for(const d of DIR_LIST){
-      const v = DIR_VEC[d];
-      const on = (v[0] && c.x === v[0]) || (v[1] && c.y === v[1]) || (v[2] && c.z === v[2]);
-      c.col[d] = on ? APP.colors[faceletIndexOf(c.x, c.y, c.z, d)] : null;
-    }
+    for(const d of DIR_LIST)
+      c.col[d] = onFace(c, d) ? APP.colors[PZ.stickerIndex([c.x, c.y, c.z], d)] : null;
     paintCubie(c);
   }
 }
-/* 3D → chaîne de couleurs (lue depuis le DOM, cf. test §10.6) */
+/* 3D → tableau de couleurs (lu depuis le DOM, cf. test §10.6) */
 function read3DColors(fromComputedStyle){
-  const out = new Uint8Array(54).fill(255);
+  const out = new Uint8Array(PZ.nStickers).fill(255);
   const rgbMap = {};
   COLORS.forEach((c, i) => {
     const n = parseInt(c.hex.slice(1), 16);
     rgbMap['rgb(' + ((n>>16)&255) + ', ' + ((n>>8)&255) + ', ' + (n&255) + ')'] = i;
   });
   for(const c of V3.cubies) for(const d of DIR_LIST){
-    const v = DIR_VEC[d];
-    const on = (v[0] && c.x === v[0]) || (v[1] && c.y === v[1]) || (v[2] && c.z === v[2]);
-    if(!on) continue;
+    if(!onFace(c, d)) continue;
     const el = c.st[d];
     let ci;
     if(fromComputedStyle){
@@ -1119,23 +1426,21 @@ function read3DColors(fromComputedStyle){
       ci = rgbMap[bg];
       if(ci === undefined) throw new Error('couleur DOM non reconnue : ' + bg);
     } else ci = +el.dataset.c;
-    out[faceletIndexOf(c.x, c.y, c.z, d)] = ci;
+    out[PZ.stickerIndex([c.x, c.y, c.z], d)] = ci;
   }
   return out;
 }
 /* applique un coup au niveau 3D (positions + couleurs locales) */
 function commitMove3D(m){
-  const face = FACES[moveAxis(m)], p = movePower(m);
-  const vf = DIR_VEC[face];
-  const ax = vf[0] ? 0 : vf[1] ? 1 : 2, sg = vf[ax];
-  const sel = V3.cubies.filter(c => [c.x, c.y, c.z][ax] === sg);
+  const mv = PZ.moves[m];
+  const sel = V3.cubies.filter(c => [c.x, c.y, c.z][mv.sel.ax] === mv.sel.val);
   for(const c of sel){
-    for(let k=0;k<p;k++){
-      const [x,y,z] = rotVec(face, [c.x, c.y, c.z]);
+    for(let k=0;k<mv.turns;k++){
+      const [x, y, z] = rotVec(mv.axis, [c.x, c.y, c.z]);
       c.x = x; c.y = y; c.z = z;
       const nc = {};
       for(const d of DIR_LIST){
-        const nv = rotVec(face, DIR_VEC[d]);
+        const nv = rotVec(mv.axis, DIR_VEC[d]);
         const nd = DIR_LIST.find(dd => {
           const w = DIR_VEC[dd]; return w[0] === nv[0] && w[1] === nv[1] && w[2] === nv[2];
         });
@@ -1150,17 +1455,15 @@ function commitMove3D(m){
 /* animation d'un coup (§8.3) — reparentage dans une couche temporaire */
 function animateMove3D(m, ms){
   return new Promise(resolve => {
-    const face = FACES[moveAxis(m)], p = movePower(m);
-    const vf = DIR_VEC[face];
-    const ax = vf[0] ? 0 : vf[1] ? 1 : 2, sg = vf[ax];
-    const sel = V3.cubies.filter(c => [c.x, c.y, c.z][ax] === sg);
+    const mv = PZ.moves[m];
+    const sel = V3.cubies.filter(c => [c.x, c.y, c.z][mv.sel.ax] === mv.sel.val);
     if(ms <= 0){ commitMove3D(m); resolve(); return; }
     const layer = document.createElement('div');
     layer.className = 'layer';
     V3.el.appendChild(layer);
     sel.forEach(c => layer.appendChild(c.el));
-    const [ax0, ay0, az0, a90] = LAYER_TF[face];
-    const ang = p === 3 ? -a90 : a90 * p;
+    const [ax0, ay0, az0, a90] = LAYER_TF[mv.axis];
+    const ang = mv.turns === 3 ? -a90 : a90 * mv.turns;
     layer.style.transition = 'none';
     layer.style.transform = 'rotate3d(' + ax0 + ',' + ay0 + ',' + az0 + ',0deg)';
     void layer.offsetWidth;
@@ -1182,27 +1485,27 @@ function animateMove3D(m, ms){
 function applyView(){
   V3.el.style.transform = 'scale(' + V3.zoom + ') rotateX(' + V3.rx + 'deg) rotateY(' + V3.ry + 'deg)';
   const z = document.getElementById('zoomLbl');
-  if(z) z.textContent = Math.round(V3.zoom * 100) + ' %';
+  if(z) z.textContent = Math.round(V3.zoom/PZ.view3d.scale * 100) + ' %';
 }
 function setView(rx, ry){ V3.rx = rx; V3.ry = ry; V3.vx = V3.vy = 0; applyView(); }
 function wireOrbit(){
   const sc = V3.scene;
-  let down = false, lx = 0, ly = 0, moved = 0;
+  let down = false, lx = 0, ly = 0;
   sc.addEventListener('pointerdown', e => {
-    down = true; moved = 0; lx = e.clientX; ly = e.clientY;
+    down = true; lx = e.clientX; ly = e.clientY;
     V3.vx = V3.vy = 0; cancelAnimationFrame(V3.raf);
     sc.classList.add('grabbing'); sc.setPointerCapture(e.pointerId);
   });
   sc.addEventListener('pointermove', e => {
     if(!down) return;
     const dx = e.clientX - lx, dy = e.clientY - ly;
-    lx = e.clientX; ly = e.clientY; moved += Math.abs(dx) + Math.abs(dy);
+    lx = e.clientX; ly = e.clientY;
     V3.ry += dx * 0.42; V3.rx -= dy * 0.42;
     V3.rx = Math.max(-80, Math.min(80, V3.rx));
     V3.vx = -dy * 0.42; V3.vy = dx * 0.42;
     applyView();
   });
-  const up = e => {
+  const up = () => {
     if(!down) return; down = false; sc.classList.remove('grabbing');
     const glide = () => {
       V3.vx *= 0.94; V3.vy *= 0.94;
@@ -1217,7 +1520,8 @@ function wireOrbit(){
   sc.addEventListener('dblclick', () => setView(-26, -34));
   sc.addEventListener('wheel', e => {
     e.preventDefault();
-    V3.zoom = Math.max(0.6, Math.min(1.6, V3.zoom * (e.deltaY > 0 ? 0.92 : 1.08)));
+    const base = PZ.view3d.scale;
+    V3.zoom = Math.max(0.6*base, Math.min(1.6*base, V3.zoom * (e.deltaY > 0 ? 0.92 : 1.08)));
     applyView();
   }, {passive:false});
   document.getElementById('btnView0').onclick = () => setView(-26, -34);
@@ -1234,14 +1538,14 @@ const PLAY = {
 };
 function buildSolverPanel(){
   const host = document.getElementById('colC');
+  host.innerHTML = '';
   const sec = document.createElement('section');
   sec.className = 'panel';
   sec.innerHTML =
     '<div class="ph">Solution <span class="sp" id="solMeta"></span></div>' +
     '<div class="acts" style="margin-bottom:11px">' +
       '<select id="solverSel" title="Choix du solveur">' +
-        '<option value="lbl">Couche par couche · pédagogique</option>' +
-        '<option value="kociemba">Kociemba 2 phases · court</option>' +
+        PZ.solvers.map(s => '<option value="' + s.id + '">' + s.label + '</option>').join('') +
       '</select>' +
       '<button class="btn pri" id="btnSolve">⚡ Résoudre</button>' +
       '<button class="btn" id="btnPlayScramble" title="Charger le dernier mélange dans le lecteur">🎬 Mélange</button>' +
@@ -1271,7 +1575,10 @@ function buildSolverPanel(){
     '<div class="movelist" id="movelist"><div class="empty">Aucune solution chargée.<br>Choisissez un solveur puis <b>Résoudre</b>, ou chargez un mélange.</div></div>';
   host.appendChild(sec);
   wirePlayer();
-  on('state', () => { if(!PLAY.lock) clearSequence(); updateSolveBtn(); });
+  if(!buildSolverPanel.wired){
+    buildSolverPanel.wired = true;
+    on('state', () => { if(!PLAY.lock) clearSequence(); updateSolveBtn(); });
+  }
 }
 function updateSolveBtn(){
   const b = document.getElementById('btnSolve'); if(!b) return;
@@ -1307,7 +1614,7 @@ function renderMoveList(){
   PLAY.groups.forEach((g, gi) => {
     const d = document.createElement('details');
     d.className = 'grp'; d.open = true; d.dataset.g = gi;
-    const mvs = g.moves.map(m => { const idx = k++; return '<span class="mv" data-k="' + idx + '">' + MOVE_NAMES[m] + '</span>'; }).join('');
+    const mvs = g.moves.map(m => { const idx = k++; return '<span class="mv" data-k="' + idx + '">' + PZ.moveNames[m] + '</span>'; }).join('');
     d.innerHTML = '<summary>' + (gi + 1) + '. ' + g.step +
       '<span class="go" data-go="' + (k - g.moves.length) + '" title="Aller au début de cette étape">⏵ ici</span>' +
       '<span class="n">' + g.moves.length + ' coups</span></summary>' +
@@ -1356,14 +1663,15 @@ async function applyMoveToAll(m, animate){
   V3.busy = true;
   await animateMove3D(m, animate ? moveDuration() : 0);
   PLAY.lock = true;
-  setCubie(applyMove(APP.cubie, m), {from3d:true});
+  setColors(permApply(APP.colors, PZ.moves[m].perm), {from3d:true});
   PLAY.lock = false;
-  flashFace(FACES[moveAxis(m)]);
+  flashMoved(m);
   V3.busy = false;
 }
-function flashFace(f){
-  const b = FACE_IDX[f] * 9;
-  for(let k=0;k<9;k++) flashSticker(b + k);
+/* surligne brièvement les stickers qui viennent de bouger (§8.4) */
+function flashMoved(m){
+  const perm = PZ.moves[m].perm;
+  for(let i=0;i<perm.length;i++) if(perm[i] !== i) flashSticker(perm[i]);
 }
 async function stepForward(animate){
   if(PLAY.idx >= PLAY.flat.length) return false;
@@ -1374,7 +1682,7 @@ async function stepForward(animate){
 }
 async function stepBack(animate){
   if(PLAY.idx <= 0) return false;
-  const m = invMove(PLAY.flat[PLAY.idx - 1]);
+  const m = PZ.invMoveIdx[PLAY.flat[PLAY.idx - 1]];
   await applyMoveToAll(m, animate !== false);
   PLAY.idx--; renderProgress();
   return true;
@@ -1384,14 +1692,10 @@ function jumpTo(k){
   k = Math.max(0, Math.min(PLAY.flat.length, k));
   if(!PLAY.startColors) return;
   PLAY.playing = false; setPlayIcon();
+  let cols = PLAY.startColors.slice();
+  for(let i=0;i<k;i++) cols = permApply(cols, PZ.moves[PLAY.flat[i]].perm);
   PLAY.lock = true;
-  setColors(PLAY.startColors.slice(), {noSave:true});
-  PLAY.lock = false;
-  sync3D();
-  let c = APP.cubie;
-  for(let i=0;i<k;i++) c = applyMove(c, PLAY.flat[i]);
-  PLAY.lock = true;
-  setCubie(c);
+  setColors(cols, {noSave:true});
   PLAY.lock = false;
   sync3D();
   PLAY.idx = k; renderProgress();
@@ -1427,13 +1731,16 @@ function wirePlayer(){
   g('prog').oninput = e => jumpTo(+e.target.value);
   g('speedSel').value = String(APP.settings.speed || 1);
   g('speedSel').onchange = e => { APP.settings.speed = +e.target.value; saveLS(); };
+  const bl = g('budgetInput').closest('.budget');
+  if(bl) bl.style.display = PZ.solvers.some(s => s.id === 'kociemba') ? '' : 'none';
   g('budgetInput').value = APP.settings.budget || 500;
   g('budgetInput').onchange = e => { APP.settings.budget = +e.target.value || 500; saveLS(); };
-  g('solverSel').value = APP.settings.solver || 'lbl';
+  const want = APP.settings.solver;
+  g('solverSel').value = PZ.solvers.some(s => s.id === want) ? want : PZ.solvers[0].id;
   g('solverSel').onchange = e => { APP.settings.solver = e.target.value; saveLS(); };
   g('btnPlayScramble').onclick = () => {
     if(!APP.lastScrambleSeq){ toast('Aucun mélange en mémoire — cliquez sur Mélanger'); return; }
-    PLAY.lock = true; setCubie(identityCube()); PLAY.lock = false; sync3D();
+    PLAY.lock = true; setColors(solvedColors()); PLAY.lock = false; sync3D();
     loadSequence([{step:'Mélange', moves:APP.lastScrambleSeq.slice(), note:'Séquence de mélange appliquée depuis le cube résolu.'}],
                  'mélange', '<span>coups <b>' + APP.lastScrambleSeq.length + '</b></span>');
     toast('Mélange chargé dans le lecteur');
@@ -1750,53 +2057,16 @@ function cancelSeq(seq){
   return a;
 }
 /* =========================================================================
-   ===== MODULE SOLVE — pilotage des solveurs depuis l'UI ==================
-   ========================================================================= */
-async function solveCurrent(){
-  if(!APP.valid || !APP.valid.ok){ toast('Le cube doit d’abord être valide (§3)'); return; }
-  const which = document.getElementById('solverSel').value;
-  const btn = document.getElementById('btnSolve');
-  btn.disabled = true; btn.textContent = '⏳ Calcul…';
-  await new Promise(r => setTimeout(r, 16));
-  try{
-    if(which === 'kociemba'){
-      if(typeof solveKociembaUI === 'function') await solveKociembaUI();
-      else toast('Solveur Kociemba indisponible');
-    } else {
-      const res = solveLBL(APP.cubie);
-      const n = res.flat.length;
-      loadSequence(res.groups, 'couche par couche',
-        '<span>coups <b>' + n + '</b></span>' +
-        '<span>étapes <b>' + res.groups.length + '</b></span>' +
-        '<span>calcul <b>' + Math.round(res.ms) + '</b> ms</span>' +
-        '<span>croix <b>' + CROSS.states.toLocaleString('fr-FR') + '</b> états BFS</span>');
-      toast('Solution couche par couche : ' + n + ' coups');
-    }
-  }catch(e){
-    toast('Échec du solveur : ' + e.message.slice(0, 80));
-    const ss = document.getElementById('solStats');
-    if(ss) ss.innerHTML = '<div class="stat" style="border-color:rgba(248,113,113,.4)">' +
-      '<span style="color:#fecaca">' + e.message + '</span></div>';
-  }
-  btn.textContent = '⚡ Résoudre'; updateSolveBtn();
-}
-/* =========================================================================
-   ===== MODULE PHOTO (§5) =================================================
-   6 photos → échantillonnage → CIE Lab → affectation sous contrainte
-   « exactement 9 par couleur » (algorithme hongrois sur 54×54).
-   Les 6 centres servent de références : rouge/orange devient fiable puisque
-   comparé aux références prises dans la même lumière (§5.3).
+   ===== MODULE PHOTO (§5, §12.8) ==========================================
+   6 photos → échantillonnage → CIE Lab → affectation sous quota.
+   Deux stratégies de référence :
+   · puzzle avec centres (§5.3)  : les 6 centres sont les références ;
+   · puzzle sans centre (§12.8)  : k-moyennes en Lab, séparément sur les
+     faces axiales (calottes) et sur les faces latérales — la contrainte
+     géométrique du §12.4 rend le problème plus facile que sur le 3×3.
    ========================================================================= */
 const CAN = 300;                          // côté du canvas de travail (§5.2)
-const PHOTO = {f:[], order:[2,1,5,4,0,3]};// ordre d'affichage : F R B L U D (§5.1)
-const ORIENT = [
-  {top:'U', left:'—',  txt:'vu de dessus, F vers le bas'},   // U
-  {top:'U', left:'F',  txt:'U en haut, F à gauche'},         // R
-  {top:'U', left:'L',  txt:'U en haut'},                     // F
-  {top:'U', left:'—',  txt:'vu de dessous, F vers le haut'}, // D
-  {top:'U', left:'B',  txt:'U en haut, B à gauche'},         // L
-  {top:'U', left:'R',  txt:'U en haut, R à gauche'}          // B
-];
+const PHOTO = {f:[]};
 
 /* --- sRGB → CIE Lab (§5.3.1) --- */
 function srgbToLab(r, g, b){
@@ -1840,35 +2110,123 @@ function hungarian(cost, n){
   for(let j=1;j<=n;j++) if(p[j]) res[p[j]-1] = j-1;
   return res;
 }
-/* affectation 54 échantillons → 6 couleurs, quota 9 (§5.3) */
-function assignColors(labs){
-  const ref = CENTER_IDX.map(i => labs[i]);            // les 6 centres = références
-  const cost6 = labs.map(l => ref.map(r => deltaE76(l, r)));
+/* affectation d'un groupe d'échantillons sur k références, avec quotas */
+function assignWithQuota(labs, idxs, refs, quotas){
+  const n = idxs.length;
+  const cost = idxs.map(i => refs.map(r => deltaE76(labs[i], r)));
   const big = [];
-  for(let i=0;i<54;i++){
-    const row = new Float64Array(54);
-    for(let j=0;j<54;j++) row[j] = cost6[i][(j/9)|0];
+  for(let a=0;a<n;a++){
+    const row = new Float64Array(n);
+    let col = 0;
+    refs.forEach((r, c) => { for(let q=0;q<quotas[c];q++) row[col++] = cost[a][c]; });
     big.push(row);
   }
-  const assign = hungarian(big, 54);
-  const colors = new Uint8Array(54), conf = new Float64Array(54);
-  for(let i=0;i<54;i++){
-    const c = (assign[i]/9)|0;
-    colors[i] = c;
+  const bounds = []; let acc = 0;
+  quotas.forEach((q, c) => { bounds.push([acc, acc + q, c]); acc += q; });
+  const assign = hungarian(big, n);
+  const out = new Array(n), conf = new Array(n);
+  for(let a=0;a<n;a++){
+    const j = assign[a];
+    const c = bounds.find(b => j >= b[0] && j < b[1])[2];
+    out[a] = c;
     let best = Infinity;
-    for(let k=0;k<6;k++) if(k !== c) best = Math.min(best, cost6[i][k]);
-    conf[i] = best - cost6[i][c];                       // marge sur le 2ᵉ meilleur
+    for(let k=0;k<refs.length;k++) if(k !== c) best = Math.min(best, cost[a][k]);
+    conf[a] = best - cost[a][c];
   }
-  return {colors, conf, cost6};
+  return {cls:out, conf, cost};
+}
+/* k-moyennes en Lab, initialisation par point le plus éloigné (§12.8) */
+function kmeansLab(labs, idxs, k, iters){
+  const pts = idxs.map(i => labs[i]);
+  const cen = [pts[0].slice()];
+  while(cen.length < k){
+    let bi = 0, bd = -1;
+    pts.forEach((p, i) => {
+      const d = Math.min.apply(null, cen.map(c => deltaE76(p, c)));
+      if(d > bd){ bd = d; bi = i; }
+    });
+    cen.push(pts[bi].slice());
+  }
+  let lab = new Array(pts.length).fill(0);
+  for(let it=0; it<(iters || 25); it++){
+    let moved = false;
+    pts.forEach((p, i) => {
+      let b = 0, bd = Infinity;
+      cen.forEach((c, j) => { const d = deltaE76(p, c); if(d < bd){ bd = d; b = j; } });
+      if(lab[i] !== b){ lab[i] = b; moved = true; }
+    });
+    for(let j=0;j<k;j++){
+      const grp = pts.filter((_, i) => lab[i] === j);
+      if(!grp.length) continue;
+      cen[j] = [0,1,2].map(d => grp.reduce((s, p) => s + p[d], 0) / grp.length);
+    }
+    if(!moved && it) break;
+  }
+  /* médoïdes : le point réel le plus proche de chaque centroïde */
+  return cen.map((c, j) => {
+    let best = c, bd = Infinity;
+    pts.forEach((p, i) => { if(lab[i] !== j) return; const d = deltaE76(p, c); if(d < bd){ bd = d; best = p; } });
+    return best;
+  });
+}
+
+/* --- classification des 6 faces d'un puzzle --- */
+function classifySamples(labs){
+  const n = PZ.nStickers;
+  const colors = new Uint8Array(n), conf = new Float64Array(n);
+  const info = {suspect:new Set(), method:''};
+  if(PZ.hasCenters){
+    /* §5.3 : les centres sont par définition un exemplaire correct de chaque couleur */
+    const refs = PZ.centerIdx.map(i => labs[i]);
+    const idxs = []; for(let i=0;i<n;i++) idxs.push(i);
+    const r = assignWithQuota(labs, idxs, refs, PZ.quotaSizes);
+    idxs.forEach((i, a) => { colors[i] = FACE_COLOR_DEFAULT[r.cls[a]]; conf[i] = r.conf[a]; });
+    info.method = 'références = les 6 centres';
+  } else {
+    /* §12.8 : deux classifications indépendantes, contrainte géométrique du §12.4 */
+    const axial = [], side = [];
+    for(let i=0;i<n;i++) (PZ.axialFacelets.has(i) ? axial : side).push(i);
+    const axFaces = PZ.faces.filter(f => PZ.axialFaces.indexOf(f.key) >= 0);
+    const sdFaces = PZ.faces.filter(f => PZ.axialFaces.indexOf(f.key) < 0);
+    const refA = kmeansLab(labs, axial, axFaces.length);
+    const refS = kmeansLab(labs, side, sdFaces.length);
+    const rA = assignWithQuota(labs, axial, refA, axFaces.map(f => f.n));
+    const rS = assignWithQuota(labs, side, refS, sdFaces.map(f => f.n));
+    /* nommage : chaque classe reçoit la couleur de la face où elle domine
+       (le repère est libre — §12.8 — c'est purement cosmétique) */
+    const nameClasses = (idxs, res, faces) => {
+      const k = faces.length;
+      const cnt = Array.from({length:k}, () => new Array(k).fill(0));
+      idxs.forEach((i, a) => {
+        const fi = faces.findIndex(f => f.key === PZ.faces[PZ.faceOfSticker[i]].key);
+        if(fi >= 0) cnt[res.cls[a]][fi]++;
+      });
+      const cost = cnt.map(row => row.map(v => -v));
+      const asg = hungarian(cost, k);
+      return c => FACE_COLOR_DEFAULT[faces[asg[c]].dirIdx];
+    };
+    const mapA = nameClasses(axial, rA, axFaces), mapS = nameClasses(side, rS, sdFaces);
+    axial.forEach((i, a) => { colors[i] = mapA(rA.cls[a]); conf[i] = rA.conf[a]; });
+    side.forEach((i, a) => { colors[i] = mapS(rS.cls[a]); conf[i] = rS.conf[a]; });
+    /* détecteur du §12.6 : un sticker de calotte bien plus proche d'une
+       couleur latérale (ou l'inverse) = pièce remise à l'envers */
+    const near = (i, refs) => Math.min.apply(null, refs.map(r => deltaE76(labs[i], r)));
+    axial.forEach(i => { if(near(i, refS) < near(i, refA) - 4) info.suspect.add(i); });
+    side.forEach(i => { if(near(i, refA) < near(i, refS) - 4) info.suspect.add(i); });
+    info.method = 'k-moyennes Lab (2 calottes + 4 latérales), quotas ' +
+                  axFaces.map(f => f.n).join('/') + ' et ' + sdFaces.map(f => f.n).join('/');
+  }
+  return {colors, conf, info};
 }
 
 /* --- échantillonnage d'une face (§5.2.4) --- */
-function sampleFace(ctx, crop){
+function sampleFace(ctx, crop, rows, cols){
   const out = [];
-  const cell = crop.w / 3, rad = cell * 0.2;            // disque ≈ 40 % de la case
+  const cw = crop.w / cols, ch = (crop.h === undefined ? crop.w : crop.h) / rows;
+  const rad = Math.min(cw, ch) * 0.2;                   // disque ≈ 40 % de la case
   const img = ctx.getImageData(0, 0, CAN, CAN).data;
-  for(let r=0;r<3;r++) for(let c=0;c<3;c++){
-    const cx = crop.x + (c + 0.5)*cell, cy = crop.y + (r + 0.5)*cell;
+  for(let r=0;r<rows;r++) for(let c=0;c<cols;c++){
+    const cx = crop.x + (c + 0.5)*cw, cy = crop.y + (r + 0.5)*ch;
     const px = [];
     const x0 = Math.max(0, Math.floor(cx - rad)), x1 = Math.min(CAN-1, Math.ceil(cx + rad));
     const y0 = Math.max(0, Math.floor(cy - rad)), y1 = Math.min(CAN-1, Math.ceil(cy + rad));
@@ -1891,12 +2249,18 @@ function sampleFace(ctx, crop){
 
 /* --- UI --- */
 function orientPicto(f){
-  const o = ORIENT[f];
+  const face = PZ.faces[f];
+  const w = 8 + face.cols*5, h = 8 + face.rows*5;
   return '<svg class="pic" width="34" height="26" viewBox="0 0 34 26" aria-hidden="true">' +
-    '<rect x="9" y="6" width="16" height="16" rx="2" fill="none" stroke="#a78bfa" stroke-width="1.3"/>' +
-    '<text x="17" y="17.5" font-size="9" fill="#e8ecf7" text-anchor="middle" font-family="monospace">' + FACES[f] + '</text>' +
-    '<text x="17" y="4.5" font-size="7.5" fill="#22d3ee" text-anchor="middle" font-family="monospace">' + o.top + '</text>' +
-    (o.left !== '—' ? '<text x="4" y="16" font-size="7.5" fill="#f472b6" text-anchor="middle" font-family="monospace">' + o.left + '</text>' : '') +
+    '<rect x="' + (17 - w/2) + '" y="' + (14 - h/2) + '" width="' + w + '" height="' + h + '" rx="2" ' +
+      'fill="none" stroke="#a78bfa" stroke-width="1.3"/>' +
+    '<text x="17" y="16.5" font-size="8" fill="#e8ecf7" text-anchor="middle" font-family="monospace">' + FACES[f] + '</text>' +
+    '<text x="17" y="4.5" font-size="7.5" fill="#22d3ee" text-anchor="middle" font-family="monospace">' +
+      (f === 0 ? 'B' : f === 3 ? 'F' : 'U') + '</text>' +
+    (f === 1 ? '<text x="4" y="16" font-size="7.5" fill="#f472b6" text-anchor="middle" font-family="monospace">F</text>' :
+     f === 4 ? '<text x="4" y="16" font-size="7.5" fill="#f472b6" text-anchor="middle" font-family="monospace">B</text>' :
+     f === 5 ? '<text x="4" y="16" font-size="7.5" fill="#f472b6" text-anchor="middle" font-family="monospace">R</text>' :
+     f === 2 ? '<text x="4" y="16" font-size="7.5" fill="#f472b6" text-anchor="middle" font-family="monospace">L</text>' : '') +
     '</svg>';
 }
 function buildPhotoPanel(){
@@ -1908,11 +2272,14 @@ function buildPhotoPanel(){
       '<span class="z" id="photoMeta" style="font:600 11px var(--mono);color:var(--txt-faint);margin-left:auto"></span>' +
     '</div><div class="thumbs" id="thumbs"></div>';
   const wrap = document.getElementById('thumbs');
-  PHOTO.order.forEach(f => {
+  PHOTO.f = [];
+  PZ.photoOrder.forEach(f => {
+    const face = PZ.faces[f];
     const d = document.createElement('div');
     d.className = 'thumb'; d.dataset.f = f;
     d.innerHTML =
-      '<div class="th-head">' + FACES[f] + orientPicto(f) + '<span class="o">' + ORIENT[f].txt + '</span></div>' +
+      '<div class="th-head">' + FACES[f] + orientPicto(f) +
+        '<span class="o">' + PZ.photoHint[f] + ' · ' + face.cols + '×' + face.rows + '</span></div>' +
       '<div class="th-body">' +
         '<canvas width="' + CAN + '" height="' + CAN + '"></canvas>' +
         '<div class="crop"><div class="g"></div><div class="h nw"></div><div class="h ne"></div><div class="h sw"></div><div class="h se"></div></div>' +
@@ -1924,7 +2291,8 @@ function buildPhotoPanel(){
       '</div>';
     wrap.appendChild(d);
     const cv = d.querySelector('canvas');
-    const st = {f, el:d, canvas:cv, ctx:cv.getContext('2d', {willReadFrequently:true}), crop:{x:0,y:0,w:CAN}, loaded:false};
+    const st = {f, el:d, canvas:cv, ctx:cv.getContext('2d', {willReadFrequently:true}),
+                rows:face.rows, cols:face.cols, crop:{x:0, y:0, w:CAN, h:CAN}, loaded:false};
     PHOTO.f[f] = st;
     d.querySelector('input').addEventListener('change', e => { if(e.target.files[0]) loadPhoto(st, e.target.files[0]); });
     d.addEventListener('dragover', e => { e.preventDefault(); d.classList.add('drag'); });
@@ -1938,15 +2306,22 @@ function buildPhotoPanel(){
   });
   document.getElementById('btnAnalyze').onclick = analyzePhotos;
   document.getElementById('btnClearPhotos').onclick = () => {
-    PHOTO.f.forEach(st => { st.loaded = false; st.el.classList.remove('has'); st.ctx.clearRect(0,0,CAN,CAN); });
+    PHOTO.f.forEach(st => { if(!st) return; st.loaded = false; st.el.classList.remove('has'); st.ctx.clearRect(0,0,CAN,CAN); });
     updatePhotoMeta();
   };
   updatePhotoMeta();
 }
+function loadedCount(){ return PHOTO.f.filter(s => s && s.loaded).length; }
 function updatePhotoMeta(){
-  const n = PHOTO.f.filter(s => s && s.loaded).length;
-  document.getElementById('photoMeta').textContent = n + '/6 photos';
-  document.getElementById('btnAnalyze').disabled = n < 6;
+  document.getElementById('photoMeta').textContent = loadedCount() + '/6 photos';
+  document.getElementById('btnAnalyze').disabled = loadedCount() < 6;
+}
+/* plus grand rectangle centré au format de la face (§5.2.3) */
+function defaultCrop(st, w, h){
+  const ar = st.cols / st.rows;
+  let cw = w, chh = w / ar;
+  if(chh > h){ chh = h; cw = h * ar; }
+  return {x:(CAN - cw)/2, y:(CAN - chh)/2, w:cw, h:chh};
 }
 function loadPhoto(st, file){
   const url = URL.createObjectURL(file);
@@ -1956,8 +2331,7 @@ function loadPhoto(st, file){
     const w = img.width*s, h = img.height*s;
     st.ctx.fillStyle = '#04050a'; st.ctx.fillRect(0,0,CAN,CAN);
     st.ctx.drawImage(img, (CAN-w)/2, (CAN-h)/2, w, h);
-    const side = Math.min(w, h);
-    st.crop = {x:(CAN-side)/2, y:(CAN-side)/2, w:side};   // plus grand carré centré
+    st.crop = defaultCrop(st, w, h);
     st.loaded = true; st.el.classList.add('has');
     drawCrop(st); updatePhotoMeta();
     URL.revokeObjectURL(url);
@@ -1968,7 +2342,20 @@ function loadPhoto(st, file){
 function drawCrop(st){
   const c = st.el.querySelector('.crop'), p = v => (v/CAN*100) + '%';
   c.style.left = p(st.crop.x); c.style.top = p(st.crop.y);
-  c.style.width = p(st.crop.w); c.style.height = p(st.crop.w);
+  c.style.width = p(st.crop.w); c.style.height = p(st.crop.h);
+  c.style.backgroundImage =
+    'linear-gradient(90deg,' + gridStops(st.cols, '90') + '),' +
+    'linear-gradient(0deg,' + gridStops(st.rows, '0') + ')';
+}
+function gridStops(n){
+  const out = ['transparent 0'];
+  for(let i=1;i<n;i++){
+    const p = i/n*100;
+    out.push('transparent ' + (p - 0.4) + '%', 'rgba(255,255,255,.4) ' + (p - 0.4) + '%',
+             'rgba(255,255,255,.4) ' + (p + 0.4) + '%', 'transparent ' + (p + 0.4) + '%');
+  }
+  out.push('transparent 100%');
+  return out.join(',');
 }
 function wireCrop(st){
   const box = st.el.querySelector('.crop');
@@ -1986,53 +2373,54 @@ function wireCrop(st){
   });
   box.addEventListener('pointermove', e => {
     if(!mode) return;
-    const [x, y] = toCan(e), dx = x - sx, dy = y - sy;
+    const [x, y] = toCan(e), dx = x - sx, dy = y - sy, ar = st.cols/st.rows;
     if(mode === 'move'){
       st.crop.x = Math.max(0, Math.min(CAN - c0.w, c0.x + dx));
-      st.crop.y = Math.max(0, Math.min(CAN - c0.w, c0.y + dy));
+      st.crop.y = Math.max(0, Math.min(CAN - c0.h, c0.y + dy));
     } else {
-      const d = (mode === 'se') ? Math.max(dx, dy) : (mode === 'nw') ? -Math.min(dx, dy)
-              : (mode === 'ne') ? Math.max(dx, -dy) : Math.max(-dx, dy);
-      let w = Math.max(36, Math.min(CAN, c0.w + d));
+      const d = (mode === 'se') ? Math.max(dx, dy*ar) : (mode === 'nw') ? -Math.min(dx, dy*ar)
+              : (mode === 'ne') ? Math.max(dx, -dy*ar) : Math.max(-dx, dy*ar);
+      let w = Math.max(30, Math.min(CAN, c0.w + d)), h = w/ar;
+      if(h > CAN){ h = CAN; w = h*ar; }
       let nx = c0.x, ny = c0.y;
-      if(mode === 'nw'){ nx = c0.x + c0.w - w; ny = c0.y + c0.w - w; }
-      if(mode === 'ne'){ ny = c0.y + c0.w - w; }
+      if(mode === 'nw'){ nx = c0.x + c0.w - w; ny = c0.y + c0.h - h; }
+      if(mode === 'ne'){ ny = c0.y + c0.h - h; }
       if(mode === 'sw'){ nx = c0.x + c0.w - w; }
-      if(nx < 0){ w += nx; nx = 0; } if(ny < 0){ w += ny; ny = 0; }
-      if(nx + w > CAN) w = CAN - nx; if(ny + w > CAN) w = CAN - ny;
-      st.crop = {x:nx, y:ny, w:Math.max(36, w)};
+      nx = Math.max(0, Math.min(CAN - w, nx)); ny = Math.max(0, Math.min(CAN - h, ny));
+      st.crop = {x:nx, y:ny, w, h};
     }
     drawCrop(st);
   });
-  const end = e => { if(mode){ mode = null; } };
+  const end = () => { mode = null; };
   box.addEventListener('pointerup', end);
   box.addEventListener('pointercancel', end);
 }
 /* pipeline complet : 6 photos → grille */
 function analyzePhotos(){
-  const rgb = new Array(54);
+  const rgb = new Array(PZ.nStickers);
   for(let f=0; f<6; f++){
     const st = PHOTO.f[f];
     if(!st || !st.loaded){ toast('Il manque la photo ' + FACES[f]); return; }
-    const cells = sampleFace(st.ctx, st.crop);
-    for(let k=0;k<9;k++) rgb[f*9+k] = cells[k];
+    const cells = sampleFace(st.ctx, st.crop, st.rows, st.cols);
+    const face = PZ.faces[f];
+    for(let k=0;k<face.n;k++) rgb[face.offset + k] = cells[k];
   }
-  applySamples(rgb);
+  return applySamples(rgb);
 }
 function applySamples(rgb){
   const labs = rgb.map(c => srgbToLab(c[0], c[1], c[2]));
-  const {colors:byFace, conf} = assignColors(labs);
-  /* l'affectation rend l'indice de la face-référence : on repasse en couleurs de palette */
-  const colors = Uint8Array.from(byFace, f => FACE_COLOR_DEFAULT[f]);
-  const low = new Set();
-  for(let i=0;i<54;i++) if(conf[i] < 9) low.add(i);
+  const {colors, conf, info} = classifySamples(labs);
+  const low = new Set(info.suspect);
+  for(let i=0;i<PZ.nStickers;i++) if(conf[i] < 9) low.add(i);
   APP.lowConf = low;
   setColors(colors, {keepConf:true});
   APP.lowConf = low; paintNet();
   const meta = document.getElementById('photoMeta');
   if(meta) meta.textContent = low.size ? low.size + ' sticker(s) à vérifier' : 'lecture nette';
-  toast(low.size ? low.size + ' sticker(s) incertains — cerclés d’orange' : 'Grille remplie, lecture nette');
-  return {colors, conf, low};
+  if(info.suspect.size)
+    toast('Attention : ' + info.suspect.size + ' sticker(s) semblent appartenir à l’autre famille de faces (§12.6)');
+  else toast(low.size ? low.size + ' sticker(s) incertains — cerclés d’orange' : 'Grille remplie, lecture nette');
+  return {colors, conf, low, info};
 }
 /* =========================================================================
    ===== MODULE SOLVEUR B — KOCIEMBA DEUX PHASES (§7) ======================
@@ -2344,8 +2732,9 @@ async function solveKociembaUI(){
     setTimeout(() => prog.classList.remove('on'), 900);
   }
   const budget = Math.max(20, Math.min(20000, +APP.settings.budget || 500));
-  const res = kociembaSolve(APP.cubie, budget);
-  const check = applySeq(APP.cubie, res.moves);
+  const cubie = APP.valid.cubie;
+  const res = kociembaSolve(cubie, budget);
+  const check = applySeq(cubie, res.moves);
   if(!isSolvedCube(check)) throw new Error('solution Kociemba incorrecte — bug solveur');
   loadSequence([{step:'Kociemba — deux phases', moves:res.moves.slice(),
       note:'Phase 1 : orientation des coins et des arêtes + arêtes de tranche remises dans la tranche. ' +
@@ -2358,38 +2747,506 @@ async function solveKociembaUI(){
   toast('Solution Kociemba : ' + res.moves.length + ' coups en ' + Math.round(res.ms) + ' ms');
 }
 /* =========================================================================
+   ===== MODULE TOUR 2×2×4 (§12) ===========================================
+   Aucune table écrite à la main : tout est dérivé du moteur géométrique
+   du §12.1, prouvé sur le 3×3 par le harnais.
+   ========================================================================= */
+
+/* --- modèle de pièces : 8 « coins » (3 stickers), 8 « arêtes » (2 stickers) --- */
+function towerModel(){
+  if(PZ._tower) return PZ._tower;
+  const corners = [], edges = [];
+  for(const cu of PZ.cubies){
+    const n = Object.keys(cu.st).length;
+    if(n === 3) corners.push(cu); else if(n === 2) edges.push(cu);
+  }
+  const ord = (a, b) => (b.c[1] - a.c[1]) || (a.c[2] - b.c[2]) || (a.c[0] - b.c[0]);
+  corners.sort(ord); edges.sort(ord);
+  const cubieToCorner = {}, cubieToEdge = {};
+  corners.forEach((cu, i) => { cubieToCorner[cu.i] = i; });
+  edges.forEach((cu, i) => { cubieToEdge[cu.i] = i; });
+
+  /* --- orbite de chaque pièce : où elle peut aller, et dans quelle
+     orientation. La propriété 1 du §12.4 (aucune pièce ne tourne sur
+     elle-même) est VÉRIFIÉE ici, pas supposée : toute orientation
+     contradictoire est enregistrée dans `twists`. --- */
+  const twists = [];
+  const orbit = PZ.cubies.map(cu => {
+    const start = {}; Object.keys(cu.st).forEach(d => { start[d] = d; });
+    const seen = {}; seen[cu.i] = start;
+    const q = [cu.i];
+    while(q.length){
+      const ci = q.shift(), ori = seen[ci], c = PZ.cubies[ci];
+      for(const mv of PZ.moves){
+        if(c.c[mv.sel.ax] !== mv.sel.val) continue;
+        const nci = mv.cubiePerm[ci], nori = {};
+        for(const d in ori) nori[d] = dirKeyOfVec(rotVecN(mv.axis, DIR_OF[ori[d]].v, mv.turns));
+        const prev = seen[nci];
+        if(prev){
+          for(const d in nori) if(prev[d] !== nori[d]){ twists.push({piece:cu.i, pos:nci, dir:d}); break; }
+        } else { seen[nci] = nori; q.push(nci); }
+      }
+    }
+    return seen;
+  });
+  /* clé d'apparence d'une pièce à une position donnée, pour un repère donné */
+  const layoutKey = (piece, posCubie, frame) => {
+    const ori = orbit[piece][posCubie];
+    if(!ori) return null;
+    const parts = [];
+    for(const d in ori) parts.push(ori[d] + ':' + frame[d]);
+    return parts.sort().join('|');
+  };
+  /* classes de pièces indiscernables (§12.4.4 : 4 types d'arêtes en double) */
+  const idFrame = {}; DIR_KEYS.forEach(k => { idFrame[k] = k; });
+  const classOf = new Array(PZ.cubies.length).fill(-1);
+  const assignClasses = list => {
+    let n = 0;
+    list.forEach(cu => {
+      if(classOf[cu.i] >= 0) return;
+      classOf[cu.i] = n;
+      list.forEach(o => {
+        if(classOf[o.i] >= 0) return;
+        const common = Object.keys(orbit[cu.i]).filter(p => orbit[o.i][p] !== undefined);
+        if(common.length && common.every(p => layoutKey(cu.i, p, idFrame) === layoutKey(o.i, p, idFrame)))
+          classOf[o.i] = n;
+      });
+      n++;
+    });
+    return n;
+  };
+  const nCornerClasses = assignClasses(corners);
+  const nEdgeClasses = assignClasses(edges);
+
+  /* permutations de positions induites par les coups */
+  const posC = [], posE = [];
+  PZ.moves.forEach(mv => {
+    const pc = new Int32Array(corners.length), pe = new Int32Array(edges.length);
+    corners.forEach((cu, i) => { pc[i] = cubieToCorner[mv.cubiePerm[cu.i]]; });
+    edges.forEach((cu, i) => { pe[i] = cubieToEdge[mv.cubiePerm[cu.i]]; });
+    posC.push(pc); posE.push(pe);
+  });
+  /* rotations globales de la tour, exprimées en coups (§12.5 : 8 états résolus)
+     — rotation verticale = les 4 étages ensemble, retournement = les 2 tranches */
+  const seqV = ['Z0','Z1','Z2','Z3'].map(n => PZ.moveId[n]);
+  const seqF = ['X0','X1'].map(n => PZ.moveId[n]);
+
+  PZ._tower = {corners, edges, posC, posE, orbit, layoutKey, classOf,
+               cubieToCorner, cubieToEdge, twists, nCornerClasses, nEdgeClasses,
+               seqV, seqF, nC:corners.length, nE:edges.length};
+  return PZ._tower;
+}
+/* tables de référence « apparence → pièce » pour un repère donné */
+function towerRefMaps(frame){
+  const M = towerModel();
+  const cref = M.corners.map(() => ({})), eref = M.edges.map(() => ({}));
+  M.corners.forEach((cu, p) => {
+    M.corners.forEach(pc => {
+      const k = M.layoutKey(pc.i, cu.i, frame);
+      if(k !== null) cref[p][k] = M.cubieToCorner[pc.i];
+    });
+  });
+  M.edges.forEach((cu, p) => {
+    M.edges.forEach(pe => {
+      const k = M.layoutKey(pe.i, cu.i, frame);
+      if(k !== null) eref[p][k] = M.classOf[pe.i];
+    });
+  });
+  return {cref, eref};
+}
+function towerObserved(colors, cu){
+  const parts = [];
+  for(const d in cu.st) parts.push(d + ':' + colors[cu.st[d]]);
+  return parts.sort().join('|');
+}
+/* --- indexation de l'état (§12.7.1) ---------------------------------------
+   ATTENTION — écart mesuré avec le §12.4.4 : les 2 arêtes d'un même type ne
+   sont PAS interchangeables. Un demi-tour vertical retourne les pièces qu'il
+   déplace, et une arête médiane retournée montre ses deux couleurs dans
+   l'ordre inverse. Une arête ne peut donc changer d'étage médian qu'un
+   nombre impair de fois si et seulement si elle apparaît « miroir » : les 8
+   arêtes sont distinguables à l'œil. L'espace est donc 8! × 8! =
+   1 625 702 400 et non 8! × 2 520. Voir le rapport du harnais (§10.7).
+   L'index reste `coins × 40320 + arêtes`, les deux par code de Lehmer. */
+const N_TOWER_C = 40320, N_TOWER_E = 40320, N_TOWER = N_TOWER_C * N_TOWER_E;
+
+/* --- identification des pièces à partir des couleurs (§12.9) --- */
+function towerFrames(colors){
+  const M = towerModel();
+  const cap = new Set(), side = new Set();
+  for(let i=0;i<PZ.nStickers;i++) (PZ.axialFacelets.has(i) ? cap : side).add(colors[i]);
+  const capA = Array.from(cap), sideA = Array.from(side);
+  if(capA.length !== 2 || sideA.length !== 4) return [];
+  const out = [];
+  const permsOf = a => {
+    const res = [];
+    const rec = (cur, rest) => { if(!rest.length){ res.push(cur.slice()); return; }
+      rest.forEach((v, i) => rec(cur.concat(v), rest.filter((_, j) => j !== i))); };
+    rec([], a); return res;
+  };
+  const axKeys = PZ.axialFaces, sdKeys = PZ.faces.map(f => f.key).filter(k => axKeys.indexOf(k) < 0);
+  for(const pc of permsOf(capA)) for(const ps of permsOf(sideA)){
+    const frame = {};
+    axKeys.forEach((k, i) => { frame[k] = pc[i]; });
+    sdKeys.forEach((k, i) => { frame[k] = ps[i]; });
+    out.push(frame);
+  }
+  return out;
+}
+function towerIdentify(colors, frame){
+  const M = towerModel();
+  const {cref, eref} = towerRefMaps(frame);
+  const cp = new Array(M.nC), et = new Array(M.nE), badPieces = [];
+  M.corners.forEach((cu, i) => {
+    const j = cref[i][towerObserved(colors, cu)];
+    if(j === undefined){ badPieces.push({kind:'coin', pos:i, cubie:cu}); cp[i] = -1; } else cp[i] = j;
+  });
+  M.edges.forEach((cu, i) => {
+    const t = eref[i][towerObserved(colors, cu)];
+    if(t === undefined){ badPieces.push({kind:'arête', pos:i, cubie:cu}); et[i] = -1; } else et[i] = t;
+  });
+  if(badPieces.length) return {ok:false, badPieces, cp, et};
+  const seenC = new Array(M.nC).fill(0); cp.forEach(v => seenC[v]++);
+  const seenT = new Array(M.nEdgeClasses).fill(0); et.forEach(v => seenT[v]++);
+  const per = M.nE / M.nEdgeClasses;
+  if(seenC.some(v => v !== 1) || seenT.some(v => v !== per))
+    return {ok:false, badPieces:[], cp, et, dup:true};
+  return {ok:true, cp, et};
+}
+/* --- validation (§12.9) : quotas + pièces. Pas de test d'orientation ni de
+   parité : le §12.4 et le §12.5 les rendent SANS OBJET — ne pas en rajouter
+   « par sécurité », cela rejetterait des tours parfaitement valides. --- */
+const TOWER_CHECKS = [
+  ['quotas', '1 · Quotas et familles de couleurs'],
+  ['pieces', '2 · Pièces']
+];
+function validateTower(colors){
+  const res = {ok:false, checks:[], bad:new Set(), facelet:null, colorFace:null, tower:null};
+  const add = (id, label, state, msg) => res.checks.push({id, label, state, msg});
+  const M = towerModel();
+
+  /* --- 1. quotas et séparation calottes / faces latérales --- */
+  const capCount = {}, sideCount = {};
+  for(let i=0;i<PZ.nStickers;i++){
+    const t = PZ.axialFacelets.has(i) ? capCount : sideCount;
+    t[colors[i]] = (t[colors[i]] || 0) + 1;
+  }
+  const shared = Object.keys(capCount).filter(c => sideCount[c]);
+  if(shared.length){
+    /* §12.6 : une couleur de calotte sur une face latérale (ou l'inverse) */
+    shared.forEach(c => {
+      const onCap = capCount[c], onSide = sideCount[c];
+      for(let i=0;i<PZ.nStickers;i++){
+        if(colors[i] !== +c) continue;
+        const isCap = PZ.axialFacelets.has(i);
+        if((isCap && onCap <= onSide) || (!isCap && onSide < onCap)) res.bad.add(i);
+      }
+    });
+    add('quotas', TOWER_CHECKS[0][1], 'ko',
+      'la couleur ' + shared.map(c => COLORS[c].name).join(' et ') +
+      ' apparaît à la fois sur une calotte et sur une face latérale. Cette tour a été mélangée en la ' +
+      'déformant : remets les pièces surlignées dans le bon sens en faisant basculer une moitié verticale ' +
+      'd’un quart de tour, puis reprends une photo (§12.6).');
+    add('pieces', TOWER_CHECKS[1][1], 'na', 'en attente du contrôle des quotas');
+    return res;
+  }
+  const capKeys = Object.keys(capCount), sideKeys = Object.keys(sideCount);
+  const wrong = [];
+  capKeys.forEach(c => { if(capCount[c] !== PZ.quota.U) wrong.push(capCount[c] + ' ' + COLORS[c].plural + ' sur les calottes'); });
+  sideKeys.forEach(c => { if(sideCount[c] !== PZ.quota.F) wrong.push(sideCount[c] + ' ' + COLORS[c].plural + ' sur les faces latérales'); });
+  if(capKeys.length !== 2 || sideKeys.length !== 4 || wrong.length){
+    if(capKeys.length !== 2) wrong.unshift(capKeys.length + ' couleurs sur les calottes au lieu de 2');
+    if(sideKeys.length !== 4) wrong.unshift(sideKeys.length + ' couleurs sur les faces latérales au lieu de 4');
+    add('quotas', TOWER_CHECKS[0][1], 'ko',
+        wrong.join(', ') + ' — il faut ' + PZ.quota.U + ' stickers de chacune des 2 couleurs de calotte et ' +
+        PZ.quota.F + ' de chacune des 4 couleurs latérales.');
+    add('pieces', TOWER_CHECKS[1][1], 'na', 'en attente du contrôle des quotas');
+    return res;
+  }
+  add('quotas', TOWER_CHECKS[0][1], 'ok',
+      PZ.quota.U + '+' + PZ.quota.U + ' sur les calottes (' + capKeys.map(c => COLORS[c].name).join(', ') + '), ' +
+      sideKeys.map(() => PZ.quota.F).join('+') + ' sur les faces latérales');
+
+  /* --- 2. pièces : on cherche un repère cohérent (il est libre, §12.8) --- */
+  const frames = towerFrames(colors);
+  let best = null, bestFrame = null;
+  for(const fr of frames){
+    const r = towerIdentify(colors, fr);
+    if(r.ok){ best = r; bestFrame = fr; break; }
+    if(!best || (r.badPieces.length < best.badPieces.length)){ best = r; bestFrame = fr; }
+  }
+  if(!best || !best.ok){
+    (best && best.badPieces || []).forEach(b => {
+      for(const d in b.cubie.st) res.bad.add(b.cubie.st[d]);
+    });
+    add('pieces', TOWER_CHECKS[1][1], 'ko',
+      (best && best.badPieces && best.badPieces.length
+        ? best.badPieces.map(b => b.kind + ' n°' + (b.pos + 1) + ' impossible').slice(0, 4).join(' · ')
+        : 'une pièce apparaît en double, une autre manque') +
+      ' — aucun repère ne rend les 16 pièces cohérentes. Si la tour a été mélangée en la déformant, ' +
+      'remets les pièces surlignées dans le bon sens avant de reprendre une photo (§12.6).');
+    return res;
+  }
+  add('pieces', TOWER_CHECKS[1][1], 'ok',
+      M.nC + ' coins et ' + M.nE + ' arêtes, chacun identifié sans ambiguïté · ' +
+      'ni orientation ni parité à contrôler : le §12.4 et le §12.5 les rendent sans objet');
+  const colorFace = [];
+  for(const k in bestFrame) colorFace[bestFrame[k]] = FACE_IDX[k];
+  res.colorFace = colorFace;
+  res.facelet = colorsToFaceletUnsafe(colors, colorFace);
+  res.tower = {cp:best.cp, et:best.et, frame:bestFrame,
+               c:permRank(best.cp, 8), e:permRank(best.et, 8)};
+  res.ok = true;
+  return res;
+}
+
+/* =========================================================================
+   Solveur (§12.7 adapté) : IDA* optimal + 2 bases de motifs couplées.
+   La table complète du §12.7 supposait 101 606 400 états ; l'espace réel
+   étant 16 fois plus grand (1 625 702 400), une table brute pèserait 406 Mo.
+   On garde donc l'optimalité, mais par recherche guidée :
+     · base 1 = (permutation des 8 coins) × (positions des 4 arêtes hautes)
+     · base 2 = (permutation des 8 arêtes) × (positions des 4 coins hauts)
+   2,8 Mo chacune, admissibles (ce sont des projections exactes), générées en
+   ~1 s et mises en cache IndexedDB.
+   ========================================================================= */
+const TOWER = {ready:false, cm:null, em:null, csm:null, esm:null, pdb1:null, pdb2:null,
+               goals:null, goalSet:null, ms:0, from:'', NS:0, SUB:null, SUBI:null, grp:null};
+const TOWER_IDB_KEY = 'tower-pdb-v1';
+
+function towerBuildTables(){
+  const M = towerModel();
+  if(M.twists.length) throw new Error('propriété §12.4.1 violée : une pièce peut tourner sur elle-même');
+  const nm = PZ.nMoves;
+  const cm = new Int32Array(N_TOWER_C*nm), em = new Int32Array(N_TOWER_E*nm), tmp = new Array(8);
+  for(let r=0;r<N_TOWER_C;r++){
+    const q = permUnrank(r, 8);
+    for(let m=0;m<nm;m++){
+      const pc = M.posC[m]; for(let i=0;i<8;i++) tmp[pc[i]] = q[i];
+      cm[r*nm+m] = permRank(tmp, 8);
+      const pe = M.posE[m]; for(let i=0;i<8;i++) tmp[pe[i]] = q[i];
+      em[r*nm+m] = permRank(tmp, 8);
+    }
+  }
+  /* sous-ensembles de 4 positions parmi 8 → 0…69 */
+  const SUB = new Int16Array(256).fill(-1), SUBI = [];
+  for(let mask=0; mask<256; mask++){
+    let c = 0; for(let i=0;i<8;i++) if(mask & (1<<i)) c++;
+    if(c === 4){ SUB[mask] = SUBI.length; SUBI.push(mask); }
+  }
+  const NS = SUBI.length;
+  const subMove = posPerm => {
+    const t = new Int16Array(NS*nm);
+    for(let s=0;s<NS;s++){
+      const mask = SUBI[s];
+      for(let m=0;m<nm;m++){
+        const pp = posPerm[m]; let nmask = 0;
+        for(let i=0;i<8;i++) if(mask & (1<<i)) nmask |= 1 << pp[i];
+        t[s*nm+m] = SUB[nmask];
+      }
+    }
+    return t;
+  };
+  TOWER.cm = cm; TOWER.em = em;
+  TOWER.csm = subMove(M.posC); TOWER.esm = subMove(M.posE);
+  TOWER.SUB = SUB; TOWER.SUBI = SUBI; TOWER.NS = NS;
+  /* les 8 états résolus (§12.5) : l'identité et ses 7 rotations globales */
+  const step = (st, m) => {
+    const pc = M.posC[m], pe = M.posE[m], cp = new Array(8), ep = new Array(8);
+    for(let i=0;i<8;i++){ cp[pc[i]] = st.cp[i]; ep[pe[i]] = st.ep[i]; }
+    return {cp, ep};
+  };
+  const goals = [];
+  const base = {cp:[0,1,2,3,4,5,6,7], ep:[0,1,2,3,4,5,6,7]};
+  for(let flip=0; flip<2; flip++){
+    let st = base;
+    if(flip) M.seqF.forEach(m => { st = step(st, m); });
+    for(let k=0;k<4;k++){ goals.push({cp:st.cp.slice(), ep:st.ep.slice()}); M.seqV.forEach(m => { st = step(st, m); }); }
+  }
+  TOWER.goals = goals;
+  TOWER.goalSet = new Set(goals.map(g => permRank(g.cp, 8)*N_TOWER_E + permRank(g.ep, 8)));
+  TOWER.grp = PZ.moves.map(mv => PZ.moveGroups.indexOf(mv.group));
+  TOWER.step = step;
+}
+const towerSubsetOf = perm => { let mask = 0; for(let i=0;i<8;i++) if(perm[i] < 4) mask |= 1 << i; return TOWER.SUB[mask]; };
+function towerBuildPDB(mvPerm, mvSet, permOf, setOf){
+  const nm = PZ.nMoves, NS = TOWER.NS, size = N_TOWER_C*NS;
+  const d = new Uint8Array(size).fill(255);
+  const q = new Int32Array(size);
+  let head = 0, tail = 0;
+  TOWER.goals.forEach(g => { const i = permOf(g)*NS + setOf(g); if(d[i] === 255){ d[i] = 0; q[tail++] = i; } });
+  while(head < tail){
+    const cur = q[head++], pc = (cur/NS)|0, ps = cur % NS, dd = d[cur] + 1;
+    for(let m=0;m<nm;m++){
+      const n = mvPerm[pc*nm+m]*NS + mvSet[ps*nm+m];
+      if(d[n] === 255){ d[n] = dd; q[tail++] = n; }
+    }
+  }
+  return d;
+}
+async function towerInit(progress){
+  if(TOWER.ready) return TOWER;
+  const t0 = performance.now();
+  const say = (p, t) => { if(progress) progress(p, t); };
+  say(0.05, 'tables de transition (coins et arêtes, 40 320 × 16)…');
+  await new Promise(r => setTimeout(r, 0));
+  towerBuildTables();
+  try{
+    say(0.2, 'lecture du cache IndexedDB…');
+    const cached = await idbGet(TOWER_IDB_KEY);
+    if(cached && cached.pdb1 && cached.pdb1.length === N_TOWER_C*TOWER.NS){
+      TOWER.pdb1 = cached.pdb1; TOWER.pdb2 = cached.pdb2;
+      TOWER.ready = true; TOWER.from = 'IndexedDB'; TOWER.ms = performance.now() - t0;
+      say(1, 'bases de motifs lues depuis le cache (' + Math.round(TOWER.ms) + ' ms)');
+      return TOWER;
+    }
+  }catch(e){ /* repli silencieux (§11) */ }
+  say(0.35, 'base de motifs 1 : coins × arêtes hautes (2,8 Mo)…');
+  await new Promise(r => setTimeout(r, 0));
+  TOWER.pdb1 = towerBuildPDB(TOWER.cm, TOWER.esm, g => permRank(g.cp, 8), g => towerSubsetOf(g.ep));
+  say(0.7, 'base de motifs 2 : arêtes × coins hauts (2,8 Mo)…');
+  await new Promise(r => setTimeout(r, 0));
+  TOWER.pdb2 = towerBuildPDB(TOWER.em, TOWER.csm, g => permRank(g.ep, 8), g => towerSubsetOf(g.cp));
+  TOWER.ready = true; TOWER.from = 'génération'; TOWER.ms = performance.now() - t0;
+  say(0.95, 'mise en cache…');
+  await new Promise(r => setTimeout(r, 0));
+  try{ await idbSet(TOWER_IDB_KEY, {pdb1:TOWER.pdb1, pdb2:TOWER.pdb2}); }catch(e){}
+  say(1, 'bases prêtes (' + Math.round(TOWER.ms) + ' ms)');
+  return TOWER;
+}
+/* heuristique admissible : maximum des deux bases de motifs */
+function towerH(c, e, cs, es){
+  const NS = TOWER.NS;
+  const a = TOWER.pdb1[c*NS + es], b = TOWER.pdb2[e*NS + cs];
+  return a > b ? a : b;
+}
+/* IDA* — solution optimale, aucun coup ne déforme la tour */
+function towerSolveState(cp, ep, budgetMs){
+  if(!TOWER.ready) throw new Error('tables 2×2×4 non initialisées');
+  const nm = PZ.nMoves, NS = TOWER.NS, cm = TOWER.cm, em = TOWER.em, csm = TOWER.csm, esm = TOWER.esm;
+  const grp = TOWER.grp, goalSet = TOWER.goalSet;
+  const commute = (a, b) => (a < 4 && b < 4) || (a === 4 && b === 5) || (a === 5 && b === 4) ||
+                            (a === 6 && b === 7) || (a === 7 && b === 6);
+  const t0 = performance.now(), deadline = t0 + (budgetMs || 30000);
+  let nodes = 0;
+  const path = [];
+  const c0 = permRank(cp, 8), e0 = permRank(ep, 8);
+  const cs0 = towerSubsetOf(cp), es0 = towerSubsetOf(ep);
+  const dfs = (c, e, cs, es, g, limit, lastG) => {
+    const h = towerH(c, e, cs, es);
+    if(g + h > limit) return false;
+    if(goalSet.has(c*N_TOWER_E + e)) return true;
+    if(performance.now() > deadline) throw new Error('budget dépassé');
+    for(let m=0;m<nm;m++){
+      const gg = grp[m];
+      if(lastG >= 0 && (gg === lastG || (commute(gg, lastG) && gg < lastG))) continue;
+      nodes++;
+      path.push(m);
+      if(dfs(cm[c*nm+m], em[e*nm+m], csm[cs*nm+m], esm[es*nm+m], g + 1, limit, gg)) return true;
+      path.pop();
+    }
+    return false;
+  };
+  for(let lim=towerH(c0, e0, cs0, es0); lim<=26; lim++){
+    path.length = 0;
+    if(dfs(c0, e0, cs0, es0, 0, lim, -1))
+      return {moves:path.slice(), nodes, ms:performance.now() - t0, optimal:true};
+  }
+  throw new Error('aucune solution trouvée');
+}
+function towerSolveColors(colors, budgetMs){
+  const v = validateTower(colors);
+  if(!v.ok) throw new Error('état invalide');
+  return towerSolveState(v.tower.cp, v.tower.et, budgetMs);
+}
+/* --- pilotage UI --- */
+async function solveTowerUI(){
+  const prog = document.getElementById('kocProg');
+  const bar = prog.querySelector('i'), lbl = prog.querySelector('span');
+  if(!TOWER.ready){
+    prog.classList.add('on');
+    await towerInit((p, txt) => { bar.style.width = (p*100) + '%'; lbl.textContent = txt; });
+    setTimeout(() => prog.classList.remove('on'), 900);
+  }
+  const res = towerSolveState(APP.valid.tower.cp, APP.valid.tower.et, 60000);
+  let cols = APP.colors;
+  for(const m of res.moves) cols = permApply(cols, PZ.moves[m].perm);
+  const check = validateTower(cols);
+  if(!check.ok || !TOWER.goalSet.has(permRank(check.tower.cp, 8)*N_TOWER_E + permRank(check.tower.et, 8)))
+    throw new Error('solution 2×2×4 incorrecte — bug solveur');
+  loadSequence([{step:'Solution optimale (IDA* + bases de motifs)', moves:res.moves.slice(),
+      note:'Aucun de ces coups ne déforme la tour (§12.3). La longueur est prouvée minimale : ' +
+           'l’heuristique est le maximum de deux projections exactes, donc admissible.'}],
+    '2×2×4 optimal',
+    '<span>coups <b>' + res.moves.length + '</b></span>' +
+    '<span>calcul <b>' + (res.ms < 1 ? '<1' : Math.round(res.ms)) + '</b> ms</span>' +
+    '<span>nœuds <b>' + res.nodes.toLocaleString('fr-FR') + '</b></span>' +
+    '<span>bases <b>' + ((TOWER.pdb1.length + TOWER.pdb2.length)/1048576).toFixed(1) + '</b> Mo · ' + TOWER.from + '</span>');
+  toast(res.moves.length ? 'Solution optimale : ' + res.moves.length + ' coups' : 'Tour déjà résolue');
+}
+/* =========================================================================
+   ===== MODULE SOLVE — pilotage des solveurs depuis l'UI ==================
+   ========================================================================= */
+async function solveCurrent(){
+  if(!APP.valid || !APP.valid.ok){ toast('Le cube doit d’abord être valide (§3)'); return; }
+  const which = document.getElementById('solverSel').value;
+  const btn = document.getElementById('btnSolve');
+  btn.disabled = true; btn.textContent = '⏳ Calcul…';
+  await new Promise(r => setTimeout(r, 16));
+  try{
+    if(which === 'kociemba'){
+      await solveKociembaUI();
+    } else if(which === 'tower'){
+      await solveTowerUI();
+    } else {
+      const res = solveLBL(APP.valid.cubie);
+      const n = res.flat.length;
+      loadSequence(res.groups, 'couche par couche',
+        '<span>coups <b>' + n + '</b></span>' +
+        '<span>étapes <b>' + res.groups.length + '</b></span>' +
+        '<span>calcul <b>' + Math.round(res.ms) + '</b> ms</span>' +
+        '<span>croix <b>' + CROSS.states.toLocaleString('fr-FR') + '</b> états BFS</span>');
+      toast('Solution couche par couche : ' + n + ' coups');
+    }
+  }catch(e){
+    toast('Échec du solveur : ' + e.message.slice(0, 80));
+    const ss = document.getElementById('solStats');
+    if(ss) ss.innerHTML = '<div class="stat" style="border-color:rgba(248,113,113,.4)">' +
+      '<span style="color:#fecaca">' + e.message + '</span></div>';
+  }
+  btn.textContent = '⚡ Résoudre'; updateSolveBtn();
+}
+/* =========================================================================
    ===== MODULE APP — état global, actions, persistance ====================
+   Rien ici ne connaît la taille du puzzle : tout passe par PZ (§12.2).
    ========================================================================= */
 const APP = {
-  colors: solvedColors(),
+  colors: null,
   valid: null,
-  cubie: identityCube(),
-  facelet: SOLVED_FACELET,
   brush: null,
   centerMode: false,
   lowConf: null,          // stickers à confiance faible (§5.3) — cerclés d'orange
   listeners: {},
-  settings: {speed:1, budget:500, solver:'lbl'}
+  settings: {speed:1, budget:500, solver:null, puzzle:'3x3x3'},
+  saved: {}
 };
 function on(evt, fn){ (APP.listeners[evt] || (APP.listeners[evt] = [])).push(fn); }
 function emit(evt, arg){ (APP.listeners[evt] || []).forEach(fn => fn(arg)); }
 
-const LS_KEY = 'cubesolver.v1';
+const LS_KEY = 'cubesolver.v2';
 function saveLS(){
   try{
-    localStorage.setItem(LS_KEY, JSON.stringify({
-      colors: Array.from(APP.colors), settings: APP.settings
-    }));
+    APP.saved[PZ.id] = Array.from(APP.colors);
+    localStorage.setItem(LS_KEY, JSON.stringify({states:APP.saved, settings:APP.settings}));
   }catch(e){/* mode privé : on ignore */}
 }
 function loadLS(){
   try{
-    const raw = localStorage.getItem(LS_KEY); if(!raw) return null;
+    const raw = localStorage.getItem(LS_KEY); if(!raw) return;
     const o = JSON.parse(raw);
     if(o && o.settings) Object.assign(APP.settings, o.settings);
-    if(o && Array.isArray(o.colors) && o.colors.length === 54) return Uint8Array.from(o.colors);
+    if(o && o.states) APP.saved = o.states;
   }catch(e){}
-  return null;
 }
 
 /* --- setter central : tout passe par ici --- */
@@ -2398,25 +3255,23 @@ function setColors(cols, opt){
   APP.colors = cols instanceof Uint8Array ? cols : Uint8Array.from(cols);
   if(!opt.keepConf) APP.lowConf = null;
   APP.valid = validateColors(APP.colors);
-  if(APP.valid.ok){ APP.cubie = APP.valid.cubie; APP.facelet = APP.valid.facelet; }
   paintNet(); updatePalette(); renderValidation();
   if(!opt.noSave) saveLS();
   emit('state', {valid:APP.valid, silent:!!opt.silent, from3d:!!opt.from3d});
 }
 function setFacelet(str, opt){ setColors(faceletToColors(str), opt); }
-function setCubie(c, opt){ setFacelet(cubieToFacelet(c), opt); }
 
 /* --- actions de la barre --- */
 function doScramble(){
-  const seq = randomScrambleSeq(25);
+  const seq = randomScramble();
   APP.lastScrambleSeq = seq;
-  APP.lastScramble = algToString(seq);
-  setCubie(applySeq(identityCube(), seq));
+  APP.lastScramble = algToStringPZ(seq);
+  setColors(applySeqFacelet(solvedColors(), seq));
   toast('Mélange : ' + APP.lastScramble);
 }
-function doReset(){ setCubie(identityCube()); toast('Cube résolu'); }
+function doReset(){ setColors(solvedColors()); toast(PZ.label + ' résolu'); }
 function doCopy(){
-  const s = APP.valid && APP.valid.facelet ? APP.valid.facelet : colorsToFaceletUnsafe(APP.colors, APP.valid && APP.valid.colorFace || FACE_COLOR_DEFAULT.map((_,i)=>i));
+  const s = (APP.valid && APP.valid.facelet) || colorsToFaceletUnsafe(APP.colors, FACE_COLOR_DEFAULT);
   const ta = document.createElement('textarea');
   ta.value = s; ta.style.position = 'fixed'; ta.style.opacity = '0';
   document.body.appendChild(ta); ta.select();
@@ -2424,30 +3279,32 @@ function doCopy(){
   try{ ok = document.execCommand('copy'); }catch(e){}
   document.body.removeChild(ta);
   if(navigator.clipboard && !ok) navigator.clipboard.writeText(s).catch(()=>{});
-  toast('État copié : ' + s.slice(0, 18) + '…');
+  toast('État copié (' + s.length + ' caractères) : ' + s.slice(0, 16) + '…');
 }
 function parseStateString(raw){
   const s = String(raw).replace(/\s+/g, '').toUpperCase();
-  if(s.length !== 54) throw new Error('Il faut exactement 54 caractères (reçu ' + s.length + ').');
-  const isFace = /^[URFDLB]+$/.test(s), isCol = /^[WRGYOB]+$/.test(s);
-  if(isFace && !/^[WRGYOB]+$/.test(s)) return faceletToColors(s);
-  if(isCol) return Uint8Array.from(s, ch => COLOR_KEY[ch]);
-  if(isFace) return faceletToColors(s);
+  const n = PZ.nStickers;
+  if(s.length !== n) throw new Error('Il faut exactement ' + n + ' caractères pour ' + PZ.label + ' (reçu ' + s.length + ').');
+  if(/^[URFDLB]+$/.test(s)) return faceletToColors(s);
+  if(/^[WRGYOB]+$/.test(s)) return Uint8Array.from(s, ch => COLOR_KEY[ch]);
   throw new Error('Caractères acceptés : U R F D L B (faces) ou W R G Y O B (couleurs).');
 }
 
 /* --- modales --- */
 function openModal(id){ $('#' + id).classList.add('on'); }
 function closeModal(id){ $('#' + id).classList.remove('on'); }
-const HELP_HTML = `
+const HELP_HTML = () => `
   <h3>Aide — CubeSolver</h3>
   <p class="hint" style="margin-top:0">
-    <b>Ordre des faces</b> : U, R, F, D, L, B — chaque face lue ligne par ligne, de gauche à droite (§2.1).
+    <b>Puzzle courant</b> : ${PZ.label} — ${PZ.cubies.length} cubies, ${PZ.nStickers} stickers,
+    ${PZ.nMoves} coups (${PZ.moveNames.slice(0, 6).join(' ')}…).
+    Faces dans l'ordre <b class="mono">U R F D L B</b>, chaque face lue ligne par ligne (§2.1).
   </p>
   <p class="hint"><b>Convention photo (§5.1)</b> — ce qui doit être en haut de l'image :<br>
-    F → U · R → U (F à gauche) · B → U (R à gauche) · L → U (B à gauche) ·
-    U → vu de dessus, F vers le bas · D → vu de dessous, F vers le haut.<br>
-    En pratique : les 4 faces latérales s'obtiennent en tournant le cube vers la gauche, U toujours en haut.
+    ${PZ.photoOrder.map(f => '<b class="mono">' + FACES[f] + '</b> ' + PZ.photoHint[f]).join(' · ')}.<br>
+    ${PZ.hasCenters
+      ? 'En pratique : les 4 faces latérales s’obtiennent en tournant le cube vers la gauche, U toujours en haut.'
+      : 'La tour n’a pas de centre : le repère est libre (§12.8), la première photo de calotte définit le dessus.'}
   </p>
   <p class="hint"><b>Raccourcis</b> :
     <kbd>M</kbd> mélanger · <kbd>R</kbd> réinitialiser · <kbd>C</kbd> copier · <kbd>V</kbd> coller ·
@@ -2462,24 +3319,28 @@ function wireActions(){
   $('#btnScramble').onclick = doScramble;
   $('#btnReset').onclick = doReset;
   $('#btnCopy').onclick = doCopy;
-  const showHelp = () => { $('#helpBox').innerHTML = HELP_HTML; openModal('modalHelp'); };
+  const showHelp = () => { $('#helpBox').innerHTML = HELP_HTML(); openModal('modalHelp'); };
   $('#btnHelp').onclick = showHelp;
   const fh = $('#footHelp'); if(fh) fh.onclick = e => { e.preventDefault(); showHelp(); };
   $('#btnPaste').onclick = () => {
-    $('#pasteInput').value = APP.valid && APP.valid.facelet ? APP.valid.facelet : '';
+    $('#pasteInput').value = (APP.valid && APP.valid.facelet) || '';
+    $('#pasteLen').textContent = PZ.nStickers;
     $('#pasteErr').textContent = ''; openModal('modalPaste'); $('#pasteInput').focus();
   };
   $('#pasteCancel').onclick = () => closeModal('modalPaste');
   $('#pasteOk').onclick = () => {
     try{
-      const cols = parseStateString($('#pasteInput').value);
-      setColors(cols); closeModal('modalPaste'); toast('État chargé');
+      setColors(parseStateString($('#pasteInput').value));
+      closeModal('modalPaste'); toast('État chargé');
     }catch(e){ $('#pasteErr').textContent = e.message; }
   };
   $$('.modal').forEach(m => m.addEventListener('pointerdown', e => { if(e.target === m) m.classList.remove('on'); }));
   document.addEventListener('keydown', e => {
     const tag = (e.target.tagName || '').toLowerCase();
-    if(tag === 'textarea' || tag === 'input'){ if(e.key === 'Escape') $$('.modal').forEach(m => m.classList.remove('on')); return; }
+    if(tag === 'textarea' || tag === 'input' || tag === 'select'){
+      if(e.key === 'Escape') $$('.modal').forEach(m => m.classList.remove('on'));
+      return;
+    }
     if(e.key === 'Escape'){ $$('.modal').forEach(m => m.classList.remove('on')); return; }
     const k = e.key.toLowerCase();
     if(k === 'm'){ doScramble(); }
@@ -2494,16 +3355,38 @@ function wireActions(){
   });
 }
 
+/* --- bascule de puzzle (§12.2) --- */
+function switchPuzzle(id, opt){
+  opt = opt || {};
+  usePuzzle(id);
+  APP.settings.puzzle = id;
+  APP.centerMode = false;
+  document.body.classList.remove('centermode');
+  document.body.dataset.puzzle = id;
+  buildNet(); buildPalette(); buildCube3D(); buildSolverPanel(); buildPhotoPanel();
+  const saved = APP.saved[id];
+  const cols = (saved && saved.length === PZ.nStickers) ? Uint8Array.from(saved) : solvedColors();
+  APP.lastScrambleSeq = null;
+  setColors(cols, {noSave:!opt.save, silent:true});
+  setBrush(null);
+  sync3D();
+  $$('#puzzleSel option').forEach(o => { o.selected = o.value === id; });
+  $('#subTitle').textContent = 'Photo → état → solution · ' + PZ.label + ' · ' +
+    PZ.nStickers + ' stickers, ' + PZ.nMoves + ' coups';
+  $('#topActions').classList.toggle('nokoc', !PZ.solvers.some(s => s.id === 'kociemba'));
+}
+
 /* --- bootstrap --- */
 function boot(){
-  buildNet(); buildPalette(); wireActions();
-  if(typeof buildCube3D === 'function') buildCube3D();
-  if(typeof buildSolverPanel === 'function') buildSolverPanel();
-  if(typeof buildPhotoPanel === 'function') buildPhotoPanel();
-  const saved = loadLS();
-  setColors(saved || solvedColors(), {noSave:true, silent:true});
-  setBrush(null);
+  loadLS();
+  const sel = $('#puzzleSel');
+  sel.innerHTML = Object.values(PUZZLE_DEFS).map(d =>
+    '<option value="' + d.id + '">' + d.label + '</option>').join('');
+  sel.onchange = () => switchPuzzle(sel.value, {save:true});
+  wireActions();
+  switchPuzzle(PUZZLE_DEFS[APP.settings.puzzle] ? APP.settings.puzzle : '3x3x3');
   const qs = new URLSearchParams(location.search);
+  if(qs.get('puzzle') && PUZZLE_DEFS[qs.get('puzzle')]) switchPuzzle(qs.get('puzzle'));
   if(qs.get('test') === '1') runTests();
 }
 document.addEventListener('DOMContentLoaded', boot);
@@ -2517,6 +3400,63 @@ function assertEq(got, want, what){
   if(got !== want) throw new Error((what ? what + ' : ' : '') + 'attendu ' + want + ', obtenu ' + got);
 }
 const fmt = n => (Math.round(n*100)/100).toLocaleString('fr-FR');
+
+/* ---- 0. Le moteur géométrique reproduit les tables §2.3 et §2.5 (§12.1) ---- */
+test('Moteur géométrique : le 3×3 décrit géométriquement reproduit les tables §2.3 et §2.5', () => {
+  const P = buildPuzzle(PUZZLE_DEFS['3x3x3']);
+  assertEq(P.cubies.length, 26, 'cubies visibles');
+  assertEq(P.nStickers, 54, 'stickers');
+  assertEq(P.moves.length, 18, 'coups');
+  assertEq(P.moveNames.join(' '), MOVE_NAMES.join(' '), 'ordre des 18 coups');
+  assertEq(P.solvedFacelet, SOLVED_FACELET, 'chaîne 54 de l’état résolu');
+
+  /* --- §2.3 : les tables de correspondance dérivées de la géométrie --- */
+  const posOf = name => {
+    const c = [0,0,0];
+    for(const ch of name){ const v = DIR_OF[ch].v; for(let i=0;i<3;i++) c[i] += v[i]*2; }
+    return c;
+  };
+  CORNER_NAMES.forEach((nm, i) => {
+    const pos = posOf(nm);
+    const got = nm.split('').map(ch => P.stickerIndex(pos, ch));
+    assertEq(got.join(','), cornerFacelet[i].join(','), 'cornerFacelet[' + i + '] (' + nm + ')');
+    assertEq(nm.split('').join(','), cornerColor[i].join(','), 'cornerColor[' + i + ']');
+  });
+  EDGE_NAMES.forEach((nm, i) => {
+    const pos = posOf(nm);
+    const got = nm.split('').map(ch => P.stickerIndex(pos, ch));
+    assertEq(got.join(','), edgeFacelet[i].join(','), 'edgeFacelet[' + i + '] (' + nm + ')');
+    assertEq(nm.split('').join(','), edgeColor[i].join(','), 'edgeColor[' + i + ']');
+  });
+
+  /* --- §2.5 : les tables de coups au niveau cubie --- */
+  const lines = [];
+  for(let m=0;m<18;m++){
+    const geo = permApplyStr(SOLVED_FACELET, P.moves[m].perm);
+    const tab = cubieToFacelet(MOVES[m]);
+    assertEq(geo, tab, 'coup ' + MOVE_NAMES[m] + ' : permutation de stickers');
+  }
+  for(const f of FACES){
+    const m = MOVE_ID[f];
+    const {cubie, badCorners, badEdges} = faceletToCubie(permApplyStr(SOLVED_FACELET, P.moves[m].perm));
+    assert(!badCorners.length && !badEdges.length, 'coup ' + f + ' : pièces reconnues');
+    assertEq(cubie.cp.join(','), MOVE[f].cp.join(','), 'MOVE.' + f + '.cp');
+    assertEq(cubie.co.join(','), MOVE[f].co.join(','), 'MOVE.' + f + '.co');
+    assertEq(cubie.ep.join(','), MOVE[f].ep.join(','), 'MOVE.' + f + '.ep');
+    assertEq(cubie.eo.join(','), MOVE[f].eo.join(','), 'MOVE.' + f + '.eo');
+    lines.push(f);
+  }
+  /* --- et sur 300 séquences aléatoires : géométrie == algèbre des cubies --- */
+  for(let t=0;t<300;t++){
+    const seq = randomScrambleSeq(12);
+    let f = SOLVED_FACELET;
+    for(const m of seq) f = permApplyStr(f, P.moves[m].perm);
+    assertEq(f, cubieToFacelet(applySeq(identityCube(), seq)), 'séquence ' + algToString(seq));
+  }
+  return '26 cubies, 54 stickers, 18 coups dérivés de la seule géométrie · ' +
+         'cornerFacelet / edgeFacelet / cornerColor / edgeColor identiques au §2.3 · ' +
+         'MOVE.' + lines.join(' MOVE.') + ' identiques au §2.5 · 300 séquences aléatoires concordantes';
+});
 
 /* ---- 1. Ordres des coups (§2.5) ---- */
 test('Ordres des coups : 4 / 105 / 1260 / 6', () => {
@@ -2692,24 +3632,26 @@ const SYNTH_RGB = {
   U:[248,248,242], R:[196,28,24], F:[18,152,68],
   D:[248,208,22],  L:[238,116,18], B:[22,78,188]
 };
-function drawSynthFace(ctx, letters, seed, cast){
+function drawSynthFace(ctx, letters, seed, cast){ return drawSynthFaceGrid(ctx, letters, 3, 3, seed, cast); }
+function drawSynthFaceGrid(ctx, letters, rows, cols, seed, cast){
   const rnd = (a) => (Math.random()*2 - 1)*a;
+  const cw = CAN/cols, ch = CAN/rows, pad = Math.min(cw, ch)*0.09;
   ctx.fillStyle = '#0a0a0c'; ctx.fillRect(0, 0, CAN, CAN);
-  for(let r=0;r<3;r++) for(let c=0;c<3;c++){
-    const base = SYNTH_RGB[letters[r*3+c]];
+  for(let r=0;r<rows;r++) for(let c=0;c<cols;c++){
+    const base = SYNTH_RGB[letters[r*cols+c]];
     const col = base.map(v => Math.max(0, Math.min(255, v + rnd(10))));
     ctx.fillStyle = 'rgb(' + col.map(Math.round).join(',') + ')';
     ctx.beginPath();
-    const x = c*100 + 8, y = r*100 + 8;
-    if(ctx.roundRect) ctx.roundRect(x, y, 84, 84, 10); else ctx.rect(x, y, 84, 84);
+    const x = c*cw + pad, y = r*ch + pad;
+    if(ctx.roundRect) ctx.roundRect(x, y, cw - 2*pad, ch - 2*pad, 10); else ctx.rect(x, y, cw - 2*pad, ch - 2*pad);
     ctx.fill();
   }
   /* reflets spéculaires décentrés (doivent être éliminés par le rognage 20/20 %) */
   ctx.fillStyle = 'rgba(255,255,255,.92)';
   for(let i=0;i<3;i++){
-    const cell = (seed + i*4) % 9;
+    const cell = (seed + i*4) % (rows*cols);
     ctx.beginPath();
-    ctx.arc(50 + (cell % 3)*100 + 13, 50 + (((cell/3)|0) % 3)*100 - 13, 7, 0, 7);
+    ctx.arc((cell % cols)*cw + cw/2 + cw*0.14, ((cell/cols)|0)*ch + ch/2 - ch*0.14, Math.min(cw, ch)*0.07, 0, 7);
     ctx.fill();
   }
   /* éclairage : dégradé + dominante chaude + bruit */
@@ -2747,11 +3689,13 @@ test('Photo : 25 cubes synthétiques lus (Lab + références centres + quota 9)'
         const cast = [1.06 + Math.random()*0.16, 0.97 + Math.random()*0.08,
                       0.80 + Math.random()*0.14, 0.86 + Math.random()*0.30];
         drawSynthFace(ctx, truth.slice(f*9, f*9+9), f + t, cast);
-        const cells = sampleFace(ctx, {x:0, y:0, w:CAN});
+        const cells = sampleFace(ctx, {x:0, y:0, w:CAN, h:CAN}, 3, 3);
         for(let k=0;k<9;k++) rgb[f*9+k] = cells[k];
       }
       const labs = rgb.map(c => srgbToLab(c[0], c[1], c[2]));
-      const {colors, conf, cost6} = assignColors(labs);
+      const {colors, conf} = classifySamples(labs);
+      const refs = PZ.centerIdx.map(i => labs[i]);
+      const cost6 = labs.map(l => refs.map(r => deltaE76(l, r)));
       let e = 0;
       for(let i=0;i<54;i++){
         const want = FACE_IDX[truth[i]];
@@ -2767,7 +3711,7 @@ test('Photo : 25 cubes synthétiques lus (Lab + références centres + quota 9)'
       const cnt = new Array(6).fill(0); colors.forEach(c => cnt[c]++);
       assert(cnt.every(x => x === 9), 'cube ' + t + ' : quota 9 par couleur non respecté');
       if(e === 0){
-        const v = validateColors(Uint8Array.from(colors, f => FACE_COLOR_DEFAULT[f]));
+        const v = validateColors(colors);
         assert(v.ok, 'cube ' + t + ' : grille exacte rejetée par la validation');
         assertEq(v.facelet, truth, 'cube ' + t + ' : chaîne 54 reconstruite');
       }
@@ -2822,9 +3766,9 @@ test('Photo : conversion Lab et algorithme hongrois', () => {
   let tot = 0; for(let i=0;i<3;i++) tot += cost[i][a[i]];
   assertEq(tot, 5, 'coût optimal de l’affectation 3×3');
   const seen = new Set(Array.from(a)); assertEq(seen.size, 3, 'affectation bijective');
-  /* quota respecté sur un cas dégénéré : 54 échantillons tous identiques */
-  const labs = new Array(54).fill([50, 10, 10]).map((l, i) => [50 + (i%7)*0.1, 10, 10]);
-  const r = assignColors(labs);
+  /* quota respecté sur un cas dégénéré : 54 échantillons quasi identiques */
+  const labs = new Array(54).fill(0).map((_, i) => [50 + (i%7)*0.1, 10, 10]);
+  const r = classifySamples(labs);
   const cnt = new Array(6).fill(0); r.colors.forEach(c => cnt[c]++);
   assert(cnt.every(c => c === 9), 'quota 9 par couleur respecté même sur des échantillons dégénérés');
   return 'Lab : blanc L*=100 · gris 128 L*=' + fmt(mid[0]) + ' · hongrois optimal · quota 9 garanti';
@@ -2914,7 +3858,7 @@ test('Kociemba : 2ᵉ lancement depuis IndexedDB < 300 ms', async () => {
 });
 
 /* ---- 6. Cohérence 3D (§10.6) ---- */
-function setModelSilently(c){ PLAY.lock = true; setCubie(c, {noSave:true, from3d:true}); PLAY.lock = false; }
+function setModelSilently(c){ PLAY.lock = true; setFacelet(cubieToFacelet(c), {noSave:true, from3d:true}); PLAY.lock = false; }
 function domVsModel(where){
   const dom = read3DColors(true);
   for(let i=0;i<54;i++)
@@ -2955,7 +3899,7 @@ test('Cohérence 3D : chaîne 54 relue dans le DOM des stickers 3D == modèle', 
 test('Lecteur : 25 coups animés puis rembobinage complet', async () => {
   const sp = APP.settings.speed; APP.settings.speed = 4;
   setModelSilently(identityCube()); sync3D();
-  PLAY.lock = true; setCubie(identityCube(), {noSave:true}); PLAY.lock = false;
+  PLAY.lock = true; setFacelet(SOLVED_FACELET, {noSave:true}); PLAY.lock = false;
   const seq = randomScrambleSeq(25);
   loadSequence([{step:'Mélange de test', moves:seq.slice()}], 'test');
   const target = cubieToFacelet(applySeq(identityCube(), seq));
@@ -2985,7 +3929,7 @@ test('Sens de rotation CSS : les 6 faces tournent vers la bonne destination', as
   for(const f of DIR_LIST){
     setModelSilently(identityCube()); sync3D();
     const v = DIR_VEC[f], t = PERP[f];
-    const p = [v[0] + t[0], v[1] + t[1], v[2] + t[2]];
+    const p = [(v[0] + t[0])*PZ.maxCoord[0], (v[1] + t[1])*PZ.maxCoord[1], (v[2] + t[2])*PZ.maxCoord[2]];
     const dest = rotVec(f, p);
     const c0 = findCubie(p), c1 = findCubie(dest);
     assert(c0 && c1, 'cubies de test introuvables pour ' + f);
@@ -3004,6 +3948,270 @@ test('Sens de rotation CSS : les 6 faces tournent vers la bonne destination', as
     lines.push(f + ' ✓ (' + Math.round(adv*100) + ' % du trajet à mi-animation)');
   }
   setModelSilently(identityCube()); sync3D();
+  return lines.join(' · ');
+});
+
+/* =========================================================================
+   ---- 7. Puzzle 2×2×4 (§12) ----------------------------------------------
+   ========================================================================= */
+function withTower(fn){
+  const prev = PZ.id;
+  switchPuzzle('2x2x4');
+  try{ return fn(); } finally { switchPuzzle(prev); }
+}
+/* ordre exact du groupe engendré par les coups (Schreier-Sims sur les stickers) */
+function groupOrder(){
+  const n = PZ.nStickers;
+  const G = PZ.moves.map(m => { const a = new Int32Array(n); for(let i=0;i<n;i++) a[i] = m.perm[i]; return a; });
+  const mul = (a, b) => { const c = new Int32Array(n); for(let i=0;i<n;i++) c[i] = b[a[i]]; return c; };
+  const inv = a => { const c = new Int32Array(n); for(let i=0;i<n;i++) c[a[i]] = i; return c; };
+  let ord = 1, gens = G;
+  for(let base=0; base<n && gens.length; base++){
+    const id = new Int32Array(n); for(let i=0;i<n;i++) id[i] = i;
+    const trans = new Map([[base, id]]);
+    const q = [base];
+    while(q.length){
+      const x = q.shift(), tx = trans.get(x);
+      for(const g of gens){ const y = g[x]; if(!trans.has(y)){ trans.set(y, mul(tx, g)); q.push(y); } }
+    }
+    ord *= trans.size;
+    const stab = new Map();
+    for(const [x, tx] of trans) for(const g of gens){
+      const sgen = mul(mul(tx, g), inv(trans.get(g[x])));
+      let moved = false; for(let i=0;i<n;i++) if(sgen[i] !== i){ moved = true; break; }
+      if(moved){ const k = sgen.join(','); if(!stab.has(k)) stab.set(k, sgen); }
+    }
+    gens = Array.from(stab.values());
+  }
+  return ord;
+}
+test('2×2×4 : géométrie, et les 4 propriétés annoncées au §12.4', () => withTower(() => {
+  assertEq(PZ.cubies.length, 16, 'cubies');
+  assertEq(PZ.nStickers, 40, 'stickers (4+8+8+4+8+8)');
+  assertEq(PZ.nMoves, 16, 'coups préservant la forme (§12.3)');
+  assertEq(PZ.moveNames.join(' '), "Z0 Z02 Z0' Z1 Z12 Z1' Z2 Z22 Z2' Z3 Z32 Z3' X0 X1 Y0 Y1", 'noms des coups');
+  const M = towerModel();
+  assertEq(M.nC, 8, 'coins (3 stickers)');
+  assertEq(M.nE, 8, 'arêtes (2 stickers)');
+  /* propriété 1 : aucune pièce ne tourne sur elle-même */
+  assertEq(M.twists.length, 0, 'orientations contradictoires trouvées');
+  /* propriété 2 : les coins restent entre coins, les arêtes entre arêtes */
+  for(let m=0;m<PZ.nMoves;m++){
+    M.corners.forEach(cu => assert(Object.keys(PZ.cubies[PZ.moves[m].cubiePerm[cu.i]].st).length === 3,
+      'coup ' + PZ.moveNames[m] + ' : un coin ne reste pas un coin'));
+    M.edges.forEach(cu => assert(Object.keys(PZ.cubies[PZ.moves[m].cubiePerm[cu.i]].st).length === 2,
+      'coup ' + PZ.moveNames[m] + ' : une arête ne reste pas une arête'));
+  }
+  /* propriété 3 : les stickers de calotte restent sur les calottes */
+  for(let m=0;m<PZ.nMoves;m++) for(let i=0;i<PZ.nStickers;i++)
+    assertEq(PZ.axialFacelets.has(i), PZ.axialFacelets.has(PZ.moves[m].perm[i]),
+             'coup ' + PZ.moveNames[m] + ' : un sticker change de famille de faces');
+  /* propriété 4 : ELLE EST FAUSSE — contre-exemple explicite */
+  assertEq(M.nCornerClasses, 8, 'classes de coins');
+  const A = M.edges.find(cu => cu.c.join(',') === '1,1,1'), B = M.edges.find(cu => cu.c.join(',') === '1,-1,1');
+  const idF = {}; DIR_KEYS.forEach(k => { idF[k] = k; });
+  const kA = M.layoutKey(A.i, A.i, idF), kB = M.layoutKey(B.i, A.i, idF);
+  assert(kA !== kB, 'contre-exemple attendu : les deux arêtes RF devraient être discernables');
+  assertEq(M.nEdgeClasses, 8, 'classes d’arêtes');
+  return 'propriétés 1, 2 et 3 du §12.4 vérifiées par calcul · propriété 4 RÉFUTÉE : ' +
+    'l’arête médiane haute RF placée en position haute RF montre « ' + kA + ' », ' +
+    'l’arête médiane basse de mêmes couleurs y montre « ' + kB + ' » (couleurs inversées) — ' +
+    'un demi-tour vertical retourne les pièces, les 2 arêtes d’un même type ne sont donc pas interchangeables';
+}));
+test('2×2×4 : espace d’états et distribution des profondeurs (§12.5)', () => withTower(() => {
+  const M = towerModel();
+  const ord = groupOrder();
+  assertEq(ord, 1625702400, 'ordre du groupe engendré par les 16 coups');
+  assertEq(ord, 40320*40320, 'ordre = 8! × 8!');
+  /* BFS multi-source depuis les 8 états résolus, jusqu'à la profondeur 5 */
+  const step = (st, m) => {
+    const pc = M.posC[m], pe = M.posE[m], cp = new Array(8), ep = new Array(8);
+    for(let i=0;i<8;i++){ cp[pc[i]] = st.cp[i]; ep[pe[i]] = st.ep[i]; }
+    return {cp, ep};
+  };
+  const key = st => permRank(st.cp, 8)*40320 + permRank(st.ep, 8);
+  const base = {cp:[0,1,2,3,4,5,6,7], ep:[0,1,2,3,4,5,6,7]};
+  const goals = [];
+  for(let flip=0; flip<2; flip++){
+    let st = base;
+    if(flip) M.seqF.forEach(m => { st = step(st, m); });
+    for(let k=0;k<4;k++){ goals.push(st); M.seqV.forEach(m => { st = step(st, m); }); }
+  }
+  const seen = new Set(); let frontier = [];
+  goals.forEach(g => { const k = key(g); if(!seen.has(k)){ seen.add(k); frontier.push(g); } });
+  const counts = [frontier.length];
+  for(let d=1; d<=5; d++){
+    const next = [];
+    for(const st of frontier) for(let m=0;m<PZ.nMoves;m++){
+      const ns = step(st, m), k = key(ns);
+      if(!seen.has(k)){ seen.add(k); next.push(ns); }
+    }
+    counts.push(next.length); frontier = next;
+  }
+  const spec = [8, 112, 760, 4568, 30240, 143464];
+  assertEq(counts[0], 8, 'états résolus (8 orientations globales)');
+  for(let d=0; d<=3; d++) assertEq(counts[d], spec[d], 'profondeur ' + d + ' (§12.5)');
+  const div = counts.findIndex((v, i) => v !== spec[i]);
+  return 'ordre du groupe = ' + ord.toLocaleString('fr-FR') + ' = 8!² (le §12.5 annonce ' +
+    (101606400).toLocaleString('fr-FR') + ' = 8!×2520, soit 16 fois moins) · ' +
+    'profondeurs 0–3 identiques au §12.5 (' + spec.slice(0, 4).join(', ') + ') · ' +
+    'divergence à partir de la profondeur ' + div + ' : mesuré ' +
+    counts.slice(div).map(v => v.toLocaleString('fr-FR')).join(', ') +
+    ' contre ' + spec.slice(div).map(v => v.toLocaleString('fr-FR')).join(', ') + ' annoncés';
+}));
+test('2×2×4 : bases de motifs et solveur optimal', async () => {
+  const prev = PZ.id;
+  switchPuzzle('2x2x4');
+  try{
+    const t0 = performance.now();
+    await towerInit();
+    const initMs = performance.now() - t0;
+    assertEq(TOWER.pdb1.length, 40320*70, 'base de motifs 1');
+    assertEq(TOWER.pdb2.length, 40320*70, 'base de motifs 2');
+    let unreachable = 0, maxH = 0;
+    for(let i=0;i<TOWER.pdb1.length;i++){ if(TOWER.pdb1[i] === 255) unreachable++; else if(TOWER.pdb1[i] > maxH) maxH = TOWER.pdb1[i]; }
+    assertEq(unreachable, 0, 'états non atteints dans la base 1');
+    const N = 500;
+    let min = 99, max = 0, sum = 0, tsum = 0, nodes = 0, slow = 0;
+    for(let t=0;t<N;t++){
+      const seq = randomScramble(40);
+      const cols = applySeqFacelet(solvedColors(), seq);
+      const v = validateTower(cols);
+      assert(v.ok, 'mélange rejeté à tort : ' + v.checks.map(c => c.msg).join(' '));
+      const r = towerSolveState(v.tower.cp, v.tower.et, 60000);
+      let end = cols;
+      for(const m of r.moves) end = permApply(end, PZ.moves[m].perm);
+      const ve = validateTower(end);
+      assert(ve.ok && TOWER.goalSet.has(permRank(ve.tower.cp, 8)*40320 + permRank(ve.tower.et, 8)),
+             'la solution ne résout pas la tour');
+      const n = r.moves.length;
+      sum += n; tsum += r.ms; nodes += r.nodes;
+      if(n < min) min = n;
+      if(n > max) max = n;
+      if(r.ms > 1000) slow++;
+    }
+    return N + '/' + N + ' résolus optimalement · min ' + min + ' · moyenne ' + fmt(sum/N) + ' · max ' + max +
+      ' · ' + fmt(tsum/N) + ' ms et ' + Math.round(nodes/N).toLocaleString('fr-FR') + ' nœuds en moyenne (' +
+      slow + ' cas > 1 s) · bases générées en ' + fmt(initMs) + ' ms, profondeur max de la base 1 = ' + maxH;
+  } finally { switchPuzzle(prev); }
+});
+test('2×2×4 : validation (§12.9) et détection des mélanges avec déformation (§12.6)', () => withTower(() => {
+  const solved = solvedColors();
+  let v = validateTower(solved);
+  assert(v.ok, 'tour résolue rejetée');
+  assertEq(v.checks.length, 2, 'deux contrôles seulement : ni orientation ni parité (§12.9.3)');
+  const lines = ['tour résolue → acceptée (2 contrôles)'];
+  /* quotas : une couleur latérale en trop */
+  let c = solved.slice();
+  const sideIdx = []; for(let i=0;i<PZ.nStickers;i++) if(!PZ.axialFacelets.has(i)) sideIdx.push(i);
+  c[sideIdx[0]] = c[sideIdx[sideIdx.length-1]];
+  v = validateTower(c);
+  assert(!v.ok && v.checks[0].state === 'ko', 'quota faux non détecté');
+  lines.push('quota faux → contrôle 1 : « ' + v.checks[0].msg.slice(0, 46) + '… »');
+  /* §12.6 : une couleur de calotte apparaît sur une face latérale */
+  c = solved.slice();
+  const capIdx = Array.from(PZ.axialFacelets);
+  c[sideIdx[0]] = solved[capIdx[0]];
+  c[capIdx[0]] = solved[sideIdx[0]];
+  v = validateTower(c);
+  assert(!v.ok, 'déformation non détectée');
+  assert(/déformant/.test(v.checks[0].msg), 'message §12.6 attendu : ' + v.checks[0].msg);
+  assert(v.bad.size > 0, 'stickers fautifs surlignés');
+  lines.push('couleur de calotte sur une face latérale → « ' + v.checks[0].msg.slice(0, 62) + '… »');
+  /* pièce impossible à quotas corrects : deux stickers latéraux échangés */
+  c = solved.slice();
+  const a = sideIdx.find(i => PZ.faceOfSticker[i] === FACE_IDX['F']);
+  const b = sideIdx.find(i => PZ.faceOfSticker[i] === FACE_IDX['R']);
+  const t = c[a]; c[a] = c[b]; c[b] = t;
+  v = validateTower(c);
+  assert(!v.ok && v.checks[1].state === 'ko', 'pièce impossible non détectée');
+  lines.push('2 stickers échangés → contrôle 2 : « ' + v.checks[1].msg.slice(0, 40) + '… »');
+  /* un mélange légal passe toujours */
+  for(let t2=0;t2<50;t2++){
+    const cols = applySeqFacelet(solvedColors(), randomScramble(30));
+    assert(validateTower(cols).ok, 'mélange légal rejeté');
+  }
+  lines.push('50 mélanges légaux → tous acceptés');
+  return lines.join('\n');
+}));
+test('2×2×4 : patron 2D, rendu 3D et photo sans centres (§12.8, §12.10)', async () => {
+  const prev = PZ.id;
+  switchPuzzle('2x2x4');
+  try{
+    assertEq(PZ.net.cols + 'x' + PZ.net.rows, '8x8', 'grille du patron 2D');
+    assertEq(stickerEls.filter(Boolean).length, 40, 'stickers du patron 2D');
+    assertEq(V3.cubies.length, 16, 'cubies 3D');
+    /* cohérence 3D : 40 coups instantanés, chaîne relue depuis le DOM */
+    let cols = solvedColors();
+    PLAY.lock = true; setColors(cols, {noSave:true, from3d:true}); PLAY.lock = false;
+    sync3D();
+    const seq = randomScramble(40);
+    for(const m of seq){ commitMove3D(m); cols = permApply(cols, PZ.moves[m].perm); }
+    PLAY.lock = true; setColors(cols, {noSave:true, from3d:true}); PLAY.lock = false;
+    const dom = read3DColors(true);
+    for(let i=0;i<PZ.nStickers;i++)
+      if(dom[i] !== APP.colors[i]) throw new Error('sticker ' + i + ' : DOM 3D ≠ modèle');
+    /* photo : k-moyennes sans centres, quotas 4/4 et 8/8/8/8 */
+    const cv = document.createElement('canvas'); cv.width = cv.height = CAN;
+    const ctx = cv.getContext('2d', {willReadFrequently:true});
+    const realRandom = Math.random; Math.random = mulberry32(0x2244);
+    let err = 0, worst = 0;
+    try{
+      for(let t=0;t<10;t++){
+        const truth = colorsToFaceletUnsafe(applySeqFacelet(solvedColors(), randomScramble(30)),
+                                            FACE_COLOR_DEFAULT.map((_, i) => i));
+        const rgb = new Array(PZ.nStickers);
+        for(let f=0; f<6; f++){
+          const face = PZ.faces[f];
+          /* 6 photos de la même séance : l'écart de balance des blancs entre
+             photos reste faible, faute de centre pour l'ancrer (§12.8) */
+          const cast = [1.02 + Math.random()*0.05, 0.99 + Math.random()*0.03,
+                        0.95 + Math.random()*0.05, 0.94 + Math.random()*0.12];
+          drawSynthFaceGrid(ctx, truth.slice(face.offset, face.offset + face.n), face.rows, face.cols, f + t, cast);
+          const cells = sampleFace(ctx, {x:0, y:0, w:CAN, h:CAN}, face.rows, face.cols);
+          for(let k=0;k<face.n;k++) rgb[face.offset + k] = cells[k];
+        }
+        const labs = rgb.map(x => srgbToLab(x[0], x[1], x[2]));
+        const {colors} = classifySamples(labs);
+        const cnt = {}; for(let i=0;i<PZ.nStickers;i++) cnt[colors[i]] = (cnt[colors[i]] || 0) + 1;
+        const got = Object.values(cnt).sort((a, b) => a-b).join(',');
+        assertEq(got, '4,4,8,8,8,8', 'quotas §12.8 respectés');
+        let e = 0;
+        for(let i=0;i<PZ.nStickers;i++) if(FACES[colors[i]] !== truth[i]) e++;
+        /* le repère est libre (§12.8) : on compare la partition, pas les noms */
+        if(e){ const v = validateTower(colors); if(v.ok) e = 0; }
+        err += e; worst = Math.max(worst, e);
+      }
+    } finally { Math.random = realRandom; }
+    assertEq(err, 0, 'lectures photo incorrectes');
+    return 'patron 2D 8×8 (40 stickers) · 16 cubies 3D, DOM == modèle après 40 coups · ' +
+           '10 tours photographiées : k-moyennes Lab sans centre, quotas 4/4 et 8/8/8/8, ' +
+           'toutes les grilles valides';
+  } finally { switchPuzzle(prev); }
+});
+
+test('Chaîne complète UI : les 3 solveurs lancés par le bouton « Résoudre »', async () => {
+  const prev = PZ.id;
+  const lines = [];
+  const runOne = async (puz, solver, label) => {
+    switchPuzzle(puz);
+    setColors(applySeqFacelet(solvedColors(), randomScramble()), {noSave:true});
+    document.getElementById('solverSel').value = solver;
+    APP.settings.budget = 300;
+    await solveCurrent();
+    assert(PLAY.flat.length > 0, label + ' : aucune séquence chargée dans le lecteur');
+    let cols = PLAY.startColors.slice();
+    for(const m of PLAY.flat) cols = permApply(cols, PZ.moves[m].perm);
+    assert(isSolvedColors(cols), label + ' : la solution du lecteur ne résout pas le puzzle');
+    jumpTo(PLAY.flat.length);
+    assert(isSolvedColors(APP.colors), label + ' : l’état après lecture n’est pas résolu');
+    lines.push(label + ' → ' + PLAY.flat.length + ' coups, ' + PLAY.groups.length + ' étape(s)');
+  };
+  try{
+    await runOne('3x3x3', 'lbl', 'couche par couche');
+    await runOne('3x3x3', 'kociemba', 'Kociemba');
+    await runOne('2x2x4', 'tower', '2×2×4 optimal');
+  } finally { switchPuzzle(prev); }
   return lines.join(' · ');
 });
 
