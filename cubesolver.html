@@ -439,6 +439,7 @@ footer.foot .sep{opacity:.4}
     <button class="btn" id="btnReset" title="Cube résolu (R)">↺ Réinitialiser</button>
     <button class="btn" id="btnPaste" title="Importer une chaîne de 54 caractères">⇥ Coller un état</button>
     <button class="btn" id="btnCopy" title="Copier la chaîne de 54 caractères">⧉ Copier l'état</button>
+    <button class="btn" id="btnSeq" title="Jouer une séquence de coups (S)">⌨ Séquence</button>
     <button class="btn" id="btnHelp" title="Aide (?)">?</button>
   </div>
 </header>
@@ -493,6 +494,20 @@ footer.foot .sep{opacity:.4}
     <div class="row">
       <button class="btn" id="pasteCancel">Annuler</button>
       <button class="btn pri" id="pasteOk">Charger</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal" id="modalSeq">
+  <div class="box">
+    <h3>Jouer une séquence de coups</h3>
+    <p class="hint" style="margin-top:0" id="seqHint"></p>
+    <textarea id="seqInput" rows="3" spellcheck="false"></textarea>
+    <div class="err" id="seqErr"></div>
+    <div class="row">
+      <button class="btn" id="seqDemo">Exemple</button>
+      <button class="btn" id="seqCancel">Annuler</button>
+      <button class="btn pri" id="seqOk">Charger dans le lecteur</button>
     </div>
   </div>
 </div>
@@ -737,6 +752,7 @@ definePuzzle({
     {id:'lbl',      label:'Couche par couche · pédagogique'},
     {id:'kociemba', label:'Kociemba 2 phases · court'}
   ],
+  demoSeq:{name:'Superflip (§7.7)', moves:"U R2 F B R B2 R U2 L B2 R U' D' R2 F R' L B2 U2 F2"},
   photoOrder:[2,1,5,4,0,3],
   photoHint:[
     'vu de dessus, F vers le bas', 'U en haut, F à gauche', 'U en haut',
@@ -775,6 +791,10 @@ definePuzzle({
   })(),
   validate:cols => validateTower(cols),
   solvers:[{id:'tower', label:'IDA* + bases de motifs · optimal'}],
+  /* séquence qui échange les 2 arêtes médianes vert-rouge et rien d'autre :
+     elle départage le §12.4.4 de la géométrie (voir l'aide) */
+  demoSeq:{name:'Échange des 2 arêtes vert-rouge (expérience du §12.4.4)',
+           moves:"Z2 X0 Z1 X0 Z22 Y0 Z1' Y0 Z12 X0 Z1' X0 Z1'"},
   photoOrder:[0,2,1,5,4,3],   // §12.8 : calotte haute, puis F R B L, puis calotte basse
   photoHint:[
     'calotte du haut, F vers le bas', 'U en haut, F à gauche', 'U en haut',
@@ -3308,6 +3328,7 @@ const HELP_HTML = () => `
   </p>
   <p class="hint"><b>Raccourcis</b> :
     <kbd>M</kbd> mélanger · <kbd>R</kbd> réinitialiser · <kbd>C</kbd> copier · <kbd>V</kbd> coller ·
+    <kbd>S</kbd> jouer une séquence ·
     <kbd>Espace</kbd> lecture/pause · <kbd>←</kbd> <kbd>→</kbd> pas-à-pas ·
     <kbd>Pg↑</kbd> <kbd>Pg↓</kbd> étape précédente / suivante · <kbd>Début</kbd> <kbd>Fin</kbd> ·
     <kbd>1</kbd>…<kbd>6</kbd> couleur · <kbd>0</kbd> mode cycle · <kbd>Échap</kbd> fermer · <kbd>?</kbd> aide
@@ -3328,6 +3349,25 @@ function wireActions(){
     $('#pasteErr').textContent = ''; openModal('modalPaste'); $('#pasteInput').focus();
   };
   $('#pasteCancel').onclick = () => closeModal('modalPaste');
+  const openSeq = () => {
+    $('#seqHint').innerHTML = 'Coups acceptés : <b class="mono">' + PZ.moveNames.join(' ') + '</b>.' +
+      (PZ.demoSeq ? '<br>Exemple : ' + PZ.demoSeq.name + '.' : '');
+    $('#seqErr').textContent = ''; openModal('modalSeq'); $('#seqInput').focus();
+  };
+  $('#btnSeq').onclick = openSeq;
+  $('#seqDemo').onclick = () => { if(PZ.demoSeq) $('#seqInput').value = PZ.demoSeq.moves; };
+  $('#seqCancel').onclick = () => closeModal('modalSeq');
+  $('#seqOk').onclick = () => {
+    try{
+      const seq = parseAlgPZ($('#seqInput').value);
+      if(!seq.length) throw new Error('Séquence vide.');
+      loadSequence([{step:'Séquence saisie', moves:seq,
+        note:'Appliquée à l’état courant ; le lecteur peut la jouer, la rembobiner et la parcourir pas à pas.'}],
+        'séquence', '<span>coups <b>' + seq.length + '</b></span>');
+      closeModal('modalSeq');
+      toast(seq.length + ' coups chargés dans le lecteur');
+    }catch(e){ $('#seqErr').textContent = e.message; }
+  };
   $('#pasteOk').onclick = () => {
     try{
       setColors(parseStateString($('#pasteInput').value));
@@ -3347,6 +3387,7 @@ function wireActions(){
     else if(k === 'r' && !e.ctrlKey && !e.metaKey){ doReset(); }
     else if(k === 'c' && !e.ctrlKey && !e.metaKey){ doCopy(); }
     else if(k === 'v' && !e.ctrlKey && !e.metaKey){ $('#btnPaste').click(); }
+    else if(k === 's' && !e.ctrlKey && !e.metaKey){ $('#btnSeq').click(); }
     else if(k === '?' || (k === '/' && e.shiftKey)){ $('#btnHelp').click(); }
     else if(k >= '1' && k <= '6'){ setBrush(+k - 1); }
     else if(k === '0'){ setBrush(null); }
@@ -4095,6 +4136,35 @@ test('2×2×4 : bases de motifs et solveur optimal', async () => {
       slow + ' cas > 1 s) · bases générées en ' + fmt(initMs) + ' ms, profondeur max de la base 1 = ' + maxH;
   } finally { switchPuzzle(prev); }
 });
+test('2×2×4 : l’expérience qui départage le §12.4.4 (13 coups, 4 stickers)', () => withTower(() => {
+  const seq = parseAlgPZ(PZ.demoSeq.moves);
+  assertEq(seq.length, 13, 'longueur de la séquence de démonstration');
+  const ref = solvedColors();
+  let cols = ref.slice();
+  for(const m of seq) cols = permApply(cols, PZ.moves[m].perm);
+  /* exactement 4 stickers changent : les 2 arêtes médianes vert-rouge */
+  const diff = [];
+  for(let i=0;i<PZ.nStickers;i++) if(cols[i] !== ref[i]) diff.push(i);
+  assertEq(diff.length, 4, 'stickers modifiés');
+  const M = towerModel();
+  const touched = M.edges.filter(cu => Object.values(cu.st).some(i => diff.indexOf(i) >= 0));
+  assertEq(touched.length, 2, 'arêtes concernées');
+  assertEq(touched.map(cu => Object.keys(cu.st).sort().join('')).join(' '), 'FR FR', 'les 2 arêtes de type F/R');
+  assert(touched[0].c[1] !== touched[1].c[1], 'une dans chaque étage médian');
+  /* la permutation des coins est intacte, celle des arêtes est une transposition */
+  const v = validateTower(cols);
+  assert(v.ok, 'l’état obtenu doit rester valide');
+  assertEq(v.tower.cp.join(','), '0,1,2,3,4,5,6,7', 'coins inchangés');
+  let moved = 0; v.tower.et.forEach((p2, i) => { if(p2 !== i) moved++; });
+  assertEq(moved, 2, 'exactement 2 arêtes échangées');
+  /* et cet état n'est PAS résolu : c'est tout l'objet de l'expérience */
+  assert(!isSolvedColors(cols), 'si cet état était résolu, le §12.4.4 aurait raison');
+  const shown = touched.map(cu => Object.keys(cu.st).sort().map(d => d + '=' + COLORS[cols[cu.st[d]]].name).join('/'));
+  return PZ.demoSeq.moves + '\n→ 4 stickers changent, sur les 2 seules arêtes de type F/R (une par étage médian) : ' +
+    shown.join(' et ') + ' au lieu de F=vert/R=rouge · coins intacts, ' +
+    'permutation des arêtes = une simple transposition. Le §12.4.4 prédit une tour résolue ici.';
+}));
+
 test('2×2×4 : validation (§12.9) et détection des mélanges avec déformation (§12.6)', () => withTower(() => {
   const solved = solvedColors();
   let v = validateTower(solved);
