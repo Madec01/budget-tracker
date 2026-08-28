@@ -417,6 +417,46 @@ footer.foot .sep{opacity:.4}
   body::after{display:none}
 }
 @media print{ body{background:#fff;color:#000} .panel{break-inside:avoid} }
+
+/* ===== CAMÉRA (§5.2) ===== */
+#modalCam .box{width:min(660px,100%)}
+.camview{
+  position:relative;width:100%;aspect-ratio:1;border-radius:var(--r-s);overflow:hidden;
+  background:#04050a;border:1px solid var(--stroke);
+}
+.camview video{width:100%;height:100%;object-fit:cover;display:block}
+.camguide{
+  position:absolute;border:2px solid var(--cy);border-radius:6px;
+  box-shadow:0 0 0 9999px rgba(0,0,0,.45), 0 0 18px rgba(34,211,238,.6);pointer-events:none;
+}
+.camguide::after{
+  content:"";position:absolute;inset:0;
+  background-image:var(--gx),var(--gy);
+}
+.camhead{
+  display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin:11px 0 8px;
+  font-size:12.5px;color:var(--txt-dim);
+}
+.camhead b{color:var(--txt);font-family:var(--mono)}
+.camhead .pill{
+  margin-left:auto;font:600 10.5px var(--mono);color:var(--txt-faint);
+  padding:3px 8px;border-radius:99px;background:rgba(255,255,255,.05);border:1px solid var(--stroke);
+}
+.camrow{display:flex;gap:7px;flex-wrap:wrap;align-items:center}
+.camrow select{max-width:200px}
+.camdots{display:flex;gap:5px;margin-left:auto}
+.camdot{
+  width:26px;height:26px;border-radius:7px;display:flex;align-items:center;justify-content:center;
+  font:700 10px var(--mono);cursor:pointer;
+  background:rgba(255,255,255,.05);border:1px solid var(--stroke);color:var(--txt-faint);
+}
+.camdot.done{background:rgba(74,222,128,.18);border-color:rgba(74,222,128,.45);color:#bbf7d0}
+.camdot.cur{outline:2px solid var(--cy);outline-offset:1px;color:#d9fbff}
+.th-head .cam{
+  margin-left:4px;padding:1px 5px;border-radius:5px;cursor:pointer;font-size:10px;
+  background:rgba(34,211,238,.14);border:1px solid rgba(34,211,238,.3);color:#cdf6ff;
+}
+.th-head .cam:hover{background:rgba(34,211,238,.3)}
 </style>
 </head>
 <body>
@@ -501,6 +541,26 @@ footer.foot .sep{opacity:.4}
       <button class="btn" id="pasteCancel">Annuler</button>
       <button class="btn pri" id="pasteOk">Charger</button>
     </div>
+  </div>
+</div>
+
+<div class="modal" id="modalCam">
+  <div class="box">
+    <h3>Prendre les photos avec la caméra</h3>
+    <div class="camview"><video id="camVideo" autoplay playsinline muted></video><div class="camguide" id="camGuide"></div></div>
+    <div class="camhead">
+      <span id="camFace"></span>
+      <span class="pill" id="camCount"></span>
+    </div>
+    <div class="camrow">
+      <button class="btn sm" id="camPrev" title="Face précédente">◀</button>
+      <button class="btn pri" id="camShot">◉ Capturer</button>
+      <button class="btn sm" id="camNext" title="Face suivante">▶</button>
+      <select id="camDev" title="Caméra utilisée"></select>
+      <div class="camdots" id="camDots"></div>
+    </div>
+    <div class="err" id="camErr"></div>
+    <div class="row"><button class="btn" id="camClose">Fermer</button></div>
   </div>
 </div>
 
@@ -2353,6 +2413,7 @@ function buildPhotoPanel(){
   const host = document.getElementById('photoZone');
   host.innerHTML =
     '<div class="photohead">' +
+      '<button class="btn sm pri" id="btnCamera">📷 Caméra</button>' +
       '<button class="btn sm" id="btnAnalyze" disabled>🔍 Analyser les photos</button>' +
       '<button class="btn sm" id="btnClearPhotos">✕ Vider</button>' +
       '<span class="z" id="photoMeta" style="font:600 11px var(--mono);color:var(--txt-faint);margin-left:auto"></span>' +
@@ -2365,6 +2426,7 @@ function buildPhotoPanel(){
     d.className = 'thumb'; d.dataset.f = f;
     d.innerHTML =
       '<div class="th-head">' + FACES[f] + orientPicto(f) +
+        '<button class="cam" title="Photographier cette face avec la caméra">📷</button>' +
         '<span class="o">' + PZ.photoHint[f] + ' · ' + face.cols + '×' + face.rows + '</span></div>' +
       '<div class="th-body">' +
         '<canvas width="' + CAN + '" height="' + CAN + '"></canvas>' +
@@ -2381,6 +2443,7 @@ function buildPhotoPanel(){
                 rows:face.rows, cols:face.cols, crop:{x:0, y:0, w:CAN, h:CAN}, loaded:false};
     PHOTO.f[f] = st;
     d.querySelector('input').addEventListener('change', e => { if(e.target.files[0]) loadPhoto(st, e.target.files[0]); });
+    d.querySelector('.cam').addEventListener('click', () => openCamera(f));
     d.addEventListener('dragover', e => { e.preventDefault(); d.classList.add('drag'); });
     d.addEventListener('dragleave', () => d.classList.remove('drag'));
     d.addEventListener('drop', e => {
@@ -2391,9 +2454,14 @@ function buildPhotoPanel(){
     wireCrop(st);
   });
   document.getElementById('btnAnalyze').onclick = analyzePhotos;
+  document.getElementById('btnCamera').onclick = () => openCamera();
+  document.getElementById('btnCamera').disabled = !camSupported();
+  if(!camSupported()) document.getElementById('btnCamera').title = 'Caméra non disponible dans ce navigateur';
+  wireCamera();
   document.getElementById('btnClearPhotos').onclick = () => {
     PHOTO.f.forEach(st => { if(!st) return; st.loaded = false; st.el.classList.remove('has'); st.ctx.clearRect(0,0,CAN,CAN); });
     updatePhotoMeta();
+    if(CAMERA.open) camRender();
   };
   updatePhotoMeta();
 }
@@ -2507,6 +2575,134 @@ function applySamples(rgb){
     toast('Attention : ' + info.suspect.size + ' sticker(s) semblent appartenir à l’autre famille de faces (§12.6)');
   else toast(low.size ? low.size + ' sticker(s) incertains — cerclés d’orange' : 'Grille remplie, lecture nette');
   return {colors, conf, low, info};
+}
+
+/* =========================================================================
+   ===== MODULE CAMÉRA (§5.2) ==============================================
+   Prise de vue guidée : la caméra du PC ou du téléphone remplace les 6
+   fichiers. Une face à la fois, avec son pictogramme d'orientation (§5.1),
+   et passage automatique à la suivante. getUserMedia fonctionne en file://
+   sur Chrome et Firefox (contexte considéré comme sûr) ; en cas de refus ou
+   d'absence de caméra, les champs fichier restent disponibles.
+   ========================================================================= */
+const CAMERA = {stream:null, video:null, order:[], i:0, devices:[], deviceId:null, open:false};
+
+function camSupported(){
+  return !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
+}
+async function openCamera(face){
+  if(!camSupported()){
+    toast('Caméra indisponible dans ce navigateur — utilisez les champs photo');
+    return false;
+  }
+  CAMERA.video = document.getElementById('camVideo');
+  CAMERA.order = PZ.photoOrder.slice();
+  const want = face === undefined ? CAMERA.order.findIndex(f => !PHOTO.f[f].loaded) : CAMERA.order.indexOf(face);
+  CAMERA.i = want < 0 ? 0 : want;
+  document.getElementById('camErr').textContent = '';
+  openModal('modalCam');
+  CAMERA.open = true;
+  camRender();
+  try{
+    await camStart();
+    await camListDevices();
+  }catch(e){
+    document.getElementById('camErr').textContent =
+      'Accès à la caméra refusé ou impossible (' + (e && e.name ? e.name : e) + '). ' +
+      'Les champs photo restent utilisables.';
+    return false;
+  }
+  return true;
+}
+async function camStart(){
+  camStop();
+  const c = {video:{facingMode:{ideal:'environment'}, width:{ideal:1280}, height:{ideal:1280}}, audio:false};
+  if(CAMERA.deviceId) c.video = {deviceId:{exact:CAMERA.deviceId}, width:{ideal:1280}, height:{ideal:1280}};
+  CAMERA.stream = await navigator.mediaDevices.getUserMedia(c);
+  CAMERA.video.srcObject = CAMERA.stream;
+  try{ await CAMERA.video.play(); }catch(e){}
+}
+function camStop(){
+  if(CAMERA.stream){ CAMERA.stream.getTracks().forEach(t => t.stop()); CAMERA.stream = null; }
+  if(CAMERA.video) CAMERA.video.srcObject = null;
+}
+function closeCamera(){
+  CAMERA.open = false; camStop(); closeModal('modalCam');
+}
+async function camListDevices(){
+  try{
+    const list = await navigator.mediaDevices.enumerateDevices();
+    CAMERA.devices = list.filter(d => d.kind === 'videoinput');
+  }catch(e){ CAMERA.devices = []; }
+  const sel = document.getElementById('camDev');
+  sel.innerHTML = CAMERA.devices.map((d, i) =>
+    '<option value="' + d.deviceId + '">' + (d.label || ('Caméra ' + (i + 1))) + '</option>').join('');
+  sel.style.display = CAMERA.devices.length > 1 ? '' : 'none';
+  if(CAMERA.deviceId) sel.value = CAMERA.deviceId;
+}
+/* cadre-guide au format de la face en cours */
+function camRender(){
+  const f = CAMERA.order[CAMERA.i], face = PZ.faces[f];
+  document.getElementById('camFace').innerHTML =
+    'Face <b>' + FACES[f] + '</b> — ' + PZ.photoHint[f] + ' · ' + face.cols + '×' + face.rows;
+  const done = PHOTO.f.filter(s => s && s.loaded).length;
+  document.getElementById('camCount').textContent = done + '/6 photos';
+  document.getElementById('camShot').textContent = '◉ Capturer ' + FACES[f];
+  const g = document.getElementById('camGuide');
+  const ar = face.cols / face.rows;
+  let w = 74, h = 74 / ar;
+  if(h > 74){ h = 74; w = 74 * ar; }
+  g.style.width = w + '%'; g.style.height = h + '%';
+  g.style.left = ((100 - w)/2) + '%'; g.style.top = ((100 - h)/2) + '%';
+  g.style.setProperty('--gx', 'linear-gradient(90deg,' + gridStops(face.cols) + ')');
+  g.style.setProperty('--gy', 'linear-gradient(0deg,' + gridStops(face.rows) + ')');
+  const dots = document.getElementById('camDots');
+  dots.innerHTML = CAMERA.order.map((ff, i) =>
+    '<div class="camdot' + (PHOTO.f[ff] && PHOTO.f[ff].loaded ? ' done' : '') +
+    (i === CAMERA.i ? ' cur' : '') + '" data-i="' + i + '" title="' + PZ.photoHint[ff] + '">' + FACES[ff] + '</div>').join('');
+  Array.from(dots.children).forEach(el => {
+    el.addEventListener('click', () => { CAMERA.i = +el.dataset.i; camRender(); });
+  });
+}
+/* capture : plus grand carré centré de l'image vidéo → canvas de travail */
+function camShoot(){
+  const v = CAMERA.video;
+  if(!v || !v.videoWidth){ document.getElementById('camErr').textContent = 'Flux vidéo pas encore prêt.'; return false; }
+  const f = CAMERA.order[CAMERA.i], st = PHOTO.f[f];
+  const s = Math.min(v.videoWidth, v.videoHeight);
+  st.ctx.fillStyle = '#04050a'; st.ctx.fillRect(0, 0, CAN, CAN);
+  st.ctx.drawImage(v, (v.videoWidth - s)/2, (v.videoHeight - s)/2, s, s, 0, 0, CAN, CAN);
+  st.crop = defaultCrop(st, CAN, CAN);
+  st.loaded = true; st.el.classList.add('has');
+  drawCrop(st); updatePhotoMeta();
+  const next = CAMERA.order.findIndex(ff => !PHOTO.f[ff].loaded);
+  if(next >= 0) CAMERA.i = next;
+  camRender();
+  if(next < 0){
+    toast('6 photos prises — lancez « Analyser les photos »');
+    closeCamera();
+  }
+  return true;
+}
+function wireCamera(){
+  if(wireCamera.done) return;
+  wireCamera.done = true;
+  document.getElementById('camShot').onclick = camShoot;
+  document.getElementById('camPrev').onclick = () => { CAMERA.i = (CAMERA.i + 5) % 6; camRender(); };
+  document.getElementById('camNext').onclick = () => { CAMERA.i = (CAMERA.i + 1) % 6; camRender(); };
+  document.getElementById('camClose').onclick = closeCamera;
+  document.getElementById('camDev').onchange = async e => {
+    CAMERA.deviceId = e.target.value;
+    try{ await camStart(); }catch(err){ document.getElementById('camErr').textContent = 'Caméra indisponible : ' + err.name; }
+  };
+  document.getElementById('modalCam').addEventListener('pointerdown', e => {
+    if(e.target.id === 'modalCam') closeCamera();
+  });
+  document.addEventListener('keydown', e => {
+    if(!CAMERA.open) return;
+    if(e.key === 'Escape'){ closeCamera(); }
+    else if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); camShoot(); }
+  });
 }
 /* =========================================================================
    ===== MODULE SOLVEUR B — KOCIEMBA DEUX PHASES (§7) ======================
@@ -3962,6 +4158,44 @@ test('Kociemba : 2ᵉ lancement depuis IndexedDB < 300 ms', async () => {
   const res = kociembaSolve(applySeq(identityCube(), randomScrambleSeq(25)), 200);
   assert(res.moves.length > 0, 'solveur opérationnel après relecture');
   return 'tables relues depuis IndexedDB en ' + fmt(ms) + ' ms, solveur opérationnel';
+});
+
+/* ---- 5b. Caméra (§5.2) — jamais lancée sans ?camera=1 pour ne pas
+   déclencher la demande d'autorisation pendant un simple ?test=1 ---- */
+test('Caméra : prise de vue guidée des 6 faces', async () => {
+  const qs = new URLSearchParams(location.search);
+  if(qs.get('camera') !== '1')
+    return 'non exécuté ici — ajoutez ?test=1&camera=1 pour lancer la caméra (évite la demande d’autorisation)';
+  if(!camSupported()) return 'navigator.mediaDevices absent dans ce contexte — chaîne caméra non testée';
+  const ok = await openCamera();
+  assert(ok, 'la caméra n’a pas démarré : ' + document.getElementById('camErr').textContent);
+  const v = document.getElementById('camVideo');
+  for(let i=0;i<80 && !v.videoWidth;i++) await new Promise(r => setTimeout(r, 50));
+  assert(v.videoWidth > 0, 'aucune image reçue de la caméra');
+  assertEq(CAMERA.order.length, 6, 'ordre de prise de vue');
+  assertEq(CAMERA.order.join(','), PZ.photoOrder.join(','), 'ordre conforme à la convention §5.1/§12.8');
+  const shots = [];
+  for(let k=0;k<6;k++){
+    const f = CAMERA.order[CAMERA.i];
+    assert(camShoot(), 'capture ' + FACES[f] + ' échouée');
+    shots.push(FACES[f]);
+  }
+  assertEq(PHOTO.f.filter(s => s && s.loaded).length, 6, 'photos chargées');
+  PHOTO.f.forEach((st, f) => {
+    if(!st) return;
+    const face = PZ.faces[f];
+    assert(st.crop.w > 0 && st.crop.h > 0, 'cadrage de la face ' + FACES[f]);
+    assert(Math.abs(st.crop.w/st.crop.h - face.cols/face.rows) < 0.01,
+           'cadrage au format de la face ' + FACES[f]);
+    const px = st.ctx.getImageData(CAN/2, CAN/2, 1, 1).data;
+    assert(px[0] + px[1] + px[2] > 0, 'image vide sur la face ' + FACES[f]);
+  });
+  assert(!document.getElementById('btnAnalyze').disabled, 'le bouton Analyser doit être actif');
+  assert(!CAMERA.stream, 'le flux doit être coupé après la 6ᵉ photo');
+  document.getElementById('btnClearPhotos').click();
+  closeCamera();
+  return '6 faces capturées dans l’ordre ' + shots.join(' → ') +
+         ' · chaque cadrage est au format de sa face · flux coupé automatiquement à la fin';
 });
 
 /* ---- 6. Cohérence 3D (§10.6) ---- */
