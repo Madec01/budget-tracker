@@ -332,6 +332,53 @@ select:focus{border-color:var(--cy);outline:none}
 .empty{padding:22px 10px;text-align:center;color:var(--txt-faint);font-size:12.5px;line-height:1.6}
 .stat{display:flex;gap:14px;flex-wrap:wrap;padding:8px 10px;border-radius:var(--r-s);background:rgba(255,255,255,.035);border:1px solid var(--stroke);font-size:11.5px;color:var(--txt-dim);margin-top:10px}
 .stat b{font-family:var(--mono);color:var(--cy);font-weight:700}
+
+/* ===== CAPTURE PHOTO (§5) ===== */
+.photohead{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+.thumbs{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px}
+@media (max-width:420px){ .thumbs{grid-template-columns:repeat(2,1fr)} }
+.thumb{
+  position:relative;border:1px solid var(--stroke);border-radius:var(--r-s);overflow:hidden;
+  background:rgba(0,0,0,.32);
+}
+.thumb.drag{border-color:var(--cy);box-shadow:0 0 0 2px rgba(34,211,238,.35)}
+.thumb.has .drop{display:none}
+.th-head{
+  display:flex;align-items:center;gap:5px;padding:4px 7px;font:700 11px var(--mono);
+  background:linear-gradient(90deg,rgba(167,139,250,.2),transparent);color:var(--txt);
+}
+.th-head .o{font:500 8.5px/1.15 var(--sans);color:var(--txt-faint);margin-left:auto;letter-spacing:0;text-align:right;max-width:58%}
+.th-body{position:relative;aspect-ratio:1;background:#04050a}
+.th-body canvas{width:100%;height:100%;display:block}
+.drop{
+  position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:4px;cursor:pointer;color:var(--txt-faint);font-size:10.5px;text-align:center;padding:6px;
+}
+.drop svg{width:26px;height:26px;opacity:.75}
+.drop:hover{background:rgba(34,211,238,.07);color:var(--txt-dim)}
+.crop{position:absolute;border:1.5px solid var(--cy);box-shadow:0 0 0 9999px rgba(0,0,0,.5), 0 0 14px rgba(34,211,238,.5);cursor:move;display:none}
+.thumb.has .crop{display:block}
+.crop .g{position:absolute;inset:0;pointer-events:none;
+  background-image:linear-gradient(90deg,transparent 33.2%,rgba(255,255,255,.4) 33.2% 33.5%,transparent 33.5%,transparent 66.4%,rgba(255,255,255,.4) 66.4% 66.7%,transparent 66.7%),
+                   linear-gradient(0deg,transparent 33.2%,rgba(255,255,255,.4) 33.2% 33.5%,transparent 33.5%,transparent 66.4%,rgba(255,255,255,.4) 66.4% 66.7%,transparent 66.7%)}
+.crop .h{position:absolute;width:13px;height:13px;background:var(--cy);border-radius:3px;box-shadow:0 0 8px rgba(34,211,238,.9)}
+.crop .nw{left:-7px;top:-7px;cursor:nwse-resize}
+.crop .ne{right:-7px;top:-7px;cursor:nesw-resize}
+.crop .sw{left:-7px;bottom:-7px;cursor:nesw-resize}
+.crop .se{right:-7px;bottom:-7px;cursor:nwse-resize}
+.pic{display:inline-block;vertical-align:middle}
+
+/* ===== PROGRESSION KOCIEMBA (§7.5) ===== */
+#kocProg{display:none;margin:10px 0 4px}
+#kocProg.on{display:block}
+#kocProg .bar{height:6px;border-radius:99px;background:rgba(255,255,255,.1);overflow:hidden}
+#kocProg .bar i{display:block;height:100%;width:0;border-radius:99px;
+  background:linear-gradient(90deg,var(--cy),var(--vi));box-shadow:0 0 14px rgba(34,211,238,.8);transition:width .2s}
+#kocProg span{display:block;margin-top:5px;font:600 10.5px var(--mono);color:var(--txt-faint)}
+.budget{display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--txt-faint)}
+.budget input{width:66px;background:rgba(0,0,0,.4);color:var(--txt);border:1px solid var(--stroke);
+  border-radius:7px;padding:5px 7px;font:600 11.5px var(--mono)}
+.budget input:focus{border-color:var(--cy);outline:none}
 </style>
 </head>
 <body>
@@ -1667,6 +1714,260 @@ async function solveCurrent(){
   btn.textContent = '⚡ Résoudre'; updateSolveBtn();
 }
 /* =========================================================================
+   ===== MODULE PHOTO (§5) =================================================
+   6 photos → échantillonnage → CIE Lab → affectation sous contrainte
+   « exactement 9 par couleur » (algorithme hongrois sur 54×54).
+   Les 6 centres servent de références : rouge/orange devient fiable puisque
+   comparé aux références prises dans la même lumière (§5.3).
+   ========================================================================= */
+const CAN = 300;                          // côté du canvas de travail (§5.2)
+const PHOTO = {f:[], order:[2,1,5,4,0,3]};// ordre d'affichage : F R B L U D (§5.1)
+const ORIENT = [
+  {top:'U', left:'—',  txt:'vu de dessus, F vers le bas'},   // U
+  {top:'U', left:'F',  txt:'U en haut, F à gauche'},         // R
+  {top:'U', left:'L',  txt:'U en haut'},                     // F
+  {top:'U', left:'—',  txt:'vu de dessous, F vers le haut'}, // D
+  {top:'U', left:'B',  txt:'U en haut, B à gauche'},         // L
+  {top:'U', left:'R',  txt:'U en haut, R à gauche'}          // B
+];
+
+/* --- sRGB → CIE Lab (§5.3.1) --- */
+function srgbToLab(r, g, b){
+  const f = v => { v /= 255; return v <= 0.04045 ? v/12.92 : Math.pow((v+0.055)/1.055, 2.4); };
+  const R = f(r), G = f(g), B = f(b);
+  const X = (R*0.4124564 + G*0.3575761 + B*0.1804375) / 0.95047;
+  const Y = (R*0.2126729 + G*0.7151522 + B*0.0721750);
+  const Z = (R*0.0193339 + G*0.1191920 + B*0.9503041) / 1.08883;
+  const g2 = t => t > 0.008856 ? Math.cbrt(t) : (7.787*t + 16/116);
+  const fx = g2(X), fy = g2(Y), fz = g2(Z);
+  return [116*fy - 16, 500*(fx - fy), 200*(fy - fz)];
+}
+const deltaE76 = (a, b) => Math.hypot(a[0]-b[0], a[1]-b[1], a[2]-b[2]);
+
+/* --- algorithme hongrois O(n³) (§5.3.4) --- */
+function hungarian(cost, n){
+  const INF = 1e18;
+  const u = new Float64Array(n+1), v = new Float64Array(n+1);
+  const p = new Int32Array(n+1), way = new Int32Array(n+1);
+  for(let i=1;i<=n;i++){
+    p[0] = i;
+    let j0 = 0;
+    const minv = new Float64Array(n+1).fill(INF), used = new Uint8Array(n+1);
+    do{
+      used[j0] = 1;
+      const i0 = p[j0]; let delta = INF, j1 = 0;
+      for(let j=1;j<=n;j++) if(!used[j]){
+        const cur = cost[i0-1][j-1] - u[i0] - v[j];
+        if(cur < minv[j]){ minv[j] = cur; way[j] = j0; }
+        if(minv[j] < delta){ delta = minv[j]; j1 = j; }
+      }
+      for(let j=0;j<=n;j++){
+        if(used[j]){ u[p[j]] += delta; v[j] -= delta; }
+        else minv[j] -= delta;
+      }
+      j0 = j1;
+    } while(p[j0] !== 0);
+    do{ const j1 = way[j0]; p[j0] = p[j1]; j0 = j1; } while(j0);
+  }
+  const res = new Int32Array(n);
+  for(let j=1;j<=n;j++) if(p[j]) res[p[j]-1] = j-1;
+  return res;
+}
+/* affectation 54 échantillons → 6 couleurs, quota 9 (§5.3) */
+function assignColors(labs){
+  const ref = CENTER_IDX.map(i => labs[i]);            // les 6 centres = références
+  const cost6 = labs.map(l => ref.map(r => deltaE76(l, r)));
+  const big = [];
+  for(let i=0;i<54;i++){
+    const row = new Float64Array(54);
+    for(let j=0;j<54;j++) row[j] = cost6[i][(j/9)|0];
+    big.push(row);
+  }
+  const assign = hungarian(big, 54);
+  const colors = new Uint8Array(54), conf = new Float64Array(54);
+  for(let i=0;i<54;i++){
+    const c = (assign[i]/9)|0;
+    colors[i] = c;
+    let best = Infinity;
+    for(let k=0;k<6;k++) if(k !== c) best = Math.min(best, cost6[i][k]);
+    conf[i] = best - cost6[i][c];                       // marge sur le 2ᵉ meilleur
+  }
+  return {colors, conf, cost6};
+}
+
+/* --- échantillonnage d'une face (§5.2.4) --- */
+function sampleFace(ctx, crop){
+  const out = [];
+  const cell = crop.w / 3, rad = cell * 0.2;            // disque ≈ 40 % de la case
+  const img = ctx.getImageData(0, 0, CAN, CAN).data;
+  for(let r=0;r<3;r++) for(let c=0;c<3;c++){
+    const cx = crop.x + (c + 0.5)*cell, cy = crop.y + (r + 0.5)*cell;
+    const px = [];
+    const x0 = Math.max(0, Math.floor(cx - rad)), x1 = Math.min(CAN-1, Math.ceil(cx + rad));
+    const y0 = Math.max(0, Math.floor(cy - rad)), y1 = Math.min(CAN-1, Math.ceil(cy + rad));
+    for(let y=y0;y<=y1;y++) for(let x=x0;x<=x1;x++){
+      const dx = x - cx, dy = y - cy;
+      if(dx*dx + dy*dy > rad*rad) continue;
+      const o = (y*CAN + x)*4;
+      px.push([img[o], img[o+1], img[o+2], 0.299*img[o] + 0.587*img[o+1] + 0.114*img[o+2]]);
+    }
+    if(!px.length){ out.push([128,128,128]); continue; }
+    px.sort((a, b) => a[3] - b[3]);
+    const lo = Math.floor(px.length*0.2), hi = Math.ceil(px.length*0.8);
+    const keep = px.slice(lo, Math.max(hi, lo+1));
+    let R=0, G=0, B=0;
+    keep.forEach(p => { R += p[0]; G += p[1]; B += p[2]; });
+    out.push([R/keep.length, G/keep.length, B/keep.length]);
+  }
+  return out;
+}
+
+/* --- UI --- */
+function orientPicto(f){
+  const o = ORIENT[f];
+  return '<svg class="pic" width="34" height="26" viewBox="0 0 34 26" aria-hidden="true">' +
+    '<rect x="9" y="6" width="16" height="16" rx="2" fill="none" stroke="#a78bfa" stroke-width="1.3"/>' +
+    '<text x="17" y="17.5" font-size="9" fill="#e8ecf7" text-anchor="middle" font-family="monospace">' + FACES[f] + '</text>' +
+    '<text x="17" y="4.5" font-size="7.5" fill="#22d3ee" text-anchor="middle" font-family="monospace">' + o.top + '</text>' +
+    (o.left !== '—' ? '<text x="4" y="16" font-size="7.5" fill="#f472b6" text-anchor="middle" font-family="monospace">' + o.left + '</text>' : '') +
+    '</svg>';
+}
+function buildPhotoPanel(){
+  const host = document.getElementById('photoZone');
+  host.innerHTML =
+    '<div class="photohead">' +
+      '<button class="btn sm" id="btnAnalyze" disabled>🔍 Analyser les photos</button>' +
+      '<button class="btn sm" id="btnClearPhotos">✕ Vider</button>' +
+      '<span class="z" id="photoMeta" style="font:600 11px var(--mono);color:var(--txt-faint);margin-left:auto"></span>' +
+    '</div><div class="thumbs" id="thumbs"></div>';
+  const wrap = document.getElementById('thumbs');
+  PHOTO.order.forEach(f => {
+    const d = document.createElement('div');
+    d.className = 'thumb'; d.dataset.f = f;
+    d.innerHTML =
+      '<div class="th-head">' + FACES[f] + orientPicto(f) + '<span class="o">' + ORIENT[f].txt + '</span></div>' +
+      '<div class="th-body">' +
+        '<canvas width="' + CAN + '" height="' + CAN + '"></canvas>' +
+        '<div class="crop"><div class="g"></div><div class="h nw"></div><div class="h ne"></div><div class="h sw"></div><div class="h se"></div></div>' +
+        '<label class="drop"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">' +
+          '<path d="M4 17V7a2 2 0 0 1 2-2h3l1.5-2h3L15 5h3a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z"/>' +
+          '<circle cx="12" cy="12" r="3.4"/></svg>' +
+          'photo ' + FACES[f] +
+          '<input type="file" accept="image/*" capture="environment" hidden></label>' +
+      '</div>';
+    wrap.appendChild(d);
+    const cv = d.querySelector('canvas');
+    const st = {f, el:d, canvas:cv, ctx:cv.getContext('2d', {willReadFrequently:true}), crop:{x:0,y:0,w:CAN}, loaded:false};
+    PHOTO.f[f] = st;
+    d.querySelector('input').addEventListener('change', e => { if(e.target.files[0]) loadPhoto(st, e.target.files[0]); });
+    d.addEventListener('dragover', e => { e.preventDefault(); d.classList.add('drag'); });
+    d.addEventListener('dragleave', () => d.classList.remove('drag'));
+    d.addEventListener('drop', e => {
+      e.preventDefault(); d.classList.remove('drag');
+      const file = e.dataTransfer.files && e.dataTransfer.files[0];
+      if(file) loadPhoto(st, file);
+    });
+    wireCrop(st);
+  });
+  document.getElementById('btnAnalyze').onclick = analyzePhotos;
+  document.getElementById('btnClearPhotos').onclick = () => {
+    PHOTO.f.forEach(st => { st.loaded = false; st.el.classList.remove('has'); st.ctx.clearRect(0,0,CAN,CAN); });
+    updatePhotoMeta();
+  };
+  updatePhotoMeta();
+}
+function updatePhotoMeta(){
+  const n = PHOTO.f.filter(s => s && s.loaded).length;
+  document.getElementById('photoMeta').textContent = n + '/6 photos';
+  document.getElementById('btnAnalyze').disabled = n < 6;
+}
+function loadPhoto(st, file){
+  const url = URL.createObjectURL(file);
+  const img = new Image();
+  img.onload = () => {
+    const s = Math.min(CAN/img.width, CAN/img.height);
+    const w = img.width*s, h = img.height*s;
+    st.ctx.fillStyle = '#04050a'; st.ctx.fillRect(0,0,CAN,CAN);
+    st.ctx.drawImage(img, (CAN-w)/2, (CAN-h)/2, w, h);
+    const side = Math.min(w, h);
+    st.crop = {x:(CAN-side)/2, y:(CAN-side)/2, w:side};   // plus grand carré centré
+    st.loaded = true; st.el.classList.add('has');
+    drawCrop(st); updatePhotoMeta();
+    URL.revokeObjectURL(url);
+  };
+  img.onerror = () => { toast('Image illisible'); URL.revokeObjectURL(url); };
+  img.src = url;
+}
+function drawCrop(st){
+  const c = st.el.querySelector('.crop'), p = v => (v/CAN*100) + '%';
+  c.style.left = p(st.crop.x); c.style.top = p(st.crop.y);
+  c.style.width = p(st.crop.w); c.style.height = p(st.crop.w);
+}
+function wireCrop(st){
+  const box = st.el.querySelector('.crop');
+  let mode = null, sx = 0, sy = 0, c0 = null;
+  const toCan = e => {
+    const r = st.canvas.getBoundingClientRect();
+    return [(e.clientX - r.left)/r.width*CAN, (e.clientY - r.top)/r.height*CAN];
+  };
+  box.addEventListener('pointerdown', e => {
+    if(!st.loaded) return;
+    e.preventDefault(); e.stopPropagation();
+    mode = e.target.classList.contains('h') ? e.target.classList[1] : 'move';
+    const [x, y] = toCan(e); sx = x; sy = y; c0 = Object.assign({}, st.crop);
+    box.setPointerCapture(e.pointerId);
+  });
+  box.addEventListener('pointermove', e => {
+    if(!mode) return;
+    const [x, y] = toCan(e), dx = x - sx, dy = y - sy;
+    if(mode === 'move'){
+      st.crop.x = Math.max(0, Math.min(CAN - c0.w, c0.x + dx));
+      st.crop.y = Math.max(0, Math.min(CAN - c0.w, c0.y + dy));
+    } else {
+      const d = (mode === 'se') ? Math.max(dx, dy) : (mode === 'nw') ? -Math.min(dx, dy)
+              : (mode === 'ne') ? Math.max(dx, -dy) : Math.max(-dx, dy);
+      let w = Math.max(36, Math.min(CAN, c0.w + d));
+      let nx = c0.x, ny = c0.y;
+      if(mode === 'nw'){ nx = c0.x + c0.w - w; ny = c0.y + c0.w - w; }
+      if(mode === 'ne'){ ny = c0.y + c0.w - w; }
+      if(mode === 'sw'){ nx = c0.x + c0.w - w; }
+      if(nx < 0){ w += nx; nx = 0; } if(ny < 0){ w += ny; ny = 0; }
+      if(nx + w > CAN) w = CAN - nx; if(ny + w > CAN) w = CAN - ny;
+      st.crop = {x:nx, y:ny, w:Math.max(36, w)};
+    }
+    drawCrop(st);
+  });
+  const end = e => { if(mode){ mode = null; } };
+  box.addEventListener('pointerup', end);
+  box.addEventListener('pointercancel', end);
+}
+/* pipeline complet : 6 photos → grille */
+function analyzePhotos(){
+  const rgb = new Array(54);
+  for(let f=0; f<6; f++){
+    const st = PHOTO.f[f];
+    if(!st || !st.loaded){ toast('Il manque la photo ' + FACES[f]); return; }
+    const cells = sampleFace(st.ctx, st.crop);
+    for(let k=0;k<9;k++) rgb[f*9+k] = cells[k];
+  }
+  applySamples(rgb);
+}
+function applySamples(rgb){
+  const labs = rgb.map(c => srgbToLab(c[0], c[1], c[2]));
+  const {colors:byFace, conf} = assignColors(labs);
+  /* l'affectation rend l'indice de la face-référence : on repasse en couleurs de palette */
+  const colors = Uint8Array.from(byFace, f => FACE_COLOR_DEFAULT[f]);
+  const low = new Set();
+  for(let i=0;i<54;i++) if(conf[i] < 9) low.add(i);
+  APP.lowConf = low;
+  setColors(colors, {keepConf:true});
+  APP.lowConf = low; paintNet();
+  const meta = document.getElementById('photoMeta');
+  if(meta) meta.textContent = low.size ? low.size + ' sticker(s) à vérifier' : 'lecture nette';
+  toast(low.size ? low.size + ' sticker(s) incertains — cerclés d’orange' : 'Grille remplie, lecture nette');
+  return {colors, conf, low};
+}
+/* =========================================================================
    ===== MODULE APP — état global, actions, persistance ====================
    ========================================================================= */
 const APP = {
@@ -1988,6 +2289,152 @@ test('Solveur LBL : cas limites (cube résolu, états aléatoires uniformes)', (
   }
   return 'cube résolu → 0 coup · 200 états aléatoires uniformes résolus · moy ' + fmt(sum/200) + ' · max ' + max +
          ' · aucun coup redondant à l’intérieur d’un groupe';
+});
+
+/* ---- 5. Photo : Lab + affectation 9-par-couleur (§5.3) ---- */
+/* Photos synthétiques : couleurs réelles d'un cube (≠ palette de l'app),
+   dégradé d'éclairage, dominante chaude qui rapproche rouge et orange,
+   bruit, reflets spéculaires et bordures noires. */
+const SYNTH_RGB = {
+  U:[248,248,242], R:[196,28,24], F:[18,152,68],
+  D:[248,208,22],  L:[238,116,18], B:[22,78,188]
+};
+function drawSynthFace(ctx, letters, seed, cast){
+  const rnd = (a) => (Math.random()*2 - 1)*a;
+  ctx.fillStyle = '#0a0a0c'; ctx.fillRect(0, 0, CAN, CAN);
+  for(let r=0;r<3;r++) for(let c=0;c<3;c++){
+    const base = SYNTH_RGB[letters[r*3+c]];
+    const col = base.map(v => Math.max(0, Math.min(255, v + rnd(10))));
+    ctx.fillStyle = 'rgb(' + col.map(Math.round).join(',') + ')';
+    ctx.beginPath();
+    const x = c*100 + 8, y = r*100 + 8;
+    if(ctx.roundRect) ctx.roundRect(x, y, 84, 84, 10); else ctx.rect(x, y, 84, 84);
+    ctx.fill();
+  }
+  /* reflets spéculaires décentrés (doivent être éliminés par le rognage 20/20 %) */
+  ctx.fillStyle = 'rgba(255,255,255,.92)';
+  for(let i=0;i<3;i++){
+    const cell = (seed + i*4) % 9;
+    ctx.beginPath();
+    ctx.arc(50 + (cell % 3)*100 + 13, 50 + (((cell/3)|0) % 3)*100 - 13, 7, 0, 7);
+    ctx.fill();
+  }
+  /* éclairage : dégradé + dominante chaude + bruit */
+  const im = ctx.getImageData(0, 0, CAN, CAN), d = im.data;
+  for(let y=0;y<CAN;y++) for(let x=0;x<CAN;x++){
+    const o = (y*CAN + x)*4;
+    const g = (0.82 + 0.18*(x/CAN) + 0.18*(1 - y/CAN)) * cast[3];  // dégradé + expo de la photo
+    d[o]   = Math.max(0, Math.min(255, d[o]  *g*cast[0] + rnd(7)));
+    d[o+1] = Math.max(0, Math.min(255, d[o+1]*g*cast[1] + rnd(7)));
+    d[o+2] = Math.max(0, Math.min(255, d[o+2]*g*cast[2] + rnd(7)));
+  }
+  ctx.putImageData(im, 0, 0);
+}
+function mulberry32(a){
+  return function(){
+    a |= 0; a = (a + 0x6D2B79F5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+test('Photo : 25 cubes synthétiques lus (Lab + références centres + quota 9)', () => {
+  const cv = document.createElement('canvas'); cv.width = cv.height = CAN;
+  const ctx = cv.getContext('2d', {willReadFrequently:true});
+  const realRandom = Math.random;
+  Math.random = mulberry32(0xC0FFEE);            // fixture déterministe
+  let naive = 0, err = 0, worstCube = 0, margin = 0, n = 0, flagged = 0, errFlagged = 0;
+  try{
+    for(let t=0;t<25;t++){
+      const truth = cubieToFacelet(applySeq(identityCube(), randomScrambleSeq(25)));
+      const rgb = new Array(54);
+      for(let f=0; f<6; f++){
+        /* chaque face est une photo distincte : balance des blancs et exposition
+           propres, dominante chaude marquée qui rapproche rouge et orange */
+        const cast = [1.06 + Math.random()*0.16, 0.97 + Math.random()*0.08,
+                      0.80 + Math.random()*0.14, 0.86 + Math.random()*0.30];
+        drawSynthFace(ctx, truth.slice(f*9, f*9+9), f + t, cast);
+        const cells = sampleFace(ctx, {x:0, y:0, w:CAN});
+        for(let k=0;k<9;k++) rgb[f*9+k] = cells[k];
+      }
+      const labs = rgb.map(c => srgbToLab(c[0], c[1], c[2]));
+      const {colors, conf, cost6} = assignColors(labs);
+      let e = 0;
+      for(let i=0;i<54;i++){
+        const want = FACE_IDX[truth[i]];
+        const low = conf[i] < 9;
+        if(low) flagged++;
+        if(colors[i] !== want){ err++; e++; if(low) errFlagged++; }
+        let bi = 0; for(let k=1;k<6;k++) if(cost6[i][k] < cost6[i][bi]) bi = k;
+        if(bi !== want) naive++;
+        margin += conf[i]; n++;
+      }
+      worstCube = Math.max(worstCube, e);
+      /* quota : la grille lue passe toujours le contrôle 2 du §3 */
+      const cnt = new Array(6).fill(0); colors.forEach(c => cnt[c]++);
+      assert(cnt.every(x => x === 9), 'cube ' + t + ' : quota 9 par couleur non respecté');
+      if(e === 0){
+        const v = validateColors(Uint8Array.from(colors, f => FACE_COLOR_DEFAULT[f]));
+        assert(v.ok, 'cube ' + t + ' : grille exacte rejetée par la validation');
+        assertEq(v.facelet, truth, 'cube ' + t + ' : chaîne 54 reconstruite');
+      }
+    }
+  } finally { Math.random = realRandom; }
+  /* critère de sortie §9 phase 4 : grille correcte, ou 1–2 corrections manuelles */
+  assert(worstCube <= 2, 'un cube a demandé ' + worstCube + ' corrections (> 2 autorisées)');
+  return '25 cubes × 54 = ' + n + ' lectures · ' + err + ' erreur(s), au pire ' + worstCube +
+         ' par cube (≤ 2 exigées) · marge moyenne au 2ᵉ meilleur ' + fmt(margin/n) + ' ΔE · ' +
+         flagged + ' sticker(s) cerclés « à vérifier »' +
+         ' · plus proche voisin sans quota : ' + naive + ' erreur(s)';
+});
+test('Photo : chaîne complète via l’UI (6 fichiers → cadrage → grille)', async () => {
+  const truth = cubieToFacelet(applySeq(identityCube(), randomScrambleSeq(25)));
+  for(let f=0; f<6; f++){
+    const cv = document.createElement('canvas'); cv.width = cv.height = CAN;
+    drawSynthFace(cv.getContext('2d', {willReadFrequently:true}), truth.slice(f*9, f*9+9), f,
+                  [1.08, 1.0, 0.9, 1.0]);
+    const blob = await new Promise(r => cv.toBlob(r, 'image/png'));
+    const file = new File([blob], FACES[f] + '.png', {type:'image/png'});
+    const dt = new DataTransfer(); dt.items.add(file);
+    const input = document.querySelector('.thumb[data-f="' + f + '"] input');
+    input.files = dt.files;
+    input.dispatchEvent(new Event('change'));
+  }
+  for(let i=0;i<60 && PHOTO.f.filter(s => s.loaded).length < 6; i++)
+    await new Promise(r => setTimeout(r, 50));
+  assertEq(PHOTO.f.filter(s => s.loaded).length, 6, 'photos chargées');
+  const btn = document.getElementById('btnAnalyze');
+  assert(!btn.disabled, 'le bouton Analyser doit s’activer à 6 photos');
+  /* le cadrage par défaut doit être le plus grand carré centré */
+  assertEq(PHOTO.f[0].crop.w, CAN, 'cadrage par défaut = plus grand carré');
+  btn.click();
+  await new Promise(r => setTimeout(r, 60));
+  assert(APP.valid.ok, 'la grille lue doit être valide : ' + (APP.valid.checks.find(c => c.state === 'ko') || {}).msg);
+  assertEq(APP.valid.facelet, truth, 'grille lue == cube photographié');
+  document.getElementById('btnClearPhotos').click();
+  setColors(solvedColors(), {noSave:true});
+  return '6 fichiers PNG injectés dans les <input type=file> → cadrage automatique → ' +
+         'échantillonnage → affectation → les 54 stickers correspondent au cube photographié';
+});
+
+test('Photo : conversion Lab et algorithme hongrois', () => {
+  const w = srgbToLab(255,255,255), k = srgbToLab(0,0,0);
+  assert(Math.abs(w[0] - 100) < 0.01 && Math.abs(w[1]) < 0.02 && Math.abs(w[2]) < 0.02, 'blanc → L*=100, a*=b*=0 (obtenu ' + w.map(x=>fmt(x)).join(', ') + ')');
+  assert(Math.abs(k[0]) < 0.01, 'noir → L*=0');
+  const mid = srgbToLab(128,128,128);
+  assert(mid[0] > 53 && mid[0] < 54.5, 'gris 128 → L*≈53,6 (obtenu ' + fmt(mid[0]) + ')');
+  /* hongrois : optimum sur une matrice à optimum connu */
+  const cost = [[4,1,3],[2,0,5],[3,2,2]];
+  const a = hungarian(cost, 3);
+  let tot = 0; for(let i=0;i<3;i++) tot += cost[i][a[i]];
+  assertEq(tot, 5, 'coût optimal de l’affectation 3×3');
+  const seen = new Set(Array.from(a)); assertEq(seen.size, 3, 'affectation bijective');
+  /* quota respecté sur un cas dégénéré : 54 échantillons tous identiques */
+  const labs = new Array(54).fill([50, 10, 10]).map((l, i) => [50 + (i%7)*0.1, 10, 10]);
+  const r = assignColors(labs);
+  const cnt = new Array(6).fill(0); r.colors.forEach(c => cnt[c]++);
+  assert(cnt.every(c => c === 9), 'quota 9 par couleur respecté même sur des échantillons dégénérés');
+  return 'Lab : blanc L*=100 · gris 128 L*=' + fmt(mid[0]) + ' · hongrois optimal · quota 9 garanti';
 });
 
 /* ---- 6. Cohérence 3D (§10.6) ---- */
