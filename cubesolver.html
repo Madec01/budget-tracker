@@ -256,6 +256,82 @@ textarea:focus,input[type=text]:focus{border-color:var(--cy);outline:none;box-sh
   opacity:0;pointer-events:none;transition:.24s ease;
 }
 #toast.on{opacity:1;transform:translate(-50%,0)}
+
+/* ===== CUBE 3D (§8) ===== */
+#scene{
+  perspective:1400px;height:400px;display:flex;align-items:center;justify-content:center;
+  touch-action:none;cursor:grab;position:relative;overflow:hidden;border-radius:var(--r-s);
+  background:
+    radial-gradient(60% 55% at 50% 42%, rgba(34,211,238,.10), transparent 70%),
+    radial-gradient(45% 40% at 50% 100%, rgba(167,139,250,.12), transparent 70%);
+}
+#scene.grabbing{cursor:grabbing}
+#scene::after{
+  content:"";position:absolute;left:50%;bottom:34px;width:220px;height:26px;transform:translateX(-50%);
+  background:radial-gradient(50% 50% at 50% 50%, rgba(0,0,0,.6), transparent 72%);filter:blur(6px);
+}
+#cube{position:relative;width:0;height:0;transform-style:preserve-3d;will-change:transform;z-index:1}
+.cubie{position:absolute;transform-style:preserve-3d;will-change:transform}
+.layer{position:absolute;transform-style:preserve-3d;left:0;top:0}
+.sticker{
+  position:absolute;border-radius:7px;
+  border:1px solid rgba(0,0,0,.6);
+  box-shadow:inset 0 2px 6px rgba(255,255,255,.22), inset 0 -3px 8px rgba(0,0,0,.4);
+  backface-visibility:hidden;
+}
+.sticker.blank{background:#0a0c14 !important;box-shadow:inset 0 0 10px rgba(0,0,0,.9);border-color:#000}
+.viewbar{display:flex;gap:7px;flex-wrap:wrap;align-items:center;margin-top:10px}
+.viewbar .z{font:600 11px var(--mono);color:var(--txt-faint);margin-left:auto}
+
+/* ===== LECTEUR / SOLUTION (§8.5) ===== */
+.player{display:flex;flex-direction:column;gap:9px}
+.pbtns{display:flex;gap:6px;align-items:center;justify-content:center}
+.pbtns .btn{padding:7px 11px;font-size:13px}
+.pbtns .btn.play{padding:8px 15px;font-size:15px}
+input[type=range]{
+  -webkit-appearance:none;appearance:none;width:100%;height:5px;border-radius:99px;
+  background:linear-gradient(90deg,var(--cy) var(--p,0%),rgba(255,255,255,.12) var(--p,0%));
+  outline:none;cursor:pointer;
+}
+input[type=range]::-webkit-slider-thumb{
+  -webkit-appearance:none;width:14px;height:14px;border-radius:50%;background:#eaf6ff;
+  border:2px solid var(--cy);box-shadow:0 0 12px rgba(34,211,238,.9);cursor:grab;
+}
+input[type=range]::-moz-range-thumb{width:12px;height:12px;border-radius:50%;background:#eaf6ff;border:2px solid var(--cy);box-shadow:0 0 12px rgba(34,211,238,.9)}
+.prow{display:flex;align-items:center;gap:10px;font:600 11px var(--mono);color:var(--txt-dim)}
+.prow .cnt{margin-left:auto;color:var(--cy)}
+select{
+  background:rgba(0,0,0,.4);color:var(--txt);border:1px solid var(--stroke);border-radius:var(--r-s);
+  padding:6px 9px;font:inherit;font-size:12px;cursor:pointer;
+}
+select:focus{border-color:var(--cy);outline:none}
+.movelist{max-height:340px;overflow:auto;margin-top:10px;padding-right:4px}
+.grp{margin-bottom:9px;border:1px solid var(--stroke);border-radius:var(--r-s);overflow:hidden;background:rgba(255,255,255,.02)}
+.grp > summary{
+  cursor:pointer;padding:8px 11px;font-size:12px;font-weight:600;display:flex;gap:8px;align-items:center;
+  list-style:none;background:linear-gradient(90deg,rgba(167,139,250,.14),transparent);
+}
+.grp > summary::-webkit-details-marker{display:none}
+.grp > summary::before{content:"▸";color:var(--vi);transition:.15s;font-size:10px}
+.grp[open] > summary::before{transform:rotate(90deg)}
+.grp > summary .n{margin-left:auto;font:600 10.5px var(--mono);color:var(--txt-faint)}
+.grp.cur > summary{background:linear-gradient(90deg,rgba(34,211,238,.22),transparent);color:#d9fbff}
+.grp .note{padding:0 11px 8px;font-size:11px;color:var(--txt-faint);line-height:1.5}
+.mvs{display:flex;flex-wrap:wrap;gap:5px;padding:0 10px 10px}
+.mv{
+  min-width:34px;padding:5px 7px;border-radius:7px;text-align:center;cursor:pointer;
+  font:600 12px var(--mono);color:var(--txt-dim);
+  background:rgba(255,255,255,.05);border:1px solid var(--stroke);transition:.12s;
+}
+.mv:hover{background:rgba(255,255,255,.12);color:var(--txt)}
+.mv.done{color:var(--txt-faint);opacity:.55}
+.mv.cur{
+  background:linear-gradient(180deg,rgba(34,211,238,.4),rgba(34,211,238,.15));
+  border-color:var(--cy);color:#eafcff;box-shadow:0 0 16px -2px rgba(34,211,238,.8);transform:translateY(-1px);
+}
+.empty{padding:22px 10px;text-align:center;color:var(--txt-faint);font-size:12.5px;line-height:1.6}
+.stat{display:flex;gap:14px;flex-wrap:wrap;padding:8px 10px;border-radius:var(--r-s);background:rgba(255,255,255,.035);border:1px solid var(--stroke);font-size:11.5px;color:var(--txt-dim);margin-top:10px}
+.stat b{font-family:var(--mono);color:var(--cy);font-weight:700}
 </style>
 </head>
 <body>
@@ -828,6 +904,440 @@ function toast(msg){
   clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('on'), 2100);
 }
 /* =========================================================================
+   ===== MODULE 3D (§8) ====================================================
+   CSS 3D transforms, 26 cubies (le cubie central est inutile).
+   Sens de rotation vérifiés à l'œil face par face, puis verrouillés par le
+   test §10.6 (chaîne 54 relue depuis le DOM des stickers 3D).
+   ========================================================================= */
+const S3 = 54;                        // côté d'un cubie en px
+const DIR_LIST = ['U','R','F','D','L','B'];
+const DIR_VEC = {U:[0,1,0], R:[1,0,0], F:[0,0,1], D:[0,-1,0], L:[-1,0,0], B:[0,0,-1]};
+const STICKER_TF = {
+  U:'rotateX(90deg)', D:'rotateX(-90deg)', F:'',
+  B:'rotateY(180deg)', R:'rotateY(90deg)', L:'rotateY(-90deg)'
+};
+/* transformation CSS d'un quart de tour horaire, par face */
+const LAYER_TF = {
+  U:[0,1,0,-90], D:[0,1,0,90],
+  R:[1,0,0,90],  L:[1,0,0,-90],
+  F:[0,0,1,90],  B:[0,0,1,-90]
+};
+/* rotation logique (x droite, y haut, z avant) d'un quart de tour horaire */
+function rotVec(face, v){
+  const [x,y,z] = v;
+  switch(face){
+    case 'U': return [-z, y, x];
+    case 'D': return [ z, y,-x];
+    case 'R': return [ x, z,-y];
+    case 'L': return [ x,-z, y];
+    case 'F': return [ y,-x, z];
+    case 'B': return [-y, x, z];
+  }
+}
+/* (x,y,z,face) → index de facelet 0–53 (§2.1) */
+function faceletIndexOf(x, y, z, face){
+  switch(face){
+    case 'U': return  0 + (z+1)*3 + (x+1);
+    case 'R': return  9 + (1-y)*3 + (1-z);
+    case 'F': return 18 + (1-y)*3 + (x+1);
+    case 'D': return 27 + (1-z)*3 + (x+1);
+    case 'L': return 36 + (1-y)*3 + (z+1);
+    case 'B': return 45 + (1-y)*3 + (1-x);
+  }
+}
+const V3 = {cubies:[], el:null, scene:null, rx:-26, ry:-34, zoom:1, vx:0, vy:0, raf:0, busy:false};
+
+function buildCube3D(){
+  const host = document.getElementById('colB');
+  const sec = document.createElement('section');
+  sec.className = 'panel';
+  sec.innerHTML =
+    '<div class="ph">Visualisation 3D <span class="sp" id="v3meta">glissez pour orbiter</span></div>' +
+    '<div id="scene"><div id="cube"></div></div>' +
+    '<div class="viewbar">' +
+      '<button class="btn sm" id="btnView0">⌂ Vue par défaut</button>' +
+      '<button class="btn sm" id="btnViewU">↑ Dessus</button>' +
+      '<button class="btn sm" id="btnViewD">↓ Dessous</button>' +
+      '<button class="btn sm" id="btnViewB">↻ Arrière</button>' +
+      '<span class="z" id="zoomLbl">100 %</span>' +
+    '</div>';
+  host.appendChild(sec);
+  V3.scene = document.getElementById('scene');
+  V3.el = document.getElementById('cube');
+  for(let x=-1;x<=1;x++) for(let y=-1;y<=1;y++) for(let z=-1;z<=1;z++){
+    if(!x && !y && !z) continue;
+    const el = document.createElement('div');
+    el.className = 'cubie';
+    el.style.cssText = 'left:' + (-S3/2) + 'px;top:' + (-S3/2) + 'px;width:' + S3 + 'px;height:' + S3 + 'px';
+    const st = {};
+    for(const d of DIR_LIST){
+      const s = document.createElement('div');
+      s.className = 'sticker blank';
+      s.style.cssText = 'left:2px;top:2px;width:' + (S3-4) + 'px;height:' + (S3-4) + 'px;transform:' +
+        (STICKER_TF[d] ? STICKER_TF[d] + ' ' : '') + 'translateZ(' + (S3/2 - 1) + 'px)';
+      s.dataset.d = d;
+      el.appendChild(s); st[d] = s;
+    }
+    const c = {x, y, z, el, st, col:{}};
+    el.__c = c;
+    V3.cubies.push(c);
+    V3.el.appendChild(el);
+    placeCubie(c);
+  }
+  wireOrbit();
+  applyView();
+  on('state', e => { if(!e || !e.from3d) sync3D(); });
+}
+function placeCubie(c){
+  c.el.style.transform = 'translate3d(' + (c.x*S3) + 'px,' + (-c.y*S3) + 'px,' + (c.z*S3) + 'px)';
+}
+function paintCubie(c){
+  for(const d of DIR_LIST){
+    const v = c.col[d], s = c.st[d];
+    if(v === null || v === undefined){ s.className = 'sticker blank'; s.style.background = ''; s.dataset.c = ''; }
+    else { s.className = 'sticker'; s.style.background = COLORS[v].hex; s.dataset.c = v; }
+  }
+}
+/* modèle → 3D */
+function sync3D(){
+  if(!V3.el) return;
+  for(const c of V3.cubies){
+    /* remise en place logique : on repart des coordonnées d'origine */
+    for(const d of DIR_LIST){
+      const v = DIR_VEC[d];
+      const on = (v[0] && c.x === v[0]) || (v[1] && c.y === v[1]) || (v[2] && c.z === v[2]);
+      c.col[d] = on ? APP.colors[faceletIndexOf(c.x, c.y, c.z, d)] : null;
+    }
+    paintCubie(c);
+  }
+}
+/* 3D → chaîne de couleurs (lue depuis le DOM, cf. test §10.6) */
+function read3DColors(fromComputedStyle){
+  const out = new Uint8Array(54).fill(255);
+  const rgbMap = {};
+  COLORS.forEach((c, i) => {
+    const n = parseInt(c.hex.slice(1), 16);
+    rgbMap['rgb(' + ((n>>16)&255) + ', ' + ((n>>8)&255) + ', ' + (n&255) + ')'] = i;
+  });
+  for(const c of V3.cubies) for(const d of DIR_LIST){
+    const v = DIR_VEC[d];
+    const on = (v[0] && c.x === v[0]) || (v[1] && c.y === v[1]) || (v[2] && c.z === v[2]);
+    if(!on) continue;
+    const el = c.st[d];
+    let ci;
+    if(fromComputedStyle){
+      const bg = getComputedStyle(el).backgroundColor;
+      ci = rgbMap[bg];
+      if(ci === undefined) throw new Error('couleur DOM non reconnue : ' + bg);
+    } else ci = +el.dataset.c;
+    out[faceletIndexOf(c.x, c.y, c.z, d)] = ci;
+  }
+  return out;
+}
+/* applique un coup au niveau 3D (positions + couleurs locales) */
+function commitMove3D(m){
+  const face = FACES[moveAxis(m)], p = movePower(m);
+  const vf = DIR_VEC[face];
+  const ax = vf[0] ? 0 : vf[1] ? 1 : 2, sg = vf[ax];
+  const sel = V3.cubies.filter(c => [c.x, c.y, c.z][ax] === sg);
+  for(const c of sel){
+    for(let k=0;k<p;k++){
+      const [x,y,z] = rotVec(face, [c.x, c.y, c.z]);
+      c.x = x; c.y = y; c.z = z;
+      const nc = {};
+      for(const d of DIR_LIST){
+        const nv = rotVec(face, DIR_VEC[d]);
+        const nd = DIR_LIST.find(dd => {
+          const w = DIR_VEC[dd]; return w[0] === nv[0] && w[1] === nv[1] && w[2] === nv[2];
+        });
+        nc[nd] = c.col[d];
+      }
+      c.col = nc;
+    }
+    placeCubie(c); paintCubie(c);
+  }
+  return sel;
+}
+/* animation d'un coup (§8.3) — reparentage dans une couche temporaire */
+function animateMove3D(m, ms){
+  return new Promise(resolve => {
+    const face = FACES[moveAxis(m)], p = movePower(m);
+    const vf = DIR_VEC[face];
+    const ax = vf[0] ? 0 : vf[1] ? 1 : 2, sg = vf[ax];
+    const sel = V3.cubies.filter(c => [c.x, c.y, c.z][ax] === sg);
+    if(ms <= 0){ commitMove3D(m); resolve(); return; }
+    const layer = document.createElement('div');
+    layer.className = 'layer';
+    V3.el.appendChild(layer);
+    sel.forEach(c => layer.appendChild(c.el));
+    const [ax0, ay0, az0, a90] = LAYER_TF[face];
+    const ang = p === 3 ? -a90 : a90 * p;
+    layer.style.transition = 'none';
+    layer.style.transform = 'rotate3d(' + ax0 + ',' + ay0 + ',' + az0 + ',0deg)';
+    void layer.offsetWidth;
+    layer.style.transition = 'transform ' + ms + 'ms cubic-bezier(.25,.1,.25,1)';
+    layer.style.transform = 'rotate3d(' + ax0 + ',' + ay0 + ',' + az0 + ',' + ang + 'deg)';
+    let done = false;
+    const finish = () => {
+      if(done) return; done = true;
+      commitMove3D(m);
+      sel.forEach(c => V3.el.appendChild(c.el));
+      layer.remove();
+      resolve();
+    };
+    layer.addEventListener('transitionend', finish, {once:true});
+    setTimeout(finish, ms + 90);
+  });
+}
+/* --- orbite, zoom, inertie (§8.2) --- */
+function applyView(){
+  V3.el.style.transform = 'scale(' + V3.zoom + ') rotateX(' + V3.rx + 'deg) rotateY(' + V3.ry + 'deg)';
+  const z = document.getElementById('zoomLbl');
+  if(z) z.textContent = Math.round(V3.zoom * 100) + ' %';
+}
+function setView(rx, ry){ V3.rx = rx; V3.ry = ry; V3.vx = V3.vy = 0; applyView(); }
+function wireOrbit(){
+  const sc = V3.scene;
+  let down = false, lx = 0, ly = 0, moved = 0;
+  sc.addEventListener('pointerdown', e => {
+    down = true; moved = 0; lx = e.clientX; ly = e.clientY;
+    V3.vx = V3.vy = 0; cancelAnimationFrame(V3.raf);
+    sc.classList.add('grabbing'); sc.setPointerCapture(e.pointerId);
+  });
+  sc.addEventListener('pointermove', e => {
+    if(!down) return;
+    const dx = e.clientX - lx, dy = e.clientY - ly;
+    lx = e.clientX; ly = e.clientY; moved += Math.abs(dx) + Math.abs(dy);
+    V3.ry += dx * 0.42; V3.rx -= dy * 0.42;
+    V3.rx = Math.max(-80, Math.min(80, V3.rx));
+    V3.vx = -dy * 0.42; V3.vy = dx * 0.42;
+    applyView();
+  });
+  const up = e => {
+    if(!down) return; down = false; sc.classList.remove('grabbing');
+    const glide = () => {
+      V3.vx *= 0.94; V3.vy *= 0.94;
+      if(Math.abs(V3.vx) < 0.02 && Math.abs(V3.vy) < 0.02) return;
+      V3.rx = Math.max(-80, Math.min(80, V3.rx + V3.vx)); V3.ry += V3.vy;
+      applyView(); V3.raf = requestAnimationFrame(glide);
+    };
+    V3.raf = requestAnimationFrame(glide);
+  };
+  sc.addEventListener('pointerup', up);
+  sc.addEventListener('pointercancel', up);
+  sc.addEventListener('dblclick', () => setView(-26, -34));
+  sc.addEventListener('wheel', e => {
+    e.preventDefault();
+    V3.zoom = Math.max(0.6, Math.min(1.6, V3.zoom * (e.deltaY > 0 ? 0.92 : 1.08)));
+    applyView();
+  }, {passive:false});
+  document.getElementById('btnView0').onclick = () => setView(-26, -34);
+  document.getElementById('btnViewU').onclick = () => setView(-72, -34);
+  document.getElementById('btnViewD').onclick = () => setView(66, -34);
+  document.getElementById('btnViewB').onclick = () => setView(-26, 146);
+}
+/* =========================================================================
+   ===== MODULE LECTEUR DE SOLUTION (§8.5) =================================
+   ========================================================================= */
+const PLAY = {
+  groups:[], flat:[], gidx:[], idx:0, playing:false, lock:false,
+  startColors:null, title:'', stats:''
+};
+function buildSolverPanel(){
+  const host = document.getElementById('colC');
+  const sec = document.createElement('section');
+  sec.className = 'panel';
+  sec.innerHTML =
+    '<div class="ph">Solution <span class="sp" id="solMeta"></span></div>' +
+    '<div class="acts" style="margin-bottom:11px">' +
+      '<select id="solverSel" title="Choix du solveur">' +
+        '<option value="lbl">Couche par couche · pédagogique</option>' +
+        '<option value="kociemba">Kociemba 2 phases · court</option>' +
+      '</select>' +
+      '<button class="btn pri" id="btnSolve">⚡ Résoudre</button>' +
+      '<button class="btn" id="btnPlayScramble" title="Charger le dernier mélange dans le lecteur">🎬 Mélange</button>' +
+    '</div>' +
+    '<div class="player">' +
+      '<div class="pbtns">' +
+        '<button class="btn" id="pFirst" title="Début (Début)">⏮</button>' +
+        '<button class="btn" id="pPrev" title="Coup précédent (←)">◀</button>' +
+        '<button class="btn play pri" id="pPlay" title="Lecture / pause (Espace)">▶</button>' +
+        '<button class="btn" id="pNext" title="Coup suivant (→)">▶▶</button>' +
+        '<button class="btn" id="pLast" title="Fin (Fin)">⏭</button>' +
+      '</div>' +
+      '<input type="range" id="prog" min="0" max="0" value="0" step="1">' +
+      '<div class="prow"><span id="posLbl">0 / 0</span>' +
+        '<label style="display:flex;gap:6px;align-items:center;text-transform:none">vitesse' +
+        '<select id="speedSel">' +
+          '<option value="0.5">0,5×</option><option value="1" selected>1×</option>' +
+          '<option value="1.5">1,5×</option><option value="2">2×</option>' +
+          '<option value="3">3×</option><option value="4">4×</option>' +
+        '</select></label>' +
+        '<span class="cnt" id="mvCount"></span></div>' +
+    '</div>' +
+    '<div id="solStats"></div>' +
+    '<div class="movelist" id="movelist"><div class="empty">Aucune solution chargée.<br>Choisissez un solveur puis <b>Résoudre</b>, ou chargez un mélange.</div></div>';
+  host.appendChild(sec);
+  wirePlayer();
+  on('state', () => { if(!PLAY.lock) clearSequence(); updateSolveBtn(); });
+}
+function updateSolveBtn(){
+  const b = document.getElementById('btnSolve'); if(!b) return;
+  const ok = APP.valid && APP.valid.ok;
+  b.disabled = !ok;
+  b.title = ok ? 'Calculer une solution' : 'Le cube doit être valide (§3)';
+}
+
+/* --- chargement d'une séquence --- */
+function loadSequence(groups, title, stats){
+  PLAY.groups = groups;
+  PLAY.flat = []; PLAY.gidx = [];
+  groups.forEach((g, gi) => g.moves.forEach(m => { PLAY.flat.push(m); PLAY.gidx.push(gi); }));
+  PLAY.idx = 0; PLAY.title = title || ''; PLAY.stats = stats || '';
+  PLAY.startColors = APP.colors.slice();
+  renderMoveList(); renderProgress();
+  document.getElementById('solMeta').textContent = title || '';
+  document.getElementById('solStats').innerHTML = stats ? '<div class="stat">' + stats + '</div>' : '';
+}
+function clearSequence(){
+  PLAY.groups = []; PLAY.flat = []; PLAY.gidx = []; PLAY.idx = 0; PLAY.playing = false;
+  PLAY.startColors = null;
+  const ml = document.getElementById('movelist');
+  if(ml) ml.innerHTML = '<div class="empty">Aucune solution chargée.<br>Choisissez un solveur puis <b>Résoudre</b>, ou chargez un mélange.</div>';
+  const sm = document.getElementById('solMeta'); if(sm) sm.textContent = '';
+  const ss = document.getElementById('solStats'); if(ss) ss.innerHTML = '';
+  setPlayIcon(); renderProgress();
+}
+function renderMoveList(){
+  const ml = document.getElementById('movelist');
+  ml.innerHTML = '';
+  let k = 0;
+  PLAY.groups.forEach((g, gi) => {
+    const d = document.createElement('details');
+    d.className = 'grp'; d.open = true; d.dataset.g = gi;
+    const mvs = g.moves.map(m => { const idx = k++; return '<span class="mv" data-k="' + idx + '">' + MOVE_NAMES[m] + '</span>'; }).join('');
+    d.innerHTML = '<summary>' + (gi + 1) + '. ' + g.step + '<span class="n">' + g.moves.length + ' coups</span></summary>' +
+      (g.note ? '<div class="note">' + g.note + '</div>' : '') +
+      '<div class="mvs">' + mvs + '</div>';
+    ml.appendChild(d);
+  });
+  ml.querySelectorAll('.mv').forEach(el => {
+    el.addEventListener('click', () => jumpTo(+el.dataset.k));
+  });
+  highlightMoves();
+}
+function highlightMoves(){
+  const ml = document.getElementById('movelist'); if(!ml) return;
+  ml.querySelectorAll('.mv').forEach(el => {
+    const k = +el.dataset.k;
+    el.classList.toggle('cur', k === PLAY.idx);
+    el.classList.toggle('done', k < PLAY.idx);
+  });
+  const gcur = PLAY.gidx[PLAY.idx];
+  ml.querySelectorAll('.grp').forEach(el => el.classList.toggle('cur', +el.dataset.g === gcur));
+  const cur = ml.querySelector('.mv.cur');
+  if(cur && cur.scrollIntoView) cur.scrollIntoView({block:'nearest'});
+}
+function renderProgress(){
+  const p = document.getElementById('prog'); if(!p) return;
+  p.max = PLAY.flat.length; p.value = PLAY.idx;
+  p.style.setProperty('--p', (PLAY.flat.length ? (PLAY.idx / PLAY.flat.length * 100) : 0) + '%');
+  document.getElementById('posLbl').textContent = PLAY.idx + ' / ' + PLAY.flat.length;
+  document.getElementById('mvCount').textContent = PLAY.flat.length ? PLAY.flat.length + ' coups' : '';
+  highlightMoves();
+}
+function setPlayIcon(){
+  const b = document.getElementById('pPlay'); if(b) b.textContent = PLAY.playing ? '⏸' : '▶';
+}
+
+/* --- application d'un coup (modèle + 3D + patron 2D) --- */
+function moveDuration(){ return 240 / (+APP.settings.speed || 1); }
+async function applyMoveToAll(m, animate){
+  V3.busy = true;
+  await animateMove3D(m, animate ? moveDuration() : 0);
+  PLAY.lock = true;
+  setCubie(applyMove(APP.cubie, m), {from3d:true});
+  PLAY.lock = false;
+  flashFace(FACES[moveAxis(m)]);
+  V3.busy = false;
+}
+function flashFace(f){
+  const b = FACE_IDX[f] * 9;
+  for(let k=0;k<9;k++) flashSticker(b + k);
+}
+async function stepForward(animate){
+  if(PLAY.idx >= PLAY.flat.length) return false;
+  const m = PLAY.flat[PLAY.idx];
+  await applyMoveToAll(m, animate !== false);
+  PLAY.idx++; renderProgress();
+  return true;
+}
+async function stepBack(animate){
+  if(PLAY.idx <= 0) return false;
+  const m = invMove(PLAY.flat[PLAY.idx - 1]);
+  await applyMoveToAll(m, animate !== false);
+  PLAY.idx--; renderProgress();
+  return true;
+}
+/* saut direct : on rejoue depuis l'état initial, sans animation (§8.5) */
+function jumpTo(k){
+  k = Math.max(0, Math.min(PLAY.flat.length, k));
+  if(!PLAY.startColors) return;
+  PLAY.playing = false; setPlayIcon();
+  PLAY.lock = true;
+  setColors(PLAY.startColors.slice(), {noSave:true});
+  PLAY.lock = false;
+  sync3D();
+  let c = APP.cubie;
+  for(let i=0;i<k;i++) c = applyMove(c, PLAY.flat[i]);
+  PLAY.lock = true;
+  setCubie(c);
+  PLAY.lock = false;
+  sync3D();
+  PLAY.idx = k; renderProgress();
+}
+async function togglePlay(){
+  if(PLAY.playing){ PLAY.playing = false; setPlayIcon(); return; }
+  if(PLAY.idx >= PLAY.flat.length) jumpTo(0);
+  if(!PLAY.flat.length) return;
+  PLAY.playing = true; setPlayIcon();
+  while(PLAY.playing && PLAY.idx < PLAY.flat.length){
+    await stepForward(true);
+    await new Promise(r => setTimeout(r, 40 / (+APP.settings.speed || 1)));
+  }
+  PLAY.playing = false; setPlayIcon();
+}
+function wirePlayer(){
+  const g = id => document.getElementById(id);
+  g('pPlay').onclick = () => togglePlay();
+  g('pNext').onclick = () => { PLAY.playing = false; setPlayIcon(); stepForward(true); };
+  g('pPrev').onclick = () => { PLAY.playing = false; setPlayIcon(); stepBack(true); };
+  g('pFirst').onclick = () => jumpTo(0);
+  g('pLast').onclick = () => jumpTo(PLAY.flat.length);
+  g('prog').oninput = e => jumpTo(+e.target.value);
+  g('speedSel').value = String(APP.settings.speed || 1);
+  g('speedSel').onchange = e => { APP.settings.speed = +e.target.value; saveLS(); };
+  g('solverSel').value = APP.settings.solver || 'lbl';
+  g('solverSel').onchange = e => { APP.settings.solver = e.target.value; saveLS(); };
+  g('btnPlayScramble').onclick = () => {
+    if(!APP.lastScrambleSeq){ toast('Aucun mélange en mémoire — cliquez sur Mélanger'); return; }
+    PLAY.lock = true; setCubie(identityCube()); PLAY.lock = false; sync3D();
+    loadSequence([{step:'Mélange', moves:APP.lastScrambleSeq.slice(), note:'Séquence de mélange appliquée depuis le cube résolu.'}],
+                 'mélange', '<span>coups <b>' + APP.lastScrambleSeq.length + '</b></span>');
+    toast('Mélange chargé dans le lecteur');
+  };
+  g('btnSolve').onclick = () => { if(typeof solveCurrent === 'function') solveCurrent(); else toast('Solveur non disponible'); };
+  document.addEventListener('keydown', e => {
+    const tag = (e.target.tagName || '').toLowerCase();
+    if(tag === 'textarea' || tag === 'input' || tag === 'select') return;
+    if(e.key === ' '){ e.preventDefault(); togglePlay(); }
+    else if(e.key === 'ArrowRight'){ e.preventDefault(); PLAY.playing = false; setPlayIcon(); stepForward(true); }
+    else if(e.key === 'ArrowLeft'){ e.preventDefault(); PLAY.playing = false; setPlayIcon(); stepBack(true); }
+    else if(e.key === 'Home'){ e.preventDefault(); jumpTo(0); }
+    else if(e.key === 'End'){ e.preventDefault(); jumpTo(PLAY.flat.length); }
+  });
+}
+/* =========================================================================
    ===== MODULE APP — état global, actions, persistance ====================
    ========================================================================= */
 const APP = {
@@ -871,7 +1381,7 @@ function setColors(cols, opt){
   if(APP.valid.ok){ APP.cubie = APP.valid.cubie; APP.facelet = APP.valid.facelet; }
   paintNet(); updatePalette(); renderValidation();
   if(!opt.noSave) saveLS();
-  emit('state', {valid:APP.valid, silent:!!opt.silent});
+  emit('state', {valid:APP.valid, silent:!!opt.silent, from3d:!!opt.from3d});
 }
 function setFacelet(str, opt){ setColors(faceletToColors(str), opt); }
 function setCubie(c, opt){ setFacelet(cubieToFacelet(c), opt); }
@@ -879,6 +1389,7 @@ function setCubie(c, opt){ setFacelet(cubieToFacelet(c), opt); }
 /* --- actions de la barre --- */
 function doScramble(){
   const seq = randomScrambleSeq(25);
+  APP.lastScrambleSeq = seq;
   APP.lastScramble = algToString(seq);
   setCubie(applySeq(identityCube(), seq));
   toast('Mélange : ' + APP.lastScramble);
@@ -1108,6 +1619,100 @@ test('Import / export de chaîne 54 sur 200 mélanges', () => {
     assertEq(colorsToFaceletUnsafe(Uint8Array.from(s, ch => FACE_COLOR_DEFAULT[FACE_IDX[ch]]), [0,1,2,3,4,5]), s, 'couleurs → chaîne');
   }
   return '200 mélanges : chaîne → couleurs → validation → chaîne, identique';
+});
+
+/* ---- 6. Cohérence 3D (§10.6) ---- */
+function setModelSilently(c){ PLAY.lock = true; setCubie(c, {noSave:true, from3d:true}); PLAY.lock = false; }
+function domVsModel(where){
+  const dom = read3DColors(true);
+  for(let i=0;i<54;i++)
+    if(dom[i] !== APP.colors[i])
+      throw new Error(where + ' : facelet ' + i + ' → DOM 3D ' + COLORS[dom[i]].name + ', modèle ' + COLORS[APP.colors[i]].name);
+}
+function domNet2DVsModel(){
+  const rgb = {};
+  COLORS.forEach((c,i) => { const n = parseInt(c.hex.slice(1),16);
+    rgb['rgb(' + ((n>>16)&255) + ', ' + ((n>>8)&255) + ', ' + (n&255) + ')'] = i; });
+  for(let i=0;i<54;i++){
+    const got = rgb[getComputedStyle(stickerEls[i]).backgroundColor];
+    if(got !== APP.colors[i]) throw new Error('patron 2D : facelet ' + i + ' ≠ modèle');
+  }
+}
+test('Cohérence 3D : chaîne 54 relue dans le DOM des stickers 3D == modèle', () => {
+  /* a) les 18 coups un par un depuis l'état résolu — pince le sens de rotation
+        de chaque face (piège classique L, D, B) */
+  for(let m=0;m<18;m++){
+    setModelSilently(identityCube()); sync3D();
+    commitMove3D(m);
+    setModelSilently(applyMove(identityCube(), m));
+    domVsModel('coup ' + MOVE_NAMES[m]);
+  }
+  /* b) 60 coups enchaînés */
+  setModelSilently(identityCube()); sync3D();
+  let c = identityCube();
+  const seq = randomScrambleSeq(60);
+  for(const m of seq){ commitMove3D(m); c = applyMove(c, m); }
+  setModelSilently(c);
+  domVsModel('60 coups enchaînés');
+  domNet2DVsModel();
+  setModelSilently(identityCube()); sync3D();
+  return '18 coups isolés + 60 coups enchaînés : DOM 3D == modèle · patron 2D == modèle';
+});
+
+/* ---- 6b. lecteur animé (critère de sortie phase 2) ---- */
+test('Lecteur : 25 coups animés puis rembobinage complet', async () => {
+  const sp = APP.settings.speed; APP.settings.speed = 4;
+  setModelSilently(identityCube()); sync3D();
+  PLAY.lock = true; setCubie(identityCube(), {noSave:true}); PLAY.lock = false;
+  const seq = randomScrambleSeq(25);
+  loadSequence([{step:'Mélange de test', moves:seq.slice()}], 'test');
+  const target = cubieToFacelet(applySeq(identityCube(), seq));
+  await togglePlay();
+  assertEq(PLAY.idx, 25, 'position finale du lecteur');
+  assertEq(APP.valid.facelet, target, 'état après lecture animée');
+  domVsModel('après lecture animée');
+  domNet2DVsModel();
+  while(PLAY.idx > 0) await stepBack(true);
+  assertEq(APP.valid.facelet, SOLVED_FACELET, 'état après rembobinage');
+  domVsModel('après rembobinage');
+  jumpTo(25);
+  assertEq(APP.valid.facelet, target, 'saut direct en fin de séquence');
+  domVsModel('après saut direct');
+  clearSequence();
+  APP.settings.speed = sp;
+  setModelSilently(identityCube()); sync3D();
+  return '25 coups animés → état cible · 25 coups inverses → cube résolu · saut direct OK';
+});
+
+/* ---- 6c. sens de rotation CSS (§8.3 — piège L, D, B) ---- */
+test('Sens de rotation CSS : les 6 faces tournent vers la bonne destination', async () => {
+  const PERP = {U:[0,0,1], D:[0,0,1], R:[0,0,1], L:[0,0,1], F:[0,1,0], B:[0,1,0]};
+  const center = el => { const r = el.getBoundingClientRect(); return [r.left + r.width/2, r.top + r.height/2]; };
+  const findCubie = p => V3.cubies.find(c => c.x === p[0] && c.y === p[1] && c.z === p[2]);
+  const lines = [];
+  for(const f of DIR_LIST){
+    setModelSilently(identityCube()); sync3D();
+    const v = DIR_VEC[f], t = PERP[f];
+    const p = [v[0] + t[0], v[1] + t[1], v[2] + t[2]];
+    const dest = rotVec(f, p);
+    const c0 = findCubie(p), c1 = findCubie(dest);
+    assert(c0 && c1, 'cubies de test introuvables pour ' + f);
+    const P0 = center(c0.st[f]), P1 = center(c1.st[f]);
+    const anim = animateMove3D(MOVE_ID[f], 420);
+    await new Promise(r => setTimeout(r, 230));
+    const Pm = center(c0.st[f]);
+    await anim;
+    const dx = Pm[0] - P0[0], dy = Pm[1] - P0[1];
+    const tx = P1[0] - P0[0], ty = P1[1] - P0[1];
+    const dot = dx*tx + dy*ty;
+    const adv = Math.sqrt(dx*dx + dy*dy) / Math.sqrt(tx*tx + ty*ty);
+    assert(dot > 0, 'coup ' + f + ' : la couche tourne à l’envers à l’écran (déplacement ' +
+      dx.toFixed(0) + ',' + dy.toFixed(0) + ' vs destination ' + tx.toFixed(0) + ',' + ty.toFixed(0) + ')');
+    assert(adv > 0.25, 'coup ' + f + ' : déplacement écran trop faible (' + adv.toFixed(2) + ')');
+    lines.push(f + ' ✓ (' + Math.round(adv*100) + ' % du trajet à mi-animation)');
+  }
+  setModelSilently(identityCube()); sync3D();
+  return lines.join(' · ');
 });
 
 /* ---- runner ---- */
