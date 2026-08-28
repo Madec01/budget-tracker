@@ -194,6 +194,12 @@ body.centermode .stk.center{cursor:pointer;box-shadow:inset 0 0 0 2px var(--cy),
 }
 .sw:hover{transform:translateY(-2px)}
 .sw.sel{outline:2px solid var(--cy);outline-offset:2px;box-shadow:0 0 16px rgba(34,211,238,.8)}
+.capsel{display:inline-flex;align-items:center;gap:6px;padding:4px 8px;border-radius:10px;
+  background:rgba(255,255,255,.04);border:1px solid var(--stroke)}
+.capsel .lbl{font:600 10.5px var(--mono);color:var(--txt-faint);letter-spacing:.04em}
+.capsw{width:24px;height:24px;border-radius:7px;cursor:pointer;border:1px solid rgba(0,0,0,.5);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.3), inset 0 -2px 5px rgba(0,0,0,.35);transition:.15s}
+.capsw:hover{transform:translateY(-1px);box-shadow:0 0 12px rgba(34,211,238,.6)}
 .sw .cnt{
   position:absolute;bottom:-6px;right:-6px;min-width:19px;height:19px;padding:0 4px;
   display:flex;align-items:center;justify-content:center;
@@ -793,7 +799,7 @@ definePuzzle({
   solvers:[{id:'tower', label:'IDA* + bases de motifs · optimal'}],
   /* séquence qui échange les 2 arêtes médianes vert-rouge et rien d'autre :
      elle départage le §12.4.4 de la géométrie (voir l'aide) */
-  demoSeq:{name:'Échange des 2 arêtes vert-rouge (expérience du §12.4.4)',
+  demoSeq:{name:'Échange des 2 arêtes médianes avant-droite (expérience du §12.4.4)',
            moves:"Z2 X0 Z1 X0 Z22 Y0 Z1' Y0 Z12 X0 Z1' X0 Z1'"},
   photoOrder:[0,2,1,5,4,3],   // §12.8 : calotte haute, puis F R B L, puis calotte basse
   photoHint:[
@@ -1049,15 +1055,29 @@ const FACE_COLOR_DEFAULT = [0,1,2,3,4,5];
 const COLOR_KEY = {}; COLORS.forEach((c,i)=>{ COLOR_KEY[c.key] = i; });
 
 /* --- helpers génériques : ils ne connaissent que PZ (§12.2) --- */
+/* Schéma de couleurs du puzzle : fixe quand il y a des centres (ce sont eux
+   qui définissent le repère, §5.3), réglable sinon — sur la tour, le repère
+   est libre (§12.8) et chaque exemplaire a ses propres couleurs de calotte. */
+function faceColors(){
+  if(!PZ.axialFaces) return FACE_COLOR_DEFAULT;
+  const caps = (APP.settings.caps && APP.settings.caps.length === 2) ? APP.settings.caps : [0, 3];
+  const rest = [0,1,2,3,4,5].filter(c => caps.indexOf(c) < 0);
+  const rot = ((APP.settings.capRot || 0) % rest.length + rest.length) % rest.length;
+  const lat = rest.slice(rot).concat(rest.slice(0, rot));
+  const out = FACE_COLOR_DEFAULT.slice();
+  PZ.axialFaces.forEach((k, i) => { out[FACE_IDX[k]] = caps[i]; });
+  ['F','R','B','L'].forEach((k, i) => { out[FACE_IDX[k]] = lat[i]; });
+  return out;
+}
 function solvedColors(){
-  const a = new Uint8Array(PZ.nStickers);
-  for(let i=0;i<PZ.nStickers;i++) a[i] = FACE_COLOR_DEFAULT[PZ.faceOfSticker[i]];
+  const fc = faceColors(), a = new Uint8Array(PZ.nStickers);
+  for(let i=0;i<PZ.nStickers;i++) a[i] = fc[PZ.faceOfSticker[i]];
   return a;
 }
 /* chaîne de lettres de face → tableau de couleurs */
 function faceletToColors(str){
-  const a = new Uint8Array(PZ.nStickers);
-  for(let i=0;i<PZ.nStickers;i++) a[i] = FACE_COLOR_DEFAULT[FACE_IDX[str[i]]];
+  const fc = faceColors(), a = new Uint8Array(PZ.nStickers);
+  for(let i=0;i<PZ.nStickers;i++) a[i] = fc[FACE_IDX[str[i]]];
   return a;
 }
 function colorsToFaceletUnsafe(colors, colorFace){
@@ -1277,6 +1297,29 @@ function buildPalette(){
   cyc.title = 'Désélectionner le pinceau : le clic fait défiler les couleurs';
   cyc.addEventListener('click', () => setBrush(null));
   p.appendChild(cyc);
+  if(PZ.axialFaces){
+    /* aucun centre : c'est l'utilisateur qui dit de quelles couleurs sont les
+       deux faces carrées de son exemplaire (§12.8, le repère est libre) */
+    const wrap = document.createElement('span');
+    wrap.className = 'capsel';
+    wrap.innerHTML = '<span class="lbl">calottes</span>';
+    [0, 1].forEach(k => {
+      const btn = document.createElement('button');
+      btn.className = 'capsw'; btn.dataset.k = k;
+      btn.title = 'Couleur de la calotte ' + (k ? 'du bas' : 'du haut') + ' — cliquer pour changer';
+      btn.addEventListener('click', () => cycleCap(k));
+      wrap.appendChild(btn);
+    });
+    const rot = document.createElement('button');
+    rot.className = 'btn sm'; rot.id = 'btnCapRot'; rot.textContent = '↻ latérales';
+    rot.title = 'Faire tourner les 4 couleurs latérales pour coller à votre exemplaire';
+    rot.addEventListener('click', () => {
+      APP.settings.capRot = ((APP.settings.capRot || 0) + 1) % 4;
+      applyScheme('Couleurs latérales décalées');
+    });
+    wrap.appendChild(rot);
+    p.appendChild(wrap);
+  }
   if(PZ.hasCenters){
     const cm = document.createElement('button');
     cm.className = 'btn sm'; cm.id = 'btnCenters'; cm.textContent = '◎ Mode centres';
@@ -1290,12 +1333,33 @@ function buildPalette(){
     p.appendChild(cm);
   }
 }
+function cycleCap(k){
+  const caps = (APP.settings.caps || [0, 3]).slice();
+  const other = caps[1 - k];
+  let c = caps[k];
+  do { c = (c + 1) % 6; } while(c === other);
+  caps[k] = c;
+  APP.settings.caps = caps;
+  applyScheme('Calotte ' + (k ? 'du bas' : 'du haut') + ' : ' + COLORS[c].name);
+}
+function applyScheme(msg){
+  const wasSolved = isSolvedColors(APP.colors);
+  if(wasSolved) setColors(solvedColors());
+  else { saveLS(); updateScheme(); }
+  updateScheme();
+  toast(msg + (wasSolved ? '' : ' — s’applique à la prochaine réinitialisation'));
+}
+function updateScheme(){
+  const caps = APP.settings.caps || [0, 3];
+  $$('#palette .capsw').forEach(el => { el.style.background = COLORS[caps[+el.dataset.k]].hex; });
+}
 function setBrush(c){
   APP.brush = c;
   $$('#palette .sw').forEach(el => el.classList.toggle('sel', +el.dataset.c === c));
   const cy = $('#btnCycle'); if(cy) cy.classList.toggle('pri', c === null);
 }
 function updatePalette(){
+  if(PZ.axialFaces) updateScheme();
   const counts = new Array(6).fill(0);
   for(let i=0;i<PZ.nStickers;i++) counts[APP.colors[i]]++;
   /* quotas attendus : {9×6} sur le 3×3, {4,4,8,8,8,8} sur la tour (§12.9) */
@@ -2200,7 +2264,8 @@ function classifySamples(labs){
     const refs = PZ.centerIdx.map(i => labs[i]);
     const idxs = []; for(let i=0;i<n;i++) idxs.push(i);
     const r = assignWithQuota(labs, idxs, refs, PZ.quotaSizes);
-    idxs.forEach((i, a) => { colors[i] = FACE_COLOR_DEFAULT[r.cls[a]]; conf[i] = r.conf[a]; });
+    const fc = faceColors();
+    idxs.forEach((i, a) => { colors[i] = fc[r.cls[a]]; conf[i] = r.conf[a]; });
     info.method = 'références = les 6 centres';
   } else {
     /* §12.8 : deux classifications indépendantes, contrainte géométrique du §12.4 */
@@ -2223,7 +2288,8 @@ function classifySamples(labs){
       });
       const cost = cnt.map(row => row.map(v => -v));
       const asg = hungarian(cost, k);
-      return c => FACE_COLOR_DEFAULT[faces[asg[c]].dirIdx];
+      const fc = faceColors();
+      return c => fc[faces[asg[c]].dirIdx];
     };
     const mapA = nameClasses(axial, rA, axFaces), mapS = nameClasses(side, rS, sdFaces);
     axial.forEach((i, a) => { colors[i] = mapA(rA.cls[a]); conf[i] = rA.conf[a]; });
@@ -3247,7 +3313,7 @@ const APP = {
   centerMode: false,
   lowConf: null,          // stickers à confiance faible (§5.3) — cerclés d'orange
   listeners: {},
-  settings: {speed:1, budget:500, solver:null, puzzle:'3x3x3'},
+  settings: {speed:1, budget:500, solver:null, puzzle:'3x3x3', caps:[0,3], capRot:0},
   saved: {}
 };
 function on(evt, fn){ (APP.listeners[evt] || (APP.listeners[evt] = [])).push(fn); }
@@ -4136,6 +4202,47 @@ test('2×2×4 : bases de motifs et solveur optimal', async () => {
       slow + ' cas > 1 s) · bases générées en ' + fmt(initMs) + ' ms, profondeur max de la base 1 = ' + maxH;
   } finally { switchPuzzle(prev); }
 });
+test('2×2×4 : schéma de couleurs réglable (calottes blanc/bleu, §12.8)', () => withTower(() => {
+  const prevCaps = APP.settings.caps, prevRot = APP.settings.capRot;
+  try{
+    APP.settings.caps = [COLOR_KEY['W'], COLOR_KEY['B']];   // l'exemplaire de l'utilisateur
+    APP.settings.capRot = 0;
+    const cols = solvedColors();
+    const capCols = new Set(), sideCols = new Set();
+    for(let i=0;i<PZ.nStickers;i++) (PZ.axialFacelets.has(i) ? capCols : sideCols).add(cols[i]);
+    assertEq(Array.from(capCols).sort().join(','), [COLOR_KEY['W'], COLOR_KEY['B']].sort().join(','),
+             'couleurs des calottes');
+    assertEq(sideCols.size, 4, 'couleurs latérales');
+    assert(!Array.from(sideCols).some(c => capCols.has(c)), 'aucune couleur commune');
+    assert(isSolvedColors(cols), 'la tour ainsi peinte doit être résolue');
+    const v = validateTower(cols);
+    assert(v.ok, 'tour blanc/bleu rejetée : ' + (v.checks.find(c => c.state === 'ko') || {}).msg);
+    /* mélanges, validation et résolution optimale avec ce schéma */
+    let maxLen = 0;
+    for(let t=0;t<40;t++){
+      const c2 = applySeqFacelet(cols, randomScramble(30));
+      const v2 = validateTower(c2);
+      assert(v2.ok, 'mélange blanc/bleu rejeté');
+      const r = towerSolveState(v2.tower.cp, v2.tower.et, 60000);
+      let end = c2;
+      for(const m of r.moves) end = permApply(end, PZ.moves[m].perm);
+      assert(isSolvedColors(end), 'solution incorrecte avec le schéma blanc/bleu');
+      maxLen = Math.max(maxLen, r.moves.length);
+    }
+    /* les 4 rotations latérales donnent 4 tours résolues distinctes et valides */
+    const seen = new Set();
+    for(let k=0;k<4;k++){
+      APP.settings.capRot = k;
+      const c3 = solvedColors();
+      assert(isSolvedColors(c3) && validateTower(c3).ok, 'rotation latérale ' + k + ' invalide');
+      seen.add(c3.join(','));
+    }
+    assertEq(seen.size, 4, 'les 4 décalages latéraux donnent 4 coloriages distincts');
+    return 'calottes blanc/bleu + 4 latérales : tour résolue reconnue, 40 mélanges validés et ' +
+           'résolus optimalement (max ' + maxLen + ' coups) · les 4 décalages latéraux sont acceptés';
+  } finally { APP.settings.caps = prevCaps; APP.settings.capRot = prevRot; }
+}));
+
 test('2×2×4 : l’expérience qui départage le §12.4.4 (13 coups, 4 stickers)', () => withTower(() => {
   const seq = parseAlgPZ(PZ.demoSeq.moves);
   assertEq(seq.length, 13, 'longueur de la séquence de démonstration');
