@@ -1338,6 +1338,335 @@ function wirePlayer(){
   });
 }
 /* =========================================================================
+   ===== MODULE SOLVEUR A — COUCHE PAR COUCHE (§6) =========================
+   Architecture « candidat + vérification » (§6.1) : aucune séquence n'est
+   supposée correcte, le moteur essaie et vérifie. Algorithmes écrits pour
+   l'emplacement avant-droit puis transposés par remapping y (§6.2).
+   ========================================================================= */
+
+/* --- remapping y : F→R→B→L→F, U et D inchangés (§6.2) --- */
+const Y_MAP = [0,5,1,3,2,4];   // U R F D L B  →  U B R D F L
+function remapMove(m, k){
+  let f = moveAxis(m);
+  for(let i=0;i<k;i++) f = Y_MAP[f];
+  return f*3 + (m % 3);
+}
+function remapSeq(seq, k){ return k ? seq.map(m => remapMove(m, k)) : seq.slice(); }
+
+/* --- prédicats --- */
+const edgeOK   = (s, i) => s.ep[i] === i && s.eo[i] === 0;
+const cornerOK = (s, i) => s.cp[i] === i && s.co[i] === 0;
+const crossOK  = s => edgeOK(s,4) && edgeOK(s,5) && edgeOK(s,6) && edgeOK(s,7);
+function countCornersD(s){ let n = 0; for(let i=4;i<8;i++) if(cornerOK(s,i)) n++; return n; }
+function countEdgesMid(s){ let n = 0; for(let i=8;i<12;i++) if(edgeOK(s,i)) n++; return n; }
+function cornersDInU(s){ let n = 0; for(let i=0;i<4;i++) if(s.cp[i] >= 4) n++; return n; }
+function edgesMidInU(s){ let n = 0; for(let i=0;i<4;i++) if(s.ep[i] >= 8) n++; return n; }
+const f2lOK = s => crossOK(s) && countCornersD(s) === 4 && countEdgesMid(s) === 4;
+const ollEdgesOK   = s => s.eo[0] === 0 && s.eo[1] === 0 && s.eo[2] === 0 && s.eo[3] === 0;
+const ollCornersOK = s => s.co[0] === 0 && s.co[1] === 0 && s.co[2] === 0 && s.co[3] === 0;
+function aufNeeded(s){                       // k tel que U^k résout, sinon -1
+  for(let k=0;k<4;k++){
+    let t = s;
+    for(let i=0;i<k;i++) t = applyMove(t, MOVE_ID['U']);
+    if(isSolvedCube(t)) return k;
+  }
+  return -1;
+}
+function pllCornersOK(s){
+  for(let k=0;k<4;k++){
+    let t = s;
+    for(let i=0;i<k;i++) t = applyMove(t, MOVE_ID['U']);
+    if(t.cp[0] === 0 && t.cp[1] === 1 && t.cp[2] === 2 && t.cp[3] === 3) return true;
+  }
+  return false;
+}
+
+/* =========================================================================
+   Étape 1 — croix (face D) : table BFS complète, croix optimale ≤ 8 coups.
+   Coordonnée = (position, orientation) des 4 arêtes DR DF DL DB, encodée en
+   base 24 sur 4 chiffres → 24⁴ = 331 776 (190 080 atteignables).
+   ========================================================================= */
+const CROSS = {dist:null, tr:null, ready:false, ms:0, states:0};
+function buildCrossTable(){
+  if(CROSS.ready) return CROSS;
+  const t0 = performance.now();
+  /* transition d'une arête (pos,ori) par coup */
+  const tr = [];
+  for(let m=0;m<18;m++){
+    const mv = MOVES[m], t = new Uint8Array(24);
+    for(let pos=0;pos<12;pos++){
+      let np = -1;
+      for(let j=0;j<12;j++) if(mv.ep[j] === pos){ np = j; break; }
+      for(let o=0;o<2;o++) t[pos*2+o] = np*2 + ((o + mv.eo[np]) % 2);
+    }
+    tr.push(t);
+  }
+  CROSS.tr = tr;
+  const N = 24*24*24*24;
+  const dist = new Uint8Array(N).fill(255);
+  const queue = new Int32Array(N);
+  const goal = ((8*24 + 10)*24 + 12)*24 + 14;   // pièces 4,5,6,7 en place, orientées
+  dist[goal] = 0; queue[0] = goal;
+  let head = 0, tail = 1, seen = 1;
+  while(head < tail){
+    const idx = queue[head++], d = dist[idx];
+    const d0 = (idx / 13824) | 0, r0 = idx % 13824;
+    const d1 = (r0 / 576) | 0, r1 = r0 % 576;
+    const d2 = (r1 / 24) | 0, d3 = r1 % 24;
+    for(let m=0;m<18;m++){
+      const t = tr[m];
+      const n = t[d0]*13824 + t[d1]*576 + t[d2]*24 + t[d3];
+      if(dist[n] === 255){ dist[n] = d + 1; queue[tail++] = n; seen++; }
+    }
+  }
+  CROSS.dist = dist; CROSS.ready = true; CROSS.states = seen;
+  CROSS.ms = performance.now() - t0;
+  return CROSS;
+}
+function crossCoord(s){
+  const d = [0,0,0,0];
+  for(let k=0;k<4;k++){
+    const piece = 4 + k;
+    for(let i=0;i<12;i++) if(s.ep[i] === piece){ d[k] = i*2 + s.eo[i]; break; }
+  }
+  return ((d[0]*24 + d[1])*24 + d[2])*24 + d[3];
+}
+function crossSolve(s){
+  buildCrossTable();
+  const {dist, tr} = CROSS;
+  let idx = crossCoord(s), out = [], guard = 0;
+  while(dist[idx] > 0 && guard++ < 20){
+    const d0 = (idx / 13824) | 0, r0 = idx % 13824;
+    const d1 = (r0 / 576) | 0, r1 = r0 % 576;
+    const d2 = (r1 / 24) | 0, d3 = r1 % 24;
+    let done = false;
+    for(let m=0;m<18 && !done;m++){
+      const t = tr[m];
+      const n = t[d0]*13824 + t[d1]*576 + t[d2]*24 + t[d3];
+      if(dist[n] === dist[idx] - 1){ out.push(m); idx = n; done = true; }
+    }
+    if(!done) throw new Error('table croix incohérente');
+  }
+  return out;
+}
+
+/* =========================================================================
+   Moteur candidat + vérification (§6.1)
+   ========================================================================= */
+function buildBlocks(algs, opt){
+  opt = opt || {};
+  const prefixes = opt.prefixes === false ? [[]] :
+    [[], [MOVE_ID['U']], [MOVE_ID['U2']], [MOVE_ID["U'"]]];
+  const remaps = opt.remaps || [0,1,2,3];
+  const reps = opt.reps || [1];
+  const out = [];
+  for(const a of algs){
+    const base = typeof a === 'string' ? parseAlg(a) : a;
+    for(const k of remaps){
+      const r = remapSeq(base, k);
+      for(const n of reps){
+        let body = [];
+        for(let i=0;i<n;i++) body = body.concat(r);
+        for(const p of prefixes) out.push(p.concat(body));
+      }
+    }
+  }
+  out.sort((x, y) => x.length - y.length);
+  return out;
+}
+/* Recherche par approfondissement itératif sur des « blocs » (préfixe U +
+   algorithme remappé). L'algorithme n'a pas besoin d'être correct a priori :
+   le moteur applique sur une copie et vérifie le prédicat (§6.1). */
+function searchBlocks(state, blocks, ok, maxDepth){
+  if(ok(state)) return {seq:[], state};
+  const dfs = (st, acc, d) => {
+    for(let i=0;i<blocks.length;i++){
+      const b = blocks[i], s2 = applySeq(st, b);
+      if(d === 1){ if(ok(s2)) return {seq:acc.concat(b), state:s2}; }
+      else { const r = dfs(s2, acc.concat(b), d - 1); if(r) return r; }
+    }
+    return null;
+  };
+  for(let d=1; d<=(maxDepth || 1); d++){
+    const r = dfs(state, [], d);
+    if(r) return r;
+  }
+  return null;
+}
+function lblFail(step, state){
+  const e = new Error('Étape « ' + step + ' » : aucune séquence candidate ne convient. État : ' + cubieToFacelet(state));
+  e.state = cubieToFacelet(state); e.step = step;
+  return e;
+}
+
+/* --- jeux d'algorithmes (§6.3) --- */
+const ALG_F1 = [                       // coins première couronne
+  "R U R'", "R U' R'", "F' U' F", "F' U F", "U R U' R'", "U' F' U F",
+  "R U2 R'", "R U2 R' U' R U R'", "R U' R' U' F' U F", "F' U F U R U' R'"
+];
+const ALG_F1_SAFE = ["R U R' U'"];     // filet de sécurité : ordre 6 sur le coin visé
+const ALG_F2 = [                       // arêtes deuxième couronne
+  "U R U' R' U' F' U F", "U' L' U L U F U' F'"
+];
+const ALG_OLL_E = ["F R U R' U' F'", "F U R U' R' F'"];
+const ALG_OLL_C = ["R U R' U R U2 R'", "R U2 R' U' R U' R'"];
+const ALG_PLL_C = ["R' F R' B2 R F' R' B2 R2"];
+const ALG_PLL_E = ["R U' R U R U R U' R' U' R2", "R2 U R U R' U' R' U' R' U R'"];
+
+/* --- solveur --- */
+function solveLBL(start){
+  const t0 = performance.now();
+  const groups = [];
+  let s = cloneCube(start);
+  const push = (step, seq, note) => { if(seq.length || groups.length === 0) groups.push({step, moves:cancelSeq(seq), note}); };
+
+  /* 1 — croix (table BFS, optimale) */
+  const cross = crossSolve(s);
+  s = applySeq(s, cross);
+  if(!crossOK(s)) throw lblFail('Croix', s);
+  push('Croix de la face D', cross,
+       'Table BFS complète sur les 4 arêtes DR DF DL DB (190 080 états) : croix optimale, ' + cross.length + ' coups.');
+
+  /* 2 — coins de la première couronne */
+  const c2 = buildBlocks(ALG_F1).concat(buildBlocks(ALG_F1_SAFE, {reps:[1,2,3,4,5,6]}))
+                .sort((a,b) => a.length - b.length);
+  for(let it=0; countCornersD(s) < 4; it++){
+    if(it > 12) throw lblFail('Coins 1ʳᵉ couronne', s);
+    const before = countCornersD(s);
+    const kept = []; for(let i=4;i<8;i++) if(cornerOK(s,i)) kept.push(i);
+    let r = searchBlocks(s, c2, st => crossOK(st) && kept.every(i => cornerOK(st,i)) && countCornersD(st) > before, 2);
+    let note = 'Le coin est amené au-dessus de son emplacement puis inséré ; le moteur vérifie que la croix et les coins déjà placés sont intacts.';
+    if(!r){                                   // extraction d'un coin coincé
+      const inU = cornersDInU(s);
+      r = searchBlocks(s, c2, st => crossOK(st) && kept.every(i => cornerOK(st,i)) && cornersDInU(st) > inU, 1);
+      note = 'Extraction : le coin était coincé dans un mauvais emplacement, on le remonte en couche U.';
+    }
+    if(!r) throw lblFail('Coins 1ʳᵉ couronne', s);
+    s = r.state;
+    push('Coin ' + Math.min(countCornersD(s), 4) + ' — première couronne', r.seq, note);
+  }
+
+  /* 3 — arêtes de la deuxième couronne */
+  const c3 = buildBlocks(ALG_F2);
+  for(let it=0; countEdgesMid(s) < 4; it++){
+    if(it > 12) throw lblFail('Arêtes 2ᵉ couronne', s);
+    const before = countEdgesMid(s);
+    const kept = []; for(let i=8;i<12;i++) if(edgeOK(s,i)) kept.push(i);
+    const base = st => crossOK(st) && countCornersD(st) === 4 && kept.every(i => edgeOK(st,i));
+    let r = searchBlocks(s, c3, st => base(st) && countEdgesMid(st) > before, 2);
+    let note = 'Insertion droite ou gauche, transposée aux 4 emplacements par remapping y.';
+    if(!r){
+      const inU = edgesMidInU(s);
+      r = searchBlocks(s, c3, st => base(st) && edgesMidInU(st) > inU, 1);
+      note = 'Insertion à vide : l’arête était coincée à l’envers dans son emplacement, on la ressort en couche U.';
+    }
+    if(!r) throw lblFail('Arêtes 2ᵉ couronne', s);
+    s = r.state;
+    push('Arête ' + Math.min(countEdgesMid(s), 4) + ' — deuxième couronne', r.seq, note);
+  }
+
+  /* 4 — croix jaune (orientation des arêtes U) */
+  if(!ollEdgesOK(s)){
+    const c4 = buildBlocks(ALG_OLL_E);
+    const r = searchBlocks(s, c4, st => f2lOK(st) && ollEdgesOK(st), 3);
+    if(!r) throw lblFail('Croix jaune', s);
+    s = r.state;
+    push('Croix jaune — orientation des arêtes', r.seq,
+         'F R U R\' U\' F\' appliqué 1 à 3 fois : point → barre → croix.');
+  }
+
+  /* 5 — orientation des coins U */
+  if(!ollCornersOK(s)){
+    const c5 = buildBlocks(ALG_OLL_C);
+    const r = searchBlocks(s, c5, st => f2lOK(st) && ollEdgesOK(st) && ollCornersOK(st), 3);
+    if(!r) throw lblFail('Orientation des coins', s);
+    s = r.state;
+    push('Orientation des coins (OLL)', r.seq,
+         'Sune / Antisune, seuls ou enchaînés avec un préfixe U : couvre les 7 cas.');
+  }
+
+  /* 6 — permutation des coins U */
+  if(!pllCornersOK(s)){
+    const c6 = buildBlocks(ALG_PLL_C);
+    const r = searchBlocks(s, c6, st => f2lOK(st) && ollEdgesOK(st) && ollCornersOK(st) && pllCornersOK(st), 2);
+    if(!r) throw lblFail('Permutation des coins', s);
+    s = r.state;
+    push('Permutation des coins (PLL)', r.seq,
+         'A-perm ; le cas diagonal se résout par deux applications.');
+  }
+
+  /* 7 — permutation des arêtes U */
+  if(aufNeeded(s) < 0){
+    const c7 = buildBlocks(ALG_PLL_E);
+    const r = searchBlocks(s, c7, st => aufNeeded(st) >= 0, 3);
+    if(!r) throw lblFail('Permutation des arêtes', s);
+    s = r.state;
+    push('Permutation des arêtes (PLL)', r.seq,
+         'U-perm et son inverse ; les cas H et Z demandent deux applications.');
+  }
+
+  /* 8 — AUF */
+  const k = aufNeeded(s);
+  if(k < 0) throw lblFail('AUF', s);
+  if(k > 0){
+    const auf = [MOVE_ID[k === 1 ? 'U' : k === 2 ? 'U2' : "U'"]];
+    s = applySeq(s, auf);
+    push('AUF — alignement final', auf, 'Dernière rotation de la face U pour aligner la couche.');
+  }
+  if(!isSolvedCube(s)) throw lblFail('Contrôle final', s);
+
+  const flat = [];
+  groups.forEach(g => g.moves.forEach(m => flat.push(m)));
+  return {groups:groups.filter(g => g.moves.length), flat, ms:performance.now() - t0, solved:true};
+}
+
+/* --- annulation des coups redondants, à l'intérieur d'un groupe (§6.4) --- */
+function cancelSeq(seq){
+  let a = seq.slice(), changed = true;
+  while(changed){
+    changed = false;
+    for(let i=0;i<a.length-1;i++){
+      if(moveAxis(a[i]) === moveAxis(a[i+1])){
+        const p = (movePower(a[i]) + movePower(a[i+1])) % 4;
+        a.splice(i, 2, ...(p === 0 ? [] : [moveAxis(a[i])*3 + (p - 1)]));
+        changed = true; break;
+      }
+    }
+  }
+  return a;
+}
+/* =========================================================================
+   ===== MODULE SOLVE — pilotage des solveurs depuis l'UI ==================
+   ========================================================================= */
+async function solveCurrent(){
+  if(!APP.valid || !APP.valid.ok){ toast('Le cube doit d’abord être valide (§3)'); return; }
+  const which = document.getElementById('solverSel').value;
+  const btn = document.getElementById('btnSolve');
+  btn.disabled = true; btn.textContent = '⏳ Calcul…';
+  await new Promise(r => setTimeout(r, 16));
+  try{
+    if(which === 'kociemba'){
+      if(typeof solveKociembaUI === 'function') await solveKociembaUI();
+      else toast('Solveur Kociemba indisponible');
+    } else {
+      const res = solveLBL(APP.cubie);
+      const n = res.flat.length;
+      loadSequence(res.groups, 'couche par couche',
+        '<span>coups <b>' + n + '</b></span>' +
+        '<span>étapes <b>' + res.groups.length + '</b></span>' +
+        '<span>calcul <b>' + Math.round(res.ms) + '</b> ms</span>' +
+        '<span>croix <b>' + CROSS.states.toLocaleString('fr-FR') + '</b> états BFS</span>');
+      toast('Solution couche par couche : ' + n + ' coups');
+    }
+  }catch(e){
+    toast('Échec du solveur : ' + e.message.slice(0, 80));
+    const ss = document.getElementById('solStats');
+    if(ss) ss.innerHTML = '<div class="stat" style="border-color:rgba(248,113,113,.4)">' +
+      '<span style="color:#fecaca">' + e.message + '</span></div>';
+  }
+  btn.textContent = '⚡ Résoudre'; updateSolveBtn();
+}
+/* =========================================================================
    ===== MODULE APP — état global, actions, persistance ====================
    ========================================================================= */
 const APP = {
@@ -1619,6 +1948,46 @@ test('Import / export de chaîne 54 sur 200 mélanges', () => {
     assertEq(colorsToFaceletUnsafe(Uint8Array.from(s, ch => FACE_COLOR_DEFAULT[FACE_IDX[ch]]), [0,1,2,3,4,5]), s, 'couleurs → chaîne');
   }
   return '200 mélanges : chaîne → couleurs → validation → chaîne, identique';
+});
+
+/* ---- 4. Solveur couche par couche (§10.4) ---- */
+test('Solveur LBL : 500 mélanges aléatoires résolus à 100 %', () => {
+  buildCrossTable();
+  const N = 500;
+  let min = 1e9, max = 0, sum = 0, tsum = 0, worst = null;
+  for(let t=0;t<N;t++){
+    const seq = randomScrambleSeq(25);
+    const start = applySeq(identityCube(), seq);
+    const t0 = performance.now();
+    const res = solveLBL(start);
+    tsum += performance.now() - t0;
+    const end = applySeq(start, res.flat);
+    if(!isSolvedCube(end)) throw new Error('non résolu, mélange : ' + algToString(seq));
+    const n = res.flat.length;
+    if(n < min) min = n;
+    if(n > max){ max = n; worst = algToString(seq); }
+    sum += n;
+  }
+  return N + '/' + N + ' résolus · longueur min ' + min + ' · moy ' + fmt(sum/N) +
+         ' · max ' + max + ' · temps moyen ' + fmt(tsum/N) + ' ms' +
+         ' · table croix ' + CROSS.states.toLocaleString('fr-FR') + ' états en ' + fmt(CROSS.ms) + ' ms';
+});
+test('Solveur LBL : cas limites (cube résolu, états aléatoires uniformes)', () => {
+  const r0 = solveLBL(identityCube());
+  assertEq(r0.flat.length, 0, 'cube déjà résolu → 0 coup');
+  let sum = 0, max = 0;
+  for(let t=0;t<200;t++){
+    const st = randomStateCube();
+    const res = solveLBL(st);
+    assert(isSolvedCube(applySeq(st, res.flat)), 'état aléatoire non résolu : ' + cubieToFacelet(st));
+    sum += res.flat.length; max = Math.max(max, res.flat.length);
+    /* les groupes doivent être sans coups redondants aux jointures internes */
+    for(const g of res.groups) for(let i=0;i<g.moves.length-1;i++)
+      assert(moveAxis(g.moves[i]) !== moveAxis(g.moves[i+1]),
+             'coups redondants non annulés dans « ' + g.step + ' » : ' + algToString(g.moves));
+  }
+  return 'cube résolu → 0 coup · 200 états aléatoires uniformes résolus · moy ' + fmt(sum/200) + ' · max ' + max +
+         ' · aucun coup redondant à l’intérieur d’un groupe';
 });
 
 /* ---- 6. Cohérence 3D (§10.6) ---- */
