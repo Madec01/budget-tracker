@@ -1203,7 +1203,10 @@ function buildSolverPanel(){
       '</select>' +
       '<button class="btn pri" id="btnSolve">⚡ Résoudre</button>' +
       '<button class="btn" id="btnPlayScramble" title="Charger le dernier mélange dans le lecteur">🎬 Mélange</button>' +
+      '<label class="budget" title="Budget de recherche Kociemba (§7.6)">budget ' +
+        '<input type="number" id="budgetInput" min="20" max="20000" step="50" value="500"> ms</label>' +
     '</div>' +
+    '<div id="kocProg"><div class="bar"><i></i></div><span></span></div>' +
     '<div class="player">' +
       '<div class="pbtns">' +
         '<button class="btn" id="pFirst" title="Début (Début)">⏮</button>' +
@@ -1364,6 +1367,8 @@ function wirePlayer(){
   g('prog').oninput = e => jumpTo(+e.target.value);
   g('speedSel').value = String(APP.settings.speed || 1);
   g('speedSel').onchange = e => { APP.settings.speed = +e.target.value; saveLS(); };
+  g('budgetInput').value = APP.settings.budget || 500;
+  g('budgetInput').onchange = e => { APP.settings.budget = +e.target.value || 500; saveLS(); };
   g('solverSel').value = APP.settings.solver || 'lbl';
   g('solverSel').onchange = e => { APP.settings.solver = e.target.value; saveLS(); };
   g('btnPlayScramble').onclick = () => {
@@ -1968,6 +1973,329 @@ function applySamples(rgb){
   return {colors, conf, low};
 }
 /* =========================================================================
+   ===== MODULE SOLVEUR B — KOCIEMBA DEUX PHASES (§7) ======================
+   Phase 1 : les 18 coups, but = G1 = <U,D,R2,L2,F2,B2>.
+   Phase 2 : 10 coups seulement. IDA* + tables d'élagage admissibles.
+   Les ~4 Mo de tables ne sont alloués qu'à la première utilisation (§11).
+   ========================================================================= */
+const KOC = {
+  ready:false, gen:false, ms:0, from:'',
+  P2_MOVES: ['U','U2',"U'",'R2','F2','D','D2',"D'",'L2','B2'].map(n => MOVE_ID[n])
+};
+const N_TWIST = 2187, N_FLIP = 2048, N_SLICE = 495, N_PERM8 = 40320, N_SLICE4 = 24;
+
+/* --- coordonnées (§7.2) --- */
+function getTwist(c){ let t = 0; for(let i=0;i<7;i++) t = t*3 + c.co[i]; return t; }
+function setTwist(c, t){
+  let s = 0;
+  for(let i=6;i>=0;i--){ const v = t % 3; t = (t/3)|0; c.co[i] = v; s += v; }
+  c.co[7] = (3 - s % 3) % 3;
+}
+function getFlip(c){ let f = 0; for(let i=0;i<11;i++) f = f*2 + c.eo[i]; return f; }
+function setFlip(c, f){
+  let s = 0;
+  for(let i=10;i>=0;i--){ const v = f & 1; f >>= 1; c.eo[i] = v; s += v; }
+  c.eo[11] = s % 2;
+}
+const CNK = (() => {
+  const t = [];
+  for(let n=0;n<13;n++){ t.push([]); for(let k=0;k<6;k++) t[n].push(k > n ? 0 : k === 0 ? 1 : t[n-1][k-1] + t[n-1][k]); }
+  return t;
+})();
+/* slice : positions non ordonnées des 4 arêtes de tranche, 0 sur le cube résolu */
+function getSlice(c){
+  let a = 0, x = 0;
+  for(let j=11;j>=0;j--) if(c.ep[j] >= 8){ a += CNK[11-j][x+1]; x++; }
+  return a;
+}
+function permRank(p, n){
+  let r = 0;
+  for(let i=0;i<n;i++){ let cnt = 0; for(let j=i+1;j<n;j++) if(p[j] < p[i]) cnt++; r = r*(n-i) + cnt; }
+  return r;
+}
+function permUnrank(r, n){
+  const c = new Array(n);
+  for(let i=n-1;i>=0;i--){ const b = n - i; c[i] = r % b; r = (r/b)|0; }
+  const avail = []; for(let v=0;v<n;v++) avail.push(v);
+  const p = new Array(n);
+  for(let i=0;i<n;i++) p[i] = avail.splice(c[i], 1)[0];
+  return p;
+}
+const getCornPerm  = c => permRank(c.cp, 8);
+const getEdge8Perm = c => permRank(c.ep.slice(0, 8), 8);
+const getSlice4    = c => permRank(c.ep.slice(8, 12).map(v => v - 8), 4);
+
+/* --- tables de transition (§7.3) --- */
+function genMoveTables(T){
+  const c = identityCube();
+  T.twistMove = new Int16Array(N_TWIST*18);
+  for(let t=0;t<N_TWIST;t++){
+    setTwist(c, t);
+    for(let m=0;m<18;m++) T.twistMove[t*18+m] = getTwist(mult(c, MOVES[m]));
+  }
+  const c2 = identityCube();
+  T.flipMove = new Int16Array(N_FLIP*18);
+  for(let f=0;f<N_FLIP;f++){
+    setFlip(c2, f);
+    for(let m=0;m<18;m++) T.flipMove[f*18+m] = getFlip(mult(c2, MOVES[m]));
+  }
+  /* slice : on énumère les 495 combinaisons, pas besoin de décodage inverse */
+  T.sliceMove = new Int16Array(N_SLICE*18);
+  const c3 = identityCube();
+  for(let a=0;a<12;a++) for(let b=a+1;b<12;b++) for(let d=b+1;d<12;d++) for(let e=d+1;e<12;e++){
+    const occ = [a,b,d,e]; let sp = 8, np = 0;
+    for(let i=0;i<12;i++) c3.ep[i] = occ.indexOf(i) >= 0 ? sp++ : np++;
+    const idx = getSlice(c3);
+    for(let m=0;m<18;m++) T.sliceMove[idx*18+m] = getSlice(mult(c3, MOVES[m]));
+  }
+}
+function genPhase2Tables(T){
+  const P2 = KOC.P2_MOVES;
+  T.cornPermMove = new Uint16Array(N_PERM8*10);
+  const c = identityCube();
+  for(let r=0;r<N_PERM8;r++){
+    const p = permUnrank(r, 8);
+    for(let k=0;k<10;k++){
+      const b = MOVES[P2[k]], np = new Array(8);
+      for(let i=0;i<8;i++) np[i] = p[b.cp[i]];
+      T.cornPermMove[r*10+k] = permRank(np, 8);
+    }
+  }
+  T.edge8PermMove = new Uint16Array(N_PERM8*10);
+  for(let r=0;r<N_PERM8;r++){
+    const p = permUnrank(r, 8);
+    for(let k=0;k<10;k++){
+      const b = MOVES[P2[k]], np = new Array(8);
+      for(let i=0;i<8;i++) np[i] = p[b.ep[i]];
+      T.edge8PermMove[r*10+k] = permRank(np, 8);
+    }
+  }
+  T.slice4Move = new Uint8Array(N_SLICE4*10);
+  for(let r=0;r<N_SLICE4;r++){
+    const p = permUnrank(r, 4);
+    for(let k=0;k<10;k++){
+      const b = MOVES[P2[k]], np = new Array(4);
+      for(let i=0;i<4;i++) np[i] = p[b.ep[8+i] - 8];
+      T.slice4Move[r*10+k] = permRank(np, 4);
+    }
+  }
+}
+/* --- tables d'élagage (§7.4) : BFS depuis l'état but --- */
+function bfsPrune(size, nMoves, next){
+  const dist = new Uint8Array(size).fill(255);
+  const queue = new Int32Array(size);
+  dist[0] = 0; queue[0] = 0;
+  let head = 0, tail = 1;
+  while(head < tail){
+    const s = queue[head++], d = dist[s] + 1;
+    for(let m=0;m<nMoves;m++){
+      const n = next(s, m);
+      if(dist[n] === 255){ dist[n] = d; queue[tail++] = n; }
+    }
+  }
+  return dist;
+}
+function genPruneP1(T){
+  T.pruneTwistSlice = bfsPrune(N_TWIST*N_SLICE, 18, (s, m) => {
+    const tw = (s / N_SLICE) | 0, sl = s % N_SLICE;
+    return T.twistMove[tw*18+m]*N_SLICE + T.sliceMove[sl*18+m];
+  });
+  T.pruneFlipSlice = bfsPrune(N_FLIP*N_SLICE, 18, (s, m) => {
+    const fl = (s / N_SLICE) | 0, sl = s % N_SLICE;
+    return T.flipMove[fl*18+m]*N_SLICE + T.sliceMove[sl*18+m];
+  });
+}
+function genPruneP2(T){
+  T.pruneCornPermSlice4 = bfsPrune(N_PERM8*N_SLICE4, 10, (s, m) => {
+    const cp = (s / N_SLICE4) | 0, s4 = s % N_SLICE4;
+    return T.cornPermMove[cp*10+m]*N_SLICE4 + T.slice4Move[s4*10+m];
+  });
+  T.pruneEdge8Slice4 = bfsPrune(N_PERM8*N_SLICE4, 10, (s, m) => {
+    const ep = (s / N_SLICE4) | 0, s4 = s % N_SLICE4;
+    return T.edge8PermMove[ep*10+m]*N_SLICE4 + T.slice4Move[s4*10+m];
+  });
+}
+
+/* --- cache IndexedDB (§7.5), repli silencieux si indisponible --- */
+const IDB_DB = 'cubesolver', IDB_STORE = 'tables', IDB_KEY = 'kociemba-tables-v1';
+const TABLE_KEYS = ['twistMove','flipMove','sliceMove','cornPermMove','edge8PermMove','slice4Move',
+                    'pruneTwistSlice','pruneFlipSlice','pruneCornPermSlice4','pruneEdge8Slice4'];
+function idbOpen(){
+  return new Promise((res, rej) => {
+    let r;
+    try{ r = indexedDB.open(IDB_DB, 1); }catch(e){ rej(e); return; }
+    r.onupgradeneeded = e => { e.target.result.createObjectStore(IDB_STORE); };
+    r.onsuccess = e => res(e.target.result);
+    r.onerror = () => rej(r.error);
+    r.onblocked = () => rej(new Error('idb bloqué'));
+  });
+}
+async function idbGet(key){
+  const db = await idbOpen();
+  return new Promise((res, rej) => {
+    const t = db.transaction(IDB_STORE, 'readonly').objectStore(IDB_STORE).get(key);
+    t.onsuccess = () => { res(t.result); db.close(); };
+    t.onerror = () => { rej(t.error); db.close(); };
+  });
+}
+async function idbSet(key, val){
+  const db = await idbOpen();
+  return new Promise((res, rej) => {
+    const t = db.transaction(IDB_STORE, 'readwrite').objectStore(IDB_STORE).put(val, key);
+    t.onsuccess = () => { res(true); db.close(); };
+    t.onerror = () => { rej(t.error); db.close(); };
+  });
+}
+
+/* --- initialisation --- */
+const yieldUI = () => new Promise(r => setTimeout(r, 0));
+async function kociembaInit(progress){
+  if(KOC.ready) return KOC;
+  const t0 = performance.now();
+  const say = (p, txt) => { if(progress) progress(p, txt); };
+  const T = {};
+  try{
+    say(0.02, 'lecture du cache IndexedDB…');
+    const cached = await idbGet(IDB_KEY);
+    if(cached && TABLE_KEYS.every(k => cached[k])){
+      TABLE_KEYS.forEach(k => { T[k] = cached[k]; });
+      KOC.T = T; KOC.ready = true; KOC.from = 'IndexedDB';
+      KOC.ms = performance.now() - t0;
+      say(1, 'tables lues depuis le cache (' + Math.round(KOC.ms) + ' ms)');
+      return KOC;
+    }
+  }catch(e){ /* file:// sur Firefox, mode privé… : on régénère sans bruit */ }
+
+  say(0.05, 'tables de transition twist / flip / slice…'); await yieldUI();
+  genMoveTables(T);
+  say(0.20, 'tables de transition phase 2…'); await yieldUI();
+  genPhase2Tables(T);
+  say(0.40, 'élagage phase 1 (twist × slice, flip × slice)…'); await yieldUI();
+  genPruneP1(T);
+  say(0.72, 'élagage phase 2 (coins × tranche, arêtes × tranche)…'); await yieldUI();
+  genPruneP2(T);
+  KOC.T = T; KOC.ready = true; KOC.gen = true; KOC.from = 'génération';
+  KOC.ms = performance.now() - t0;
+  say(0.96, 'mise en cache…'); await yieldUI();
+  try{
+    const rec = {}; TABLE_KEYS.forEach(k => { rec[k] = T[k]; });
+    await idbSet(IDB_KEY, rec);
+  }catch(e){ /* repli silencieux */ }
+  say(1, 'tables prêtes (' + Math.round(KOC.ms) + ' ms)');
+  return KOC;
+}
+function kociembaBytes(){
+  if(!KOC.T) return 0;
+  return TABLE_KEYS.reduce((s, k) => s + (KOC.T[k] ? KOC.T[k].byteLength : 0), 0);
+}
+async function kociembaForget(){          // pour le harnais : purge mémoire, garde le cache
+  KOC.ready = false; KOC.gen = false; KOC.T = null;
+}
+
+/* --- recherche (§7.6) --- */
+function kociembaSolve(cube, budgetMs, maxLen){
+  if(!KOC.ready) throw new Error('tables Kociemba non initialisées');
+  const T = KOC.T, P2 = KOC.P2_MOVES;
+  const t0 = performance.now();
+  const budget = budgetMs === undefined ? 500 : budgetMs;
+  let nodes = 0, best = null, stop = false;
+  const seq1 = new Int32Array(13), seq2 = new Int32Array(19);
+
+  const allowed = (face, last) => {
+    if(last < 0) return true;
+    if(face === last) return false;
+    if(face === last - 3) return false;       // D puis U interdit, U puis D autorisé
+    return true;
+  };
+  /* --- phase 2 --- */
+  function phase2(cp, ep8, s4, depth, last, len){
+    if(depth === 0) return (cp === 0 && ep8 === 0 && s4 === 0) ? 0 : -1;
+    const h = Math.max(T.pruneCornPermSlice4[cp*N_SLICE4+s4], T.pruneEdge8Slice4[ep8*N_SLICE4+s4]);
+    if(h > depth) return -1;
+    for(let k=0;k<10;k++){
+      const m = P2[k], face = moveAxis(m);
+      if(!allowed(face, last)) continue;
+      nodes++;
+      const r = phase2(T.cornPermMove[cp*10+k], T.edge8PermMove[ep8*10+k], T.slice4Move[s4*10+k],
+                       depth - 1, face, len + 1);
+      if(r >= 0){ seq2[len] = m; return r + 1; }
+    }
+    return -1;
+  }
+  /* --- phase 1 --- */
+  function tryPhase2(n){
+    let c = cube;
+    for(let i=0;i<n;i++) c = applyMove(c, seq1[i]);
+    const cp = getCornPerm(c), ep8 = getEdge8Perm(c), s4 = getSlice4(c);
+    const cap = best ? best.length - n - 1 : 18;
+    const lastFace = n ? moveAxis(seq1[n-1]) : -1;
+    const h0 = Math.max(T.pruneCornPermSlice4[cp*N_SLICE4+s4], T.pruneEdge8Slice4[ep8*N_SLICE4+s4]);
+    for(let d=h0; d<=Math.min(cap, 18); d++){
+      const r = phase2(cp, ep8, s4, d, lastFace, 0);
+      if(r >= 0){
+        const sol = [];
+        for(let i=0;i<n;i++) sol.push(seq1[i]);
+        for(let i=0;i<r;i++) sol.push(seq2[i]);
+        if(!best || sol.length < best.length) best = sol;
+        return true;
+      }
+    }
+    return false;
+  }
+  function phase1(tw, fl, sl, depth, last, n){
+    if(stop) return;
+    if(depth === 0){
+      if(tw === 0 && fl === 0 && sl === 0){
+        tryPhase2(n);
+        if(best && (best.length <= 20 || (performance.now() - t0 > budget))) stop = true;
+      }
+      return;
+    }
+    const h = Math.max(T.pruneTwistSlice[tw*N_SLICE+sl], T.pruneFlipSlice[fl*N_SLICE+sl]);
+    if(h > depth) return;
+    for(let m=0;m<18;m++){
+      const face = moveAxis(m);
+      if(!allowed(face, last)) continue;
+      nodes++;
+      seq1[n] = m;
+      phase1(T.twistMove[tw*18+m], T.flipMove[fl*18+m], T.sliceMove[sl*18+m], depth - 1, face, n + 1);
+      if(stop) return;
+    }
+  }
+  const tw0 = getTwist(cube), fl0 = getFlip(cube), sl0 = getSlice(cube);
+  const hStart = Math.max(T.pruneTwistSlice[tw0*N_SLICE+sl0], T.pruneFlipSlice[fl0*N_SLICE+sl0]);
+  for(let d=hStart; d<=12 && !stop; d++){
+    phase1(tw0, fl0, sl0, d, -1, 0);
+    if(best && (best.length <= (maxLen || 20) || performance.now() - t0 > budget)) break;
+  }
+  if(!best) throw new Error('aucune solution trouvée (état non résoluble ?)');
+  return {moves:best, nodes, ms:performance.now() - t0};
+}
+
+/* --- pilotage UI --- */
+async function solveKociembaUI(){
+  const prog = document.getElementById('kocProg');
+  const bar = prog.querySelector('i'), lbl = prog.querySelector('span');
+  if(!KOC.ready){
+    prog.classList.add('on');
+    await kociembaInit((p, txt) => { bar.style.width = (p*100) + '%'; lbl.textContent = txt; });
+    setTimeout(() => prog.classList.remove('on'), 900);
+  }
+  const budget = Math.max(20, Math.min(20000, +APP.settings.budget || 500));
+  const res = kociembaSolve(APP.cubie, budget);
+  const check = applySeq(APP.cubie, res.moves);
+  if(!isSolvedCube(check)) throw new Error('solution Kociemba incorrecte — bug solveur');
+  loadSequence([{step:'Kociemba — deux phases', moves:res.moves.slice(),
+      note:'Phase 1 : orientation des coins et des arêtes + arêtes de tranche remises dans la tranche. ' +
+           'Phase 2 : 10 coups seulement, permutation pure.'}],
+    'Kociemba',
+    '<span>coups <b>' + res.moves.length + '</b></span>' +
+    '<span>calcul <b>' + Math.round(res.ms) + '</b> ms</span>' +
+    '<span>nœuds <b>' + res.nodes.toLocaleString('fr-FR') + '</b></span>' +
+    '<span>tables <b>' + (kociembaBytes()/1048576).toFixed(2) + '</b> Mo · ' + KOC.from + '</span>');
+  toast('Solution Kociemba : ' + res.moves.length + ' coups en ' + Math.round(res.ms) + ' ms');
+}
+/* =========================================================================
    ===== MODULE APP — état global, actions, persistance ====================
    ========================================================================= */
 const APP = {
@@ -2435,6 +2763,89 @@ test('Photo : conversion Lab et algorithme hongrois', () => {
   const cnt = new Array(6).fill(0); r.colors.forEach(c => cnt[c]++);
   assert(cnt.every(c => c === 9), 'quota 9 par couleur respecté même sur des échantillons dégénérés');
   return 'Lab : blanc L*=100 · gris 128 L*=' + fmt(mid[0]) + ' · hongrois optimal · quota 9 garanti';
+});
+
+/* ---- 7. Solveur Kociemba (§10.5) ---- */
+test('Kociemba : génération des tables (§7.3–7.5)', async () => {
+  const t0 = performance.now();
+  await kociembaInit();
+  const ms = performance.now() - t0;
+  const T = KOC.T;
+  assertEq(T.twistMove.length, 2187*18, 'twistMove');
+  assertEq(T.flipMove.length, 2048*18, 'flipMove');
+  assertEq(T.sliceMove.length, 495*18, 'sliceMove');
+  assertEq(T.cornPermMove.length, 40320*10, 'cornPermMove');
+  assertEq(T.edge8PermMove.length, 40320*10, 'edge8PermMove');
+  assertEq(T.slice4Move.length, 24*10, 'slice4Move');
+  assertEq(T.pruneTwistSlice.length, 2187*495, 'pruneTwistSlice');
+  assertEq(T.pruneFlipSlice.length, 2048*495, 'pruneFlipSlice');
+  assertEq(T.pruneCornPermSlice4.length, 40320*24, 'pruneCornPermSlice4');
+  assertEq(T.pruneEdge8Slice4.length, 40320*24, 'pruneEdge8Slice4');
+  /* tables complètes : aucun état inaccessible (255) */
+  for(const k of ['pruneTwistSlice','pruneFlipSlice','pruneCornPermSlice4','pruneEdge8Slice4']){
+    let bad = 0, max = 0;
+    for(let i=0;i<T[k].length;i++){ if(T[k][i] === 255) bad++; else if(T[k][i] > max) max = T[k][i]; }
+    assertEq(bad, 0, k + ' : états non atteints par le BFS');
+    assert(max > 0 && max < 40, k + ' : profondeur maximale aberrante (' + max + ')');
+  }
+  /* cohérence coordonnées ↔ tables de transition */
+  for(let t=0;t<300;t++){
+    const c = applySeq(identityCube(), randomScrambleSeq(12));
+    const m = (Math.random()*18)|0;
+    const c2 = applyMove(c, m);
+    assertEq(KOC.T.twistMove[getTwist(c)*18+m], getTwist(c2), 'twistMove cohérent');
+    assertEq(KOC.T.flipMove[getFlip(c)*18+m], getFlip(c2), 'flipMove cohérent');
+    assertEq(KOC.T.sliceMove[getSlice(c)*18+m], getSlice(c2), 'sliceMove cohérent');
+  }
+  assertEq(getTwist(SOLVED), 0, 'twist du cube résolu');
+  assertEq(getFlip(SOLVED), 0, 'flip du cube résolu');
+  assertEq(getSlice(SOLVED), 0, 'slice du cube résolu');
+  assertEq(getCornPerm(SOLVED) + getEdge8Perm(SOLVED) + getSlice4(SOLVED), 0, 'coordonnées phase 2 du cube résolu');
+  return (KOC.from === 'IndexedDB' ? 'lues depuis IndexedDB' : 'générées') + ' en ' + fmt(ms) + ' ms · ' +
+         (kociembaBytes()/1048576).toFixed(2) + ' Mo · toutes les entrées atteintes par le BFS';
+});
+test('Kociemba : superflip résolu en ≥ 20 coups (§7.7)', () => {
+  const sf = parseAlg("U R2 F B R B2 R U2 L B2 R U' D' R2 F R' L B2 U2 F2");
+  const cube = applySeq(identityCube(), sf);
+  assertEq(getTwist(cube), 0, 'superflip : coins non tournés');
+  assertEq(getFlip(cube), 2047, 'superflip : les 12 arêtes retournées');
+  const res = kociembaSolve(cube, 2000);
+  assert(isSolvedCube(applySeq(cube, res.moves)), 'la solution ne résout pas le superflip');
+  assert(res.moves.length >= 20, 'superflip résolu en ' + res.moves.length + ' coups — impossible, il en faut 20 minimum');
+  return res.moves.length + ' coups en ' + fmt(res.ms) + ' ms (' + res.nodes.toLocaleString('fr-FR') + ' nœuds) : ' +
+         algToString(res.moves);
+});
+test('Kociemba : 500 mélanges résolus, moyenne ≤ 23 coups', () => {
+  const N = 500, budget = 80;
+  let sum = 0, max = 0, min = 99, tsum = 0, nodes = 0, over21 = 0;
+  for(let t=0;t<N;t++){
+    const start = applySeq(identityCube(), randomScrambleSeq(25));
+    const res = kociembaSolve(start, budget);
+    assert(isSolvedCube(applySeq(start, res.moves)), 'non résolu : ' + cubieToFacelet(start));
+    const n = res.moves.length;
+    sum += n; tsum += res.ms; nodes += res.nodes;
+    if(n > max) max = n;
+    if(n < min) min = n;
+    if(n > 21) over21++;
+  }
+  const avg = sum/N;
+  assert(avg <= 23, 'longueur moyenne ' + fmt(avg) + ' > 23');
+  return N + '/' + N + ' résolus · min ' + min + ' · moyenne ' + fmt(avg) + ' · max ' + max +
+         ' · ' + fmt(tsum/N) + ' ms et ' + Math.round(nodes/N).toLocaleString('fr-FR') + ' nœuds en moyenne' +
+         ' (budget ' + budget + ' ms) · ' + over21 + ' solution(s) > 21 coups';
+});
+test('Kociemba : 2ᵉ lancement depuis IndexedDB < 300 ms', async () => {
+  await kociembaForget();
+  assert(!KOC.ready, 'tables purgées de la mémoire');
+  const t0 = performance.now();
+  await kociembaInit();
+  const ms = performance.now() - t0;
+  if(KOC.from !== 'IndexedDB')
+    return 'IndexedDB indisponible dans ce contexte — repli silencieux sur la régénération (' + fmt(ms) + ' ms), conforme au §11';
+  assert(ms < 300, 'relecture du cache en ' + fmt(ms) + ' ms (> 300 ms)');
+  const res = kociembaSolve(applySeq(identityCube(), randomScrambleSeq(25)), 200);
+  assert(res.moves.length > 0, 'solveur opérationnel après relecture');
+  return 'tables relues depuis IndexedDB en ' + fmt(ms) + ' ms, solveur opérationnel';
 });
 
 /* ---- 6. Cohérence 3D (§10.6) ---- */
