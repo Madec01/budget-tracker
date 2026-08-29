@@ -457,6 +457,87 @@ footer.foot .sep{opacity:.4}
   background:rgba(34,211,238,.14);border:1px solid rgba(34,211,238,.3);color:#cdf6ff;
 }
 .th-head .cam:hover{background:rgba(34,211,238,.3)}
+
+/* ===== ONGLETS COLONNE SOLUTION ===== */
+.tabs{display:flex;gap:6px;margin-bottom:12px}
+.tabs button{
+  flex:1;padding:9px 10px;font:inherit;font-size:12.5px;font-weight:600;cursor:pointer;
+  color:var(--txt-dim);background:rgba(255,255,255,.04);
+  border:1px solid var(--stroke);border-radius:var(--r-s);transition:.16s;
+}
+.tabs button:hover{background:rgba(255,255,255,.09);color:var(--txt)}
+.tabs button.on{
+  color:#eafcff;background:linear-gradient(180deg,rgba(34,211,238,.28),rgba(34,211,238,.09));
+  border-color:rgba(34,211,238,.5);box-shadow:0 0 20px -6px rgba(34,211,238,.8);
+}
+.tabpane{display:none}
+.tabpane.on{display:block}
+
+/* ===== APPRENTISSAGE ===== */
+.steptrack{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:12px}
+.stepchip{
+  padding:4px 8px;border-radius:99px;font:600 10.5px var(--mono);cursor:pointer;
+  background:rgba(255,255,255,.05);border:1px solid var(--stroke);color:var(--txt-faint);transition:.15s;
+}
+.stepchip.done{background:rgba(74,222,128,.15);border-color:rgba(74,222,128,.4);color:#bbf7d0}
+.stepchip.cur{background:linear-gradient(180deg,rgba(34,211,238,.3),rgba(34,211,238,.1));
+  border-color:var(--cy);color:#eafcff;box-shadow:0 0 14px -4px rgba(34,211,238,.9)}
+.card{
+  border:1px solid var(--stroke);border-radius:var(--r-s);padding:12px;margin-bottom:11px;
+  background:linear-gradient(180deg,rgba(255,255,255,.045),rgba(255,255,255,.015));
+}
+.card h4{margin:0 0 7px;font-size:14px;display:flex;align-items:center;gap:8px}
+.card h4 .num{
+  width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+  font:700 11px var(--mono);background:rgba(34,211,238,.2);border:1px solid rgba(34,211,238,.45);color:#d9fbff;
+}
+.card p{margin:0 0 8px;font-size:12.3px;line-height:1.55;color:var(--txt-dim)}
+.card p.look{color:var(--txt);background:rgba(167,139,250,.1);border-left:2px solid var(--vi);
+  padding:7px 10px;border-radius:0 7px 7px 0}
+.card .algline{
+  display:flex;flex-wrap:wrap;gap:5px;align-items:center;margin:9px 0;
+}
+.card .algline .tag{
+  font:600 11px var(--mono);color:#eee6ff;background:rgba(167,139,250,.2);
+  border:1px solid rgba(167,139,250,.45);border-radius:99px;padding:3px 9px;
+}
+.done-banner{
+  padding:12px;border-radius:var(--r-s);text-align:center;font-weight:600;font-size:13px;
+  background:rgba(74,222,128,.12);border:1px solid rgba(74,222,128,.4);color:#bbf7d0;
+}
+.keypad{display:flex;flex-wrap:wrap;gap:4px;margin-top:8px}
+.keypad .kb{
+  min-width:36px;padding:6px 8px;border-radius:7px;cursor:pointer;
+  font:600 12px var(--mono);color:var(--txt-dim);
+  background:rgba(255,255,255,.05);border:1px solid var(--stroke);transition:.12s;
+}
+.keypad .kb:hover{background:rgba(34,211,238,.22);border-color:rgba(34,211,238,.5);color:#eafcff;transform:translateY(-1px)}
+details.lesson{border:1px solid var(--stroke);border-radius:var(--r-s);margin-bottom:10px;overflow:hidden}
+details.lesson > summary{
+  cursor:pointer;padding:9px 11px;font-size:12.5px;font-weight:600;list-style:none;
+  background:rgba(255,255,255,.04);display:flex;align-items:center;gap:8px;
+}
+details.lesson > summary::-webkit-details-marker{display:none}
+details.lesson > summary::before{content:"▸";color:var(--cy);font-size:10px;transition:.15s}
+details.lesson[open] > summary::before{transform:rotate(90deg)}
+details.lesson .body{padding:11px}
+.alglist{display:flex;flex-direction:column;gap:6px}
+.algrow{
+  display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center;
+  padding:7px 9px;border-radius:7px;background:rgba(255,255,255,.03);border:1px solid var(--stroke);
+}
+.algrow .nm{font-size:12px;font-weight:600}
+.algrow .mv{display:block;font:600 11px var(--mono);color:var(--cy);margin-top:2px;background:none;border:0;padding:0}
+.stats{display:flex;gap:12px;flex-wrap:wrap;font-size:11.5px;color:var(--txt-dim);margin-top:9px}
+.stats b{font-family:var(--mono);color:var(--cy)}
+.timer{font:700 22px var(--mono);color:var(--txt);letter-spacing:.03em}
+.timer.run{color:var(--cy);text-shadow:0 0 14px rgba(34,211,238,.6)}
+.verdict{margin-top:9px;padding:9px 11px;border-radius:7px;font-size:12.5px;font-weight:600;display:none}
+.verdict.on{display:block}
+.verdict.ok{background:rgba(74,222,128,.13);border:1px solid rgba(74,222,128,.4);color:#bbf7d0}
+.verdict.ko{background:rgba(248,113,113,.12);border:1px solid rgba(248,113,113,.4);color:#fecaca}
+.stk.focus{box-shadow:0 0 0 2px var(--vi), 0 0 16px rgba(167,139,250,.9);z-index:2}
+.sticker.focus3d{box-shadow:inset 0 0 0 3px rgba(167,139,250,.95), 0 0 12px rgba(167,139,250,.8)}
 </style>
 </head>
 <body>
@@ -798,6 +879,7 @@ definePuzzle({
   id:'3x3x3', label:'Rubik 3×3×3', short:'3×3',
   dims:[3,3,3],
   hasCenters:true,          // §5.3 : les centres servent de références couleur
+  learn:true,               // méthode débutant enseignée pas à pas
   axialFaces:null,
   scrambleLength:25,
   view3d:{cell:54, dist:1400, scale:1},
@@ -1292,6 +1374,8 @@ function buildNet(){
   wireNet(net);
 }
 function paintNet(){
+  /* le puzzle vient peut-être de changer : on ne peint qu'un état à la bonne taille */
+  if(!APP.colors || APP.colors.length !== PZ.nStickers || stickerEls.length !== PZ.nStickers) return;
   const v = APP.valid;
   for(let i=0;i<PZ.nStickers;i++){
     const el = stickerEls[i];
@@ -1299,6 +1383,7 @@ function paintNet(){
     el.style.background = COLORS[APP.colors[i]].hex;
     el.classList.toggle('bad', !!(v && v.bad.has(i)));
     el.classList.toggle('warn', !!(APP.lowConf && APP.lowConf.has(i)));
+    el.classList.toggle('focus', !!(APP.focus && APP.focus.has(i)));
   }
 }
 function flashSticker(i){
@@ -1419,6 +1504,7 @@ function setBrush(c){
   const cy = $('#btnCycle'); if(cy) cy.classList.toggle('pri', c === null);
 }
 function updatePalette(){
+  if(!APP.colors || APP.colors.length !== PZ.nStickers) return;
   if(PZ.axialFaces) updateScheme();
   const counts = new Array(6).fill(0);
   for(let i=0;i<PZ.nStickers;i++) counts[APP.colors[i]]++;
@@ -1683,8 +1769,9 @@ const PLAY = {
 function buildSolverPanel(){
   const host = document.getElementById('colC');
   host.innerHTML = '';
+  buildTabs();
   const sec = document.createElement('section');
-  sec.className = 'panel';
+  sec.className = 'panel tabpane on'; sec.dataset.tab = 'solve';
   sec.innerHTML =
     '<div class="ph">Solution <span class="sp" id="solMeta"></span></div>' +
     '<div class="acts" style="margin-bottom:11px">' +
@@ -1719,6 +1806,8 @@ function buildSolverPanel(){
     '<div class="movelist" id="movelist"><div class="empty">Aucune solution chargée.<br>Choisissez un solveur puis <b>Résoudre</b>, ou chargez un mélange.</div></div>';
   host.appendChild(sec);
   wirePlayer();
+  if(PZ.learn){ buildLearnPanel(); buildTrainPanel(); }
+  showTab('solve');
   if(!buildSolverPanel.wired){
     buildSolverPanel.wired = true;
     on('state', () => { if(!PLAY.lock) clearSequence(); updateSolveBtn(); });
@@ -2018,6 +2107,8 @@ function crossSolve(s){
 /* =========================================================================
    Moteur candidat + vérification (§6.1)
    ========================================================================= */
+function prefixName(p){ return p.length ? MOVE_NAMES[p[0]] : ''; }
+const REMAP_NAME = ['', ' vu depuis la droite', ' vu depuis l’arrière', ' vu depuis la gauche'];
 function buildBlocks(algs, opt){
   opt = opt || {};
   const prefixes = opt.prefixes === false ? [[]] :
@@ -2025,38 +2116,46 @@ function buildBlocks(algs, opt){
   const remaps = opt.remaps || [0,1,2,3];
   const reps = opt.reps || [1];
   const out = [];
-  for(const a of algs){
-    const base = typeof a === 'string' ? parseAlg(a) : a;
+  for(const alg of algs){
+    const base = parseAlg(alg.a);
     for(const k of remaps){
       const r = remapSeq(base, k);
       for(const n of reps){
         let body = [];
         for(let i=0;i<n;i++) body = body.concat(r);
-        for(const p of prefixes) out.push(p.concat(body));
+        for(const p of prefixes)
+          out.push({seq:p.concat(body), name:alg.n, alg:alg.a, prefix:prefixName(p), k, reps:n});
       }
     }
   }
-  out.sort((x, y) => x.length - y.length);
+  out.sort((x, y) => x.seq.length - y.seq.length);
   return out;
 }
-/* Recherche par approfondissement itératif sur des « blocs » (préfixe U +
-   algorithme remappé). L'algorithme n'a pas besoin d'être correct a priori :
-   le moteur applique sur une copie et vérifie le prédicat (§6.1). */
+/* Approfondissement itératif sur des « blocs » (préfixe U + algorithme
+   remappé). L'algorithme n'a pas besoin d'être correct a priori : le moteur
+   applique sur une copie et vérifie le prédicat (§6.1). Il renvoie aussi les
+   blocs retenus, ce qui permet de NOMMER le cas — c'est ce que consomme le
+   mode apprentissage. */
 function searchBlocks(state, blocks, ok, maxDepth){
-  if(ok(state)) return {seq:[], state};
-  const dfs = (st, acc, d) => {
+  if(ok(state)) return {seq:[], state, used:[]};
+  const dfs = (st, acc, used, d) => {
     for(let i=0;i<blocks.length;i++){
-      const b = blocks[i], s2 = applySeq(st, b);
-      if(d === 1){ if(ok(s2)) return {seq:acc.concat(b), state:s2}; }
-      else { const r = dfs(s2, acc.concat(b), d - 1); if(r) return r; }
+      const b = blocks[i], s2 = applySeq(st, b.seq);
+      if(d === 1){ if(ok(s2)) return {seq:acc.concat(b.seq), state:s2, used:used.concat(b)}; }
+      else { const r = dfs(s2, acc.concat(b.seq), used.concat(b), d - 1); if(r) return r; }
     }
     return null;
   };
   for(let d=1; d<=(maxDepth || 1); d++){
-    const r = dfs(state, [], d);
+    const r = dfs(state, [], [], d);
     if(r) return r;
   }
   return null;
+}
+function describeCase(used){
+  if(!used || !used.length) return '';
+  return used.map(b => b.name + (b.reps > 1 ? ' ×' + b.reps : '') +
+    (b.prefix ? ' après ' + b.prefix : '') + REMAP_NAME[b.k]).join(', puis ');
 }
 function lblFail(step, state){
   const e = new Error('Étape « ' + step + ' » : aucune séquence candidate ne convient. État : ' + cubieToFacelet(state));
@@ -2064,122 +2163,243 @@ function lblFail(step, state){
   return e;
 }
 
-/* --- jeux d'algorithmes (§6.3) --- */
-const ALG_F1 = [                       // coins première couronne
-  "R U R'", "R U' R'", "F' U' F", "F' U F", "U R U' R'", "U' F' U F",
-  "R U2 R'", "R U2 R' U' R U R'", "R U' R' U' F' U F", "F' U F U R U' R'"
-];
-const ALG_F1_SAFE = ["R U R' U'"];     // filet de sécurité : ordre 6 sur le coin visé
-const ALG_F2 = [                       // arêtes deuxième couronne
-  "U R U' R' U' F' U F", "U' L' U L U F U' F'"
-];
-const ALG_OLL_E = ["F R U R' U' F'", "F U R U' R' F'"];
-const ALG_OLL_C = ["R U R' U R U2 R'", "R U2 R' U' R U' R'"];
-const ALG_PLL_C = ["R' F R' B2 R F' R' B2 R2"];
-const ALG_PLL_E = ["R U' R U R U R U' R' U' R2", "R2 U R U R' U' R' U' R' U R'"];
 
-/* --- solveur --- */
+/* --- jeux d'algorithmes nommés (§6.3). Les noms servent au mode
+   apprentissage : ce sont eux que l'app annonce quand elle reconnaît un cas. */
+const ALG_F1 = [
+  {n:"Insertion droite",                      a:"R U R'"},
+  {n:"Insertion droite inversée",             a:"R U' R'"},
+  {n:"Insertion gauche",                      a:"F' U' F"},
+  {n:"Insertion gauche inversée",             a:"F' U F"},
+  {n:"Dégager puis insérer à droite",         a:"U R U' R'"},
+  {n:"Dégager puis insérer à gauche",         a:"U' F' U F"},
+  {n:"Extraction du coin",                    a:"R U2 R'"},
+  {n:"Coin à réorienter",                     a:"R U2 R' U' R U R'"},
+  {n:"Insertion à droite en deux temps",      a:"R U' R' U' F' U F"},
+  {n:"Insertion à gauche en deux temps",      a:"F' U F U R U' R'"}
+];
+const ALG_F1_SAFE = [{n:"Sexy move répété", a:"R U R' U'"}];
+const ALG_F2 = [
+  {n:"Insertion à droite", a:"U R U' R' U' F' U F"},
+  {n:"Insertion à gauche", a:"U' L' U L U F U' F'"}
+];
+const ALG_OLL_E = [
+  {n:"Croix jaune",           a:"F R U R' U' F'"},
+  {n:"Croix jaune, variante", a:"F U R U' R' F'"}
+];
+const ALG_OLL_C = [
+  {n:"Sune",     a:"R U R' U R U2 R'"},
+  {n:"Antisune", a:"R U2 R' U' R U' R'"}
+];
+const ALG_PLL_C = [{n:"A-perm", a:"R' F R' B2 R F' R' B2 R2"}];
+const ALG_PLL_E = [
+  {n:"U-perm horaire",     a:"R U' R U R U R U' R' U' R2"},
+  {n:"U-perm antihoraire", a:"R2 U R U R' U' R' U' R' U R'"}
+];
+
+/* =========================================================================
+   ===== LES 8 ÉTAPES, SOUS FORME ENSEIGNABLE ==============================
+   Chaque étape sait dire si elle est finie, où en est l'élève, ce qu'il faut
+   regarder, et quel algorithme appliquer maintenant — avec le nom du cas.
+   Le solveur (§6) et le mode apprentissage consomment la MÊME source : ils
+   ne peuvent donc pas diverger.
+   ========================================================================= */
+function focusEdges(s, pieces){
+  const out = [];
+  pieces.forEach(piece => { for(let i=0;i<12;i++) if(s.ep[i] === piece) edgeFacelet[i].forEach(x => out.push(x)); });
+  return out;
+}
+function focusCorners(s, pieces){
+  const out = [];
+  pieces.forEach(piece => { for(let i=0;i<8;i++) if(s.cp[i] === piece) cornerFacelet[i].forEach(x => out.push(x)); });
+  return out;
+}
+let LBL_BLOCKS = null;
+function lblInit(){
+  if(LBL_BLOCKS) return LBL_BLOCKS;
+  LBL_BLOCKS = {
+    f1: buildBlocks(ALG_F1).concat(buildBlocks(ALG_F1_SAFE, {reps:[1,2,3,4,5,6]}))
+          .sort((a, b) => a.seq.length - b.seq.length),
+    f2: buildBlocks(ALG_F2),
+    ollE: buildBlocks(ALG_OLL_E),
+    ollC: buildBlocks(ALG_OLL_C),
+    pllC: buildBlocks(ALG_PLL_C),
+    pllE: buildBlocks(ALG_PLL_E)
+  };
+  buildCrossTable();
+  return LBL_BLOCKS;
+}
+const LBL_STEPS = [
+  {
+    id:'cross', title:'Croix de la face D', short:'Croix',
+    goal:"Placer les 4 arêtes de la face D, bien orientées : leur seconde couleur doit rejoindre le centre de la face voisine.",
+    look:"Repérez les 4 arêtes qui portent la couleur de la face D. Elles peuvent être n'importe où ; amenez-les une par une sous leur centre, sans casser celles déjà placées.",
+    algs:[],
+    done:s => crossOK(s),
+    progress:s => [4,5,6,7].filter(i => edgeOK(s, i)).length + '/4 arêtes',
+    focus:s => focusEdges(s, [4,5,6,7].filter(i => !edgeOK(s, i))),
+    advise(s){
+      const seq = crossSolve(s);
+      return {seq, cases:'Chemin optimal (table BFS)',
+        note:"Table BFS complète sur les 4 arêtes DR DF DL DB : la croix est faite en un minimum de coups, " +
+             seq.length + " ici. À la main on place les arêtes une par une ; l'app montre le chemin le plus court."};
+    }
+  },
+  {
+    id:'f1', title:'Coins de la première couronne', short:'Coins 1',
+    goal:"Placer les 4 coins de la face D, chacun entre ses deux centres, sans casser la croix.",
+    look:"Cherchez un coin portant la couleur de D dans la couche du haut, amenez-le au-dessus de son emplacement, puis insérez-le. S'il est coincé en bas à l'envers, sortez-le d'abord.",
+    algs:ALG_F1.concat(ALG_F1_SAFE),
+    done:s => countCornersD(s) === 4,
+    progress:s => countCornersD(s) + '/4 coins',
+    focus:s => focusCorners(s, [4,5,6,7].filter(i => !cornerOK(s, i))),
+    advise(s){
+      const before = countCornersD(s);
+      const kept = []; for(let i=4;i<8;i++) if(cornerOK(s, i)) kept.push(i);
+      const blocks = lblInit().f1;
+      let r = searchBlocks(s, blocks, st => crossOK(st) && kept.every(i => cornerOK(st, i)) && countCornersD(st) > before, 2);
+      let note = "Le coin est amené au-dessus de son emplacement puis inséré ; le moteur vérifie que la croix et les coins déjà placés restent intacts.";
+      if(!r){
+        const inU = cornersDInU(s);
+        r = searchBlocks(s, blocks, st => crossOK(st) && kept.every(i => cornerOK(st, i)) && cornersDInU(st) > inU, 1);
+        note = "Extraction : ce coin est coincé dans un mauvais emplacement, on le remonte d'abord en couche U.";
+      }
+      if(!r) throw lblFail('Coins 1ʳᵉ couronne', s);
+      return {seq:r.seq, cases:describeCase(r.used), note};
+    }
+  },
+  {
+    id:'f2', title:'Arêtes de la deuxième couronne', short:'Arêtes 2',
+    goal:"Placer les 4 arêtes de la couronne du milieu, orientées.",
+    look:"Cherchez en couche U une arête qui ne porte pas la couleur de U : alignez sa face avant avec son centre, puis insérez-la à droite ou à gauche.",
+    algs:ALG_F2,
+    done:s => countEdgesMid(s) === 4,
+    progress:s => countEdgesMid(s) + '/4 arêtes',
+    focus:s => focusEdges(s, [8,9,10,11].filter(i => !edgeOK(s, i))),
+    advise(s){
+      const before = countEdgesMid(s);
+      const kept = []; for(let i=8;i<12;i++) if(edgeOK(s, i)) kept.push(i);
+      const base = st => crossOK(st) && countCornersD(st) === 4 && kept.every(i => edgeOK(st, i));
+      const blocks = lblInit().f2;
+      let r = searchBlocks(s, blocks, st => base(st) && countEdgesMid(st) > before, 2);
+      let note = "Insertion droite ou gauche, transposée aux 4 emplacements par rotation y.";
+      if(!r){
+        const inU = edgesMidInU(s);
+        r = searchBlocks(s, blocks, st => base(st) && edgesMidInU(st) > inU, 1);
+        note = "Insertion à vide : l'arête est déjà dans son emplacement mais à l'envers, on la ressort d'abord en couche U.";
+      }
+      if(!r) throw lblFail('Arêtes 2ᵉ couronne', s);
+      return {seq:r.seq, cases:describeCase(r.used), note};
+    }
+  },
+  {
+    id:'oll-e', title:'Croix jaune', short:'Croix U',
+    goal:"Orienter les 4 arêtes de la face U : la couleur de U vers le haut. Leur place n'a pas encore d'importance.",
+    look:"Regardez la face U : point, barre ou équerre. Barre → mettez-la horizontale ; équerre → mettez son angle en haut à gauche.",
+    algs:ALG_OLL_E,
+    done:s => ollEdgesOK(s),
+    progress:s => [0,1,2,3].filter(i => s.eo[i] === 0).length + '/4 arêtes orientées',
+    focus:s => [1,3,5,7],
+    advise(s){
+      const r = searchBlocks(s, lblInit().ollE, st => f2lOK(st) && ollEdgesOK(st), 3);
+      if(!r) throw lblFail('Croix jaune', s);
+      return {seq:r.seq, cases:describeCase(r.used),
+        note:"F R U R' U' F' fait passer point → barre → croix. Une à trois applications, avec le bon préfixe U entre deux."};
+    }
+  },
+  {
+    id:'oll-c', title:'Orientation des coins', short:'Coins U',
+    goal:"Mettre la couleur de U sur le dessus des 4 coins, sans se soucier de leur place.",
+    look:"Comptez les coins déjà orientés : 0, 1 ou 2. Avec un seul, placez-le en bas à gauche avant d'appliquer Sune.",
+    algs:ALG_OLL_C,
+    done:s => ollCornersOK(s),
+    progress:s => [0,1,2,3].filter(i => s.co[i] === 0).length + '/4 coins orientés',
+    focus:s => [0,2,6,8],
+    advise(s){
+      const r = searchBlocks(s, lblInit().ollC, st => f2lOK(st) && ollEdgesOK(st) && ollCornersOK(st), 3);
+      if(!r) throw lblFail('Orientation des coins', s);
+      return {seq:r.seq, cases:describeCase(r.used),
+        note:"Sune et Antisune couvrent les 7 cas, seuls ou enchaînés. Chaque application fait tourner trois coins sur eux-mêmes."};
+    }
+  },
+  {
+    id:'pll-c', title:'Placement des coins', short:'Perm. coins',
+    goal:"Amener les 4 coins de la couche U à leur emplacement — ils sont déjà bien orientés.",
+    look:"Cherchez deux coins voisins dont les couleurs latérales sont identiques : cette paire est déjà correcte, mettez-la à l'arrière.",
+    algs:ALG_PLL_C,
+    done:s => pllCornersOK(s),
+    progress:s => pllCornersOK(s) ? 'coins placés' : 'coins à permuter',
+    focus:s => focusCorners(s, [0,1,2,3].map(i => s.cp[i])),
+    advise(s){
+      const r = searchBlocks(s, lblInit().pllC, st => f2lOK(st) && ollEdgesOK(st) && ollCornersOK(st) && pllCornersOK(st), 2);
+      if(!r) throw lblFail('Permutation des coins', s);
+      return {seq:r.seq, cases:describeCase(r.used),
+        note:"A-perm : elle fait tourner trois coins entre eux et laisse le quatrième en place. Le cas diagonal demande deux applications."};
+    }
+  },
+  {
+    id:'pll-e', title:'Placement des arêtes', short:'Perm. arêtes',
+    goal:"Permuter les arêtes de la couche U. Après cette étape le cube est résolu, à une rotation de U près.",
+    look:"Cherchez la face dont l'arête du haut est déjà à sa place : mettez-la derrière vous.",
+    algs:ALG_PLL_E,
+    done:s => aufNeeded(s) >= 0,
+    progress:s => 'dernier cycle d’arêtes',
+    focus:s => focusEdges(s, [0,1,2,3].map(i => s.ep[i])),
+    advise(s){
+      const r = searchBlocks(s, lblInit().pllE, st => aufNeeded(st) >= 0, 3);
+      if(!r) throw lblFail('Permutation des arêtes', s);
+      return {seq:r.seq, cases:describeCase(r.used),
+        note:"U-perm : cycle de trois arêtes. Les cas H et Z (deux paires opposées) demandent deux applications."};
+    }
+  },
+  {
+    id:'auf', title:'Alignement final', short:'AUF',
+    goal:"Tourner la face U pour aligner la dernière couche.",
+    look:"Tout est placé : il ne reste qu'un quart de tour de U.",
+    algs:[],
+    done:s => isSolvedCube(s),
+    progress:s => 'dernier quart de tour',
+    focus:s => [],
+    advise(s){
+      const k = aufNeeded(s);
+      if(k <= 0) throw lblFail('AUF', s);
+      return {seq:[MOVE_ID[k === 1 ? 'U' : k === 2 ? 'U2' : "U'"]], cases:'AUF',
+        note:"Dernier quart de tour de la face U pour aligner la couche."};
+    }
+  }
+];
+function lblStepOf(s){
+  for(let i=0;i<LBL_STEPS.length;i++) if(!LBL_STEPS[i].done(s)) return i;
+  return -1;
+}
+/* étape courante + prochain algorithme, avec le nom du cas reconnu */
+function lblAdvice(s){
+  lblInit();
+  const i = lblStepOf(s);
+  if(i < 0) return null;
+  const step = LBL_STEPS[i], a = step.advise(s);
+  const focus = (step.focus(s) || []);
+  return {index:i, step, seq:cancelSeq(a.seq), cases:a.cases, note:a.note,
+          focus:focus.filter((v, k, arr) => arr.indexOf(v) === k)};
+}
+
+/* --- solveur : il déroule exactement les mêmes conseils que le mode
+   apprentissage, les deux ne peuvent donc pas diverger --- */
 function solveLBL(start){
   const t0 = performance.now();
+  lblInit();
   const groups = [];
-  let s = cloneCube(start);
-  const push = (step, seq, note) => { if(seq.length || groups.length === 0) groups.push({step, moves:cancelSeq(seq), note}); };
-
-  /* 1 — croix (table BFS, optimale) */
-  const cross = crossSolve(s);
-  s = applySeq(s, cross);
-  if(!crossOK(s)) throw lblFail('Croix', s);
-  push('Croix de la face D', cross,
-       'Table BFS complète sur les 4 arêtes DR DF DL DB (190 080 états) : croix optimale, ' + cross.length + ' coups.');
-
-  /* 2 — coins de la première couronne */
-  const c2 = buildBlocks(ALG_F1).concat(buildBlocks(ALG_F1_SAFE, {reps:[1,2,3,4,5,6]}))
-                .sort((a,b) => a.length - b.length);
-  for(let it=0; countCornersD(s) < 4; it++){
-    if(it > 12) throw lblFail('Coins 1ʳᵉ couronne', s);
-    const before = countCornersD(s);
-    const kept = []; for(let i=4;i<8;i++) if(cornerOK(s,i)) kept.push(i);
-    let r = searchBlocks(s, c2, st => crossOK(st) && kept.every(i => cornerOK(st,i)) && countCornersD(st) > before, 2);
-    let note = 'Le coin est amené au-dessus de son emplacement puis inséré ; le moteur vérifie que la croix et les coins déjà placés sont intacts.';
-    if(!r){                                   // extraction d'un coin coincé
-      const inU = cornersDInU(s);
-      r = searchBlocks(s, c2, st => crossOK(st) && kept.every(i => cornerOK(st,i)) && cornersDInU(st) > inU, 1);
-      note = 'Extraction : le coin était coincé dans un mauvais emplacement, on le remonte en couche U.';
-    }
-    if(!r) throw lblFail('Coins 1ʳᵉ couronne', s);
-    s = r.state;
-    push('Coin ' + Math.min(countCornersD(s), 4) + ' — première couronne', r.seq, note);
-  }
-
-  /* 3 — arêtes de la deuxième couronne */
-  const c3 = buildBlocks(ALG_F2);
-  for(let it=0; countEdgesMid(s) < 4; it++){
-    if(it > 12) throw lblFail('Arêtes 2ᵉ couronne', s);
-    const before = countEdgesMid(s);
-    const kept = []; for(let i=8;i<12;i++) if(edgeOK(s,i)) kept.push(i);
-    const base = st => crossOK(st) && countCornersD(st) === 4 && kept.every(i => edgeOK(st,i));
-    let r = searchBlocks(s, c3, st => base(st) && countEdgesMid(st) > before, 2);
-    let note = 'Insertion droite ou gauche, transposée aux 4 emplacements par remapping y.';
-    if(!r){
-      const inU = edgesMidInU(s);
-      r = searchBlocks(s, c3, st => base(st) && edgesMidInU(st) > inU, 1);
-      note = 'Insertion à vide : l’arête était coincée à l’envers dans son emplacement, on la ressort en couche U.';
-    }
-    if(!r) throw lblFail('Arêtes 2ᵉ couronne', s);
-    s = r.state;
-    push('Arête ' + Math.min(countEdgesMid(s), 4) + ' — deuxième couronne', r.seq, note);
-  }
-
-  /* 4 — croix jaune (orientation des arêtes U) */
-  if(!ollEdgesOK(s)){
-    const c4 = buildBlocks(ALG_OLL_E);
-    const r = searchBlocks(s, c4, st => f2lOK(st) && ollEdgesOK(st), 3);
-    if(!r) throw lblFail('Croix jaune', s);
-    s = r.state;
-    push('Croix jaune — orientation des arêtes', r.seq,
-         'F R U R\' U\' F\' appliqué 1 à 3 fois : point → barre → croix.');
-  }
-
-  /* 5 — orientation des coins U */
-  if(!ollCornersOK(s)){
-    const c5 = buildBlocks(ALG_OLL_C);
-    const r = searchBlocks(s, c5, st => f2lOK(st) && ollEdgesOK(st) && ollCornersOK(st), 3);
-    if(!r) throw lblFail('Orientation des coins', s);
-    s = r.state;
-    push('Orientation des coins (OLL)', r.seq,
-         'Sune / Antisune, seuls ou enchaînés avec un préfixe U : couvre les 7 cas.');
-  }
-
-  /* 6 — permutation des coins U */
-  if(!pllCornersOK(s)){
-    const c6 = buildBlocks(ALG_PLL_C);
-    const r = searchBlocks(s, c6, st => f2lOK(st) && ollEdgesOK(st) && ollCornersOK(st) && pllCornersOK(st), 2);
-    if(!r) throw lblFail('Permutation des coins', s);
-    s = r.state;
-    push('Permutation des coins (PLL)', r.seq,
-         'A-perm ; le cas diagonal se résout par deux applications.');
-  }
-
-  /* 7 — permutation des arêtes U */
-  if(aufNeeded(s) < 0){
-    const c7 = buildBlocks(ALG_PLL_E);
-    const r = searchBlocks(s, c7, st => aufNeeded(st) >= 0, 3);
-    if(!r) throw lblFail('Permutation des arêtes', s);
-    s = r.state;
-    push('Permutation des arêtes (PLL)', r.seq,
-         'U-perm et son inverse ; les cas H et Z demandent deux applications.');
-  }
-
-  /* 8 — AUF */
-  const k = aufNeeded(s);
-  if(k < 0) throw lblFail('AUF', s);
-  if(k > 0){
-    const auf = [MOVE_ID[k === 1 ? 'U' : k === 2 ? 'U2' : "U'"]];
-    s = applySeq(s, auf);
-    push('AUF — alignement final', auf, 'Dernière rotation de la face U pour aligner la couche.');
+  let s = cloneCube(start), guard = 0;
+  while(!isSolvedCube(s)){
+    if(guard++ > 40) throw lblFail('boucle', s);
+    const a = lblAdvice(s);
+    if(!a) break;
+    s = applySeq(s, a.seq);
+    const detail = (a.step.id === 'f1' || a.step.id === 'f2') ? ' — ' + a.step.progress(s) : '';
+    groups.push({id:a.step.id, step:a.step.title + detail, moves:cancelSeq(a.seq),
+                 note:(a.cases ? a.cases + ' · ' : '') + a.note});
   }
   if(!isSolvedCube(s)) throw lblFail('Contrôle final', s);
-
   const flat = [];
   groups.forEach(g => g.moves.forEach(m => flat.push(m)));
   return {groups:groups.filter(g => g.moves.length), flat, ms:performance.now() - t0, solved:true};
@@ -3508,6 +3728,7 @@ const APP = {
   brush: null,
   centerMode: false,
   lowConf: null,          // stickers à confiance faible (§5.3) — cerclés d'orange
+  focus: null,            // pièces à regarder, mises en avant par le coach
   listeners: {},
   settings: {speed:1, budget:500, solver:null, puzzle:'3x3x3', caps:[0,3], capRot:0},
   saved: {}
@@ -3587,6 +3808,12 @@ const HELP_HTML = () => `
     ${PZ.hasCenters
       ? 'En pratique : les 4 faces latérales s’obtiennent en tournant le cube vers la gauche, U toujours en haut.'
       : 'La tour n’a pas de centre : le repère est libre (§12.8), la première photo de calotte définit le dessus.'}
+  </p>
+  <p class="hint"><b>Trois onglets à droite</b> :
+    <b>Solution</b> donne la réponse (couche par couche, ou Kociemba en ≈ 20 coups) ;
+    <b>Apprendre</b> vous guide un coup à la fois — étape en cours, pièces à regarder, nom du cas,
+    algorithme — avec la notation, un clavier de coups et la bibliothèque d'algorithmes démontrables ;
+    <b>S'entraîner</b> tire un cas au hasard sur l'étape de votre choix, vous chronomètre et vérifie.
   </p>
   <p class="hint"><b>Raccourcis</b> :
     <kbd>M</kbd> mélanger · <kbd>R</kbd> réinitialiser · <kbd>C</kbd> copier · <kbd>V</kbd> coller ·
@@ -3693,6 +3920,379 @@ function boot(){
   if(qs.get('test') === '1') runTests();
 }
 document.addEventListener('DOMContentLoaded', boot);
+/* =========================================================================
+   ===== MODULE APPRENTISSAGE ==============================================
+   Le solveur ne sert plus seulement à donner la réponse : il explique.
+   Trois briques, toutes alimentées par lblAdvice() — donc toujours d'accord
+   avec le solveur couche par couche :
+     · Coach      : l'étape en cours, ce qu'il faut regarder, le cas reconnu
+                    et l'algorithme à appliquer, un coup à la fois ;
+     · Leçons     : notation, clavier de coups, bibliothèque d'algorithmes
+                    avec démonstration de chaque cas ;
+     · Entraînement : un cas tiré au hasard pour l'étape choisie, chrono,
+                    vérification et statistiques.
+   ========================================================================= */
+const LEARN = {tab:'solve', trainStep:'oll-c', caseStart:null, t0:0, timer:null, hinted:false, showFocus:true};
+
+/* --- onglets --- */
+function buildTabs(){
+  const host = document.getElementById('colC');
+  const bar = document.createElement('div');
+  bar.className = 'tabs'; bar.id = 'colCTabs';
+  const tabs = [['solve', '⚡ Solution']];
+  if(PZ.learn) tabs.push(['learn', '🎓 Apprendre'], ['train', '🎯 S’entraîner']);
+  bar.innerHTML = tabs.map(([id, lbl]) => '<button data-tab="' + id + '">' + lbl + '</button>').join('');
+  host.appendChild(bar);
+  bar.style.display = tabs.length > 1 ? '' : 'none';
+  Array.from(bar.children).forEach(b => { b.onclick = () => showTab(b.dataset.tab); });
+}
+function showTab(id){
+  if(!PZ.learn && id !== 'solve') id = 'solve';
+  LEARN.tab = id;
+  document.querySelectorAll('#colCTabs button').forEach(b => b.classList.toggle('on', b.dataset.tab === id));
+  document.querySelectorAll('#colC .tabpane').forEach(p => p.classList.toggle('on', p.dataset.tab === id));
+  if(id === 'learn') renderCoach();
+  if(id === 'train') renderTrain();
+  if(id !== 'learn') setFocus(null);
+}
+/* --- surlignage des pièces à regarder --- */
+function setFocus(list){
+  APP.focus = (list && list.length) ? new Set(list) : null;
+  paintNet();
+  paintFocus3D();
+}
+function paintFocus3D(){
+  if(!V3.cubies || !V3.cubies.length || !APP.colors || APP.colors.length !== PZ.nStickers) return;
+  for(const c of V3.cubies) for(const d of DIR_LIST){
+    if(!onFace(c, d)){ c.st[d].classList.remove('focus3d'); continue; }
+    const i = PZ.stickerIndex([c.x, c.y, c.z], d);
+    c.st[d].classList.toggle('focus3d', !!(APP.focus && APP.focus.has(i)));
+  }
+}
+/* --- application libre d'un coup (clavier de coups, démonstrations) --- */
+async function applyFreeMove(m, animate){
+  if(V3.busy) return;
+  V3.busy = true;
+  await animateMove3D(m, animate === false ? 0 : moveDuration());
+  setColors(permApply(APP.colors, PZ.moves[m].perm), {from3d:true});
+  V3.busy = false;
+}
+
+/* =========================================================================
+   Coach
+   ========================================================================= */
+function buildLearnPanel(){
+  const host = document.getElementById('colC');
+  const sec = document.createElement('section');
+  sec.className = 'panel tabpane'; sec.dataset.tab = 'learn';
+  sec.innerHTML =
+    '<div class="ph">Apprendre à résoudre <span class="sp" id="learnMeta"></span></div>' +
+    '<div class="steptrack" id="stepTrack"></div>' +
+    '<div id="coachCard"></div>' +
+    '<details class="lesson" id="lesNotation"><summary>📐 La notation, et un clavier pour essayer</summary>' +
+      '<div class="body">' +
+        '<p class="hint" style="margin:0 0 8px">' +
+          'Une lettre = la face qu’on tourne d’un quart de tour <b>dans le sens des aiguilles d’une montre, vue de l’extérieur</b>. ' +
+          'L’apostrophe inverse le sens, le 2 fait un demi-tour. ' +
+          '<b class="mono">U</b> dessus, <b class="mono">D</b> dessous, <b class="mono">R</b> droite, ' +
+          '<b class="mono">L</b> gauche, <b class="mono">F</b> devant, <b class="mono">B</b> derrière.</p>' +
+        '<div class="keypad" id="keypad"></div>' +
+        '<p class="hint">Cliquez : le coup est joué sur le cube. Les algorithmes ci-dessous se lisent de gauche à droite.</p>' +
+      '</div></details>' +
+    '<details class="lesson" id="lesAlgs"><summary>📚 Les algorithmes de la méthode, étape par étape</summary>' +
+      '<div class="body" id="algLib"></div></details>' +
+    '<details class="lesson"><summary>🚀 Et après ? Aller plus vite</summary>' +
+      '<div class="body"><p class="hint" style="margin:0">' +
+        'La méthode débutant sépare chaque étape. Pour descendre sous la minute, les cubeurs utilisent <b>CFOP</b> : ' +
+        'la croix, puis <b>F2L</b> (on place coin + arête ensemble, 41 cas mais intuitifs), ' +
+        '<b>OLL</b> (orienter toute la dernière face en un algorithme, 57 cas) et ' +
+        '<b>PLL</b> (permuter la dernière couche en un algorithme, 21 cas). ' +
+        'Le solveur Kociemba de l’onglet Solution montre, lui, le chemin le plus court (≈ 20 coups) : ' +
+        'il n’est pas humainement mémorisable, mais il donne une borne.</p></div></details>';
+  host.appendChild(sec);
+  buildKeypad();
+  buildAlgLibrary();
+  if(!buildLearnPanel.wired){
+    buildLearnPanel.wired = true;
+    on('state', () => {
+      if(!PZ.learn) return;
+      if(LEARN.tab === 'learn') renderCoach();
+      else if(LEARN.tab === 'train') renderTrainVerdictReset();
+    });
+  }
+}
+function buildKeypad(){
+  const k = document.getElementById('keypad');
+  k.innerHTML = '';
+  PZ.moveNames.forEach((n, m) => {
+    const b = document.createElement('button');
+    b.className = 'kb'; b.textContent = n;
+    b.title = 'Jouer ' + n;
+    b.onclick = () => applyFreeMove(m);
+    k.appendChild(b);
+  });
+}
+function renderCoach(){
+  const track = document.getElementById('stepTrack'), card = document.getElementById('coachCard');
+  if(!track) return;
+  if(!APP.valid || !APP.valid.ok){
+    track.innerHTML = '';
+    card.innerHTML = '<div class="card"><p>Le cube saisi n’est pas valide : corrigez-le d’abord dans le patron 2D. ' +
+      'Vous pouvez aussi cliquer sur <b>Mélanger</b> pour partir d’un cube mélangé.</p></div>';
+    setFocus(null);
+    return;
+  }
+  const cube = APP.valid.cubie;
+  const cur = lblStepOf(cube);
+  track.innerHTML = LBL_STEPS.map((st, i) =>
+    '<span class="stepchip' + (i < cur || cur < 0 ? ' done' : i === cur ? ' cur' : '') + '" data-i="' + i + '" title="' +
+    st.goal.replace(/"/g, '') + '">' + (i + 1) + '. ' + st.short + '</span>').join('');
+  Array.from(track.children).forEach(el => {
+    el.onclick = () => { const st = LBL_STEPS[+el.dataset.i]; toast(st.title + ' — ' + st.goal); };
+  });
+  document.getElementById('learnMeta').textContent = cur < 0 ? 'terminé' : 'étape ' + (cur + 1) + '/8';
+  if(cur < 0){
+    card.innerHTML = '<div class="done-banner">🎉 Cube résolu — bravo.<br>' +
+      '<span style="font-weight:400;font-size:12px">Cliquez sur « Mélanger » pour recommencer, ' +
+      'ou passez à l’onglet « S’entraîner » pour travailler une étape en particulier.</span></div>';
+    setFocus(null);
+    return;
+  }
+  let adv;
+  try{ adv = lblAdvice(cube); }
+  catch(e){ card.innerHTML = '<div class="card"><p>Impossible de conseiller un coup ici : ' + e.message + '</p></div>'; return; }
+  const st = adv.step;
+  card.innerHTML =
+    '<div class="card">' +
+      '<h4><span class="num">' + (adv.index + 1) + '</span>' + st.title + ' — <span style="color:var(--cy)">' + st.progress(cube) + '</span></h4>' +
+      '<p>' + st.goal + '</p>' +
+      '<p class="look">👀 ' + st.look + '</p>' +
+      '<div class="algline">' +
+        (adv.cases ? '<span class="tag">' + adv.cases + '</span>' : '') +
+        '<span class="mono" style="font-size:13px;color:#eafcff">' + (algToString(adv.seq) || '—') + '</span>' +
+      '</div>' +
+      '<p style="font-size:11.5px;color:var(--txt-faint)">' + adv.note + '</p>' +
+      '<div class="acts">' +
+        '<button class="btn sm pri" id="coachPlay">▶ Jouer ce coup</button>' +
+        '<button class="btn sm" id="coachLoad">🎬 Charger dans le lecteur</button>' +
+        '<button class="btn sm" id="coachFocus">👀 Surligner les pièces</button>' +
+        '<button class="btn sm" id="coachAll">⏭ Finir l’étape</button>' +
+      '</div>' +
+    '</div>';
+  if(LEARN.showFocus) setFocus(adv.focus); else setFocus(null);
+  document.getElementById('coachPlay').onclick = async () => {
+    for(const m of adv.seq){ await applyFreeMove(m); }
+  };
+  document.getElementById('coachLoad').onclick = () => {
+    loadSequence([{step:st.title, moves:adv.seq.slice(), note:(adv.cases ? adv.cases + ' · ' : '') + adv.note}],
+                 'coach', '<span>coups <b>' + adv.seq.length + '</b></span>');
+    showTab('solve');
+  };
+  document.getElementById('coachFocus').onclick = () => {
+    LEARN.showFocus = !LEARN.showFocus;
+    setFocus(LEARN.showFocus ? adv.focus : null);
+    toast(LEARN.showFocus ? 'Pièces concernées surlignées' : 'Surlignage désactivé');
+  };
+  document.getElementById('coachAll').onclick = async () => {
+    let guard = 0;
+    while(guard++ < 12){
+      const c = APP.valid.cubie;
+      if(lblStepOf(c) !== adv.index) break;
+      const a = lblAdvice(c);
+      if(!a) break;
+      for(const m of a.seq) await applyFreeMove(m);
+    }
+  };
+}
+/* --- bibliothèque d'algorithmes, avec démonstration --- */
+function buildAlgLibrary(){
+  const box = document.getElementById('algLib');
+  box.innerHTML = LBL_STEPS.filter(st => st.algs && st.algs.length).map(st =>
+    '<div style="margin-bottom:12px"><div style="font-size:12px;font-weight:600;margin-bottom:6px">' +
+      st.title + '</div><div class="alglist">' +
+      st.algs.map(a =>
+        '<div class="algrow"><div><span class="nm">' + a.n + '</span>' +
+        '<span class="mv">' + a.a + '</span></div>' +
+        '<button class="btn sm" data-alg="' + a.a + '">▶ démo</button></div>').join('') +
+      '</div></div>').join('');
+  box.querySelectorAll('button[data-alg]').forEach(b => {
+    b.onclick = () => demoAlg(b.dataset.alg);
+  });
+}
+/* démonstration : on part du cube résolu, on applique l'inverse de
+   l'algorithme pour faire apparaître le cas, puis on le charge dans le lecteur */
+function demoAlg(algStr){
+  const seq = parseAlg(algStr);
+  const start = applySeq(identityCube(), invertSeq(seq));
+  setFacelet(cubieToFacelet(start));
+  sync3D();
+  loadSequence([{step:'Démonstration : ' + algStr, moves:seq,
+                 note:'Le cube a été placé dans le cas correspondant ; l’algorithme le résout.'}],
+               'démo', '<span>coups <b>' + seq.length + '</b></span>');
+  showTab('solve');
+  toast('Cas mis en place — appuyez sur ▶ pour voir l’algorithme');
+}
+
+/* =========================================================================
+   Entraînement
+   ========================================================================= */
+function buildTrainPanel(){
+  const host = document.getElementById('colC');
+  const sec = document.createElement('section');
+  sec.className = 'panel tabpane'; sec.dataset.tab = 'train';
+  sec.innerHTML =
+    '<div class="ph">S’entraîner sur une étape <span class="sp" id="trainMeta"></span></div>' +
+    '<div class="steptrack" id="trainSteps"></div>' +
+    '<div class="card">' +
+      '<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">' +
+        '<span class="timer" id="trainTimer">0,0 s</span>' +
+        '<div class="acts" style="margin-left:auto">' +
+          '<button class="btn sm pri" id="trainNew">🎲 Nouveau cas</button>' +
+          '<button class="btn sm" id="trainCheck">✓ Vérifier</button>' +
+        '</div>' +
+      '</div>' +
+      '<div class="acts" style="margin-top:9px">' +
+        '<button class="btn sm" id="trainHint">💡 Indice</button>' +
+        '<button class="btn sm" id="trainSol">👁 Voir la solution</button>' +
+        '<button class="btn sm" id="trainReset">↺ Rejouer ce cas</button>' +
+      '</div>' +
+      '<div class="verdict" id="trainVerdict"></div>' +
+      '<div class="stats" id="trainStats"></div>' +
+      '<div class="keypad" id="trainPad"></div>' +
+    '</div>' +
+    '<p class="hint">Le cas est tiré au hasard parmi les positions réellement atteignables à cette étape : ' +
+    'tout ce qui précède est déjà résolu, tout ce qui suit ne compte pas. Manipulez votre cube ou le clavier ci-dessus, ' +
+    'puis vérifiez.</p>';
+  host.appendChild(sec);
+  const pad = document.getElementById('trainPad');
+  PZ.moveNames.forEach((n, m) => {
+    const b = document.createElement('button');
+    b.className = 'kb'; b.textContent = n;
+    b.onclick = () => applyFreeMove(m);
+    pad.appendChild(b);
+  });
+  document.getElementById('trainNew').onclick = () => newTrainCase();
+  document.getElementById('trainCheck').onclick = () => checkTrainCase();
+  document.getElementById('trainHint').onclick = () => trainHint(false);
+  document.getElementById('trainSol').onclick = () => trainHint(true);
+  document.getElementById('trainReset').onclick = () => {
+    if(!LEARN.caseStart) return;
+    setFacelet(LEARN.caseStart); sync3D(); startTrainTimer();
+  };
+}
+function renderTrain(){
+  const track = document.getElementById('trainSteps');
+  track.innerHTML = LBL_STEPS.map((st, i) =>
+    '<span class="stepchip' + (st.id === LEARN.trainStep ? ' cur' : '') + '" data-id="' + st.id + '">' +
+    (i + 1) + '. ' + st.short + '</span>').join('');
+  Array.from(track.children).forEach(el => {
+    el.onclick = () => { LEARN.trainStep = el.dataset.id; renderTrain(); newTrainCase(); };
+  });
+  renderTrainStats();
+}
+function trainStats(){
+  APP.settings.train = APP.settings.train || {};
+  const t = APP.settings.train;
+  t[LEARN.trainStep] = t[LEARN.trainStep] || {tries:0, ok:0, best:0};
+  return t[LEARN.trainStep];
+}
+function renderTrainStats(){
+  const st = trainStats();
+  document.getElementById('trainStats').innerHTML =
+    '<span>essais <b>' + st.tries + '</b></span>' +
+    '<span>réussis <b>' + st.ok + '</b></span>' +
+    (st.best ? '<span>meilleur temps <b>' + (st.best/1000).toFixed(1) + '</b> s</span>' : '');
+  const step = LBL_STEPS.find(s => s.id === LEARN.trainStep);
+  document.getElementById('trainMeta').textContent = step ? step.title : '';
+}
+/* un cas légitime : on résout un cube au hasard et on s'arrête juste avant l'étape */
+function makeTrainCase(stepId){
+  for(let t=0;t<60;t++){
+    const c = randomStateCube();
+    let res;
+    try{ res = solveLBL(c); }catch(e){ continue; }
+    let s = c;
+    for(const g of res.groups){
+      if(g.id === stepId) return s;
+      s = applySeq(s, g.moves);
+    }
+  }
+  return null;
+}
+function newTrainCase(){
+  const s = makeTrainCase(LEARN.trainStep);
+  if(!s){ toast('Aucun cas trouvé pour cette étape'); return; }
+  LEARN.caseStart = cubieToFacelet(s);
+  LEARN.hinted = false;
+  setFacelet(LEARN.caseStart);
+  sync3D();
+  clearSequence();
+  startTrainTimer();
+  const v = document.getElementById('trainVerdict');
+  v.className = 'verdict';
+  const step = LBL_STEPS.find(x => x.id === LEARN.trainStep);
+  toast('Nouveau cas : ' + step.title);
+}
+function startTrainTimer(){
+  LEARN.t0 = performance.now();
+  clearInterval(LEARN.timer);
+  const el = document.getElementById('trainTimer');
+  el.classList.add('run');
+  LEARN.timer = setInterval(() => {
+    el.textContent = ((performance.now() - LEARN.t0)/1000).toFixed(1).replace('.', ',') + ' s';
+  }, 100);
+}
+function stopTrainTimer(){
+  clearInterval(LEARN.timer);
+  const el = document.getElementById('trainTimer');
+  if(el) el.classList.remove('run');
+  return performance.now() - LEARN.t0;
+}
+function trainStepDone(cube){
+  const i = LBL_STEPS.findIndex(s => s.id === LEARN.trainStep);
+  for(let j=0;j<=i;j++) if(!LBL_STEPS[j].done(cube)) return false;
+  return true;
+}
+function checkTrainCase(){
+  if(!LEARN.caseStart){ toast('Tirez d’abord un cas'); return; }
+  if(!APP.valid || !APP.valid.ok){ toast('Le cube n’est pas valide'); return; }
+  const v = document.getElementById('trainVerdict');
+  const ok = trainStepDone(APP.valid.cubie);
+  const ms = stopTrainTimer();
+  const st = trainStats();
+  st.tries++;
+  if(ok && !LEARN.hinted){
+    st.ok++;
+    if(!st.best || ms < st.best) st.best = ms;
+  }
+  saveLS();
+  v.className = 'verdict on ' + (ok ? 'ok' : 'ko');
+  v.textContent = ok
+    ? '✔ Étape réussie en ' + (ms/1000).toFixed(1).replace('.', ',') + ' s' + (LEARN.hinted ? ' (avec indice, non comptée)' : '')
+    : '✖ Pas encore : ' + LBL_STEPS.find(s => s.id === LEARN.trainStep).progress(APP.valid.cubie) +
+      '. Utilisez l’indice, ou revenez au cas de départ.';
+  renderTrainStats();
+}
+function renderTrainVerdictReset(){
+  const v = document.getElementById('trainVerdict');
+  if(v && v.classList.contains('on') && LEARN.caseStart) v.className = 'verdict';
+}
+function trainHint(full){
+  if(!APP.valid || !APP.valid.ok){ toast('Le cube n’est pas valide'); return; }
+  let adv;
+  try{ adv = lblAdvice(APP.valid.cubie); }catch(e){ toast('Rien à conseiller ici'); return; }
+  if(!adv){ toast('Le cube est déjà résolu'); return; }
+  LEARN.hinted = true;
+  if(full){
+    loadSequence([{step:adv.step.title, moves:adv.seq.slice(), note:adv.note}], 'entraînement',
+                 '<span>coups <b>' + adv.seq.length + '</b></span>');
+    showTab('solve');
+    toast('Solution chargée : ' + algToString(adv.seq));
+  } else {
+    setFocus(adv.focus);
+    toast('Cas : ' + (adv.cases || adv.step.title) + ' — ' + adv.step.look.slice(0, 90));
+  }
+}
 /* =========================================================================
    ===== MODULE HARNAIS DE TEST (§10) — mode ?test=1 =======================
    ========================================================================= */
@@ -4290,6 +4890,135 @@ test('Sens de rotation CSS : les 6 faces tournent vers la bonne destination', as
   }
   setModelSilently(identityCube()); sync3D();
   return lines.join(' · ');
+});
+
+/* ---- 8. Mode apprentissage ---------------------------------------------- */
+test('Apprentissage : le coach mène 200 cubes à la solution, un conseil à la fois', () => {
+  lblInit();
+  let advices = 0, named = 0, maxAdv = 0;
+  const stepsSeen = new Set();
+  for(let t=0;t<200;t++){
+    let s = applySeq(identityCube(), randomScrambleSeq(25));
+    const flat = [];
+    let n = 0, prevStep = -1;
+    while(!isSolvedCube(s)){
+      const a = lblAdvice(s);
+      assert(a, 'aucun conseil sur un cube non résolu : ' + cubieToFacelet(s));
+      assert(a.seq.length > 0, 'conseil vide à l’étape ' + a.step.id);
+      assert(a.index >= prevStep, 'le coach recule : ' + a.step.id);
+      assert(typeof a.step.goal === 'string' && a.step.goal.length > 20, 'objectif manquant pour ' + a.step.id);
+      assert(typeof a.step.look === 'string' && a.step.look.length > 20, 'aide au repérage manquante pour ' + a.step.id);
+      if(a.cases) named++;
+      stepsSeen.add(a.step.id);
+      prevStep = a.index;
+      a.seq.forEach(m => flat.push(m));
+      s = applySeq(s, a.seq);
+      advices++; n++;
+      assert(n < 40, 'le coach tourne en rond');
+    }
+    maxAdv = Math.max(maxAdv, n);
+    /* le coach et le solveur doivent produire exactement la même chose */
+    assert(isSolvedCube(applySeq(identityCube(), [])), 'sanity');
+  }
+  assertEq(stepsSeen.size, 8, 'les 8 étapes ont été rencontrées');
+  return '200 cubes · ' + advices + ' conseils au total, ' + fmt(advices/200) + ' par cube (max ' + maxAdv + ') · ' +
+         Math.round(named/advices*100) + ' % des conseils nomment le cas reconnu (Sune, A-perm, insertion droite…)';
+});
+test('Apprentissage : coach et solveur sont la même source', () => {
+  for(let t=0;t<100;t++){
+    const start = applySeq(identityCube(), randomScrambleSeq(25));
+    const res = solveLBL(start);
+    let s = start;
+    const flat = [];
+    while(!isSolvedCube(s)){
+      const a = lblAdvice(s);
+      cancelSeq(a.seq).forEach(m => flat.push(m));
+      s = applySeq(s, a.seq);
+    }
+    assertEq(flat.join(' '), res.flat.join(' '), 'la suite des conseils diffère de la solution du solveur');
+    /* chaque groupe de la solution porte l'identifiant de son étape */
+    res.groups.forEach(g => assert(LBL_STEPS.some(st => st.id === g.id), 'groupe sans étape : ' + g.step));
+  }
+  return '100 cubes : la concaténation des conseils du coach est identique, coup pour coup, à la solution du solveur';
+});
+test('Apprentissage : l’entraîneur tire des cas légitimes pour les 8 étapes', () => {
+  const lines = [];
+  LBL_STEPS.forEach((step, idx) => {
+    let made = 0, solvedByAdvice = 0;
+    for(let t=0;t<12;t++){
+      const s = makeTrainCase(step.id);
+      if(!s) continue;
+      made++;
+      /* l'état doit être exactement au début de cette étape */
+      assertEq(lblStepOf(s), idx, 'cas de l’étape ' + step.id + ' mal positionné');
+      for(let j=0;j<idx;j++) assert(LBL_STEPS[j].done(s), 'étape ' + j + ' devrait être finie dans un cas ' + step.id);
+      assert(!step.done(s), 'le cas ' + step.id + ' est déjà résolu');
+      /* le conseil de l'app doit terminer l'étape */
+      const a = lblAdvice(s);
+      const after = applySeq(s, a.seq);
+      let ok = true;
+      for(let j=0;j<=idx;j++) if(j !== idx && !LBL_STEPS[j].done(after)) ok = false;
+      assert(ok, 'le conseil casse une étape précédente (' + step.id + ')');
+      if(step.done(after) || lblStepOf(after) > idx) solvedByAdvice++;
+    }
+    assert(made >= 10, 'trop peu de cas générés pour ' + step.id + ' (' + made + ')');
+    lines.push(step.short + ' ' + made + '/12');
+  });
+  return 'cas tirés et vérifiés pour les 8 étapes (' + lines.join(', ') +
+         ') : tout ce qui précède est résolu, l’étape elle-même ne l’est pas';
+});
+test('Apprentissage : la bibliothèque d’algorithmes et ses démonstrations', () => {
+  let n = 0;
+  const seen = new Set();
+  LBL_STEPS.forEach(step => {
+    (step.algs || []).forEach(alg => {
+      n++;
+      assert(alg.n && alg.n.length > 2, 'algorithme sans nom : ' + alg.a);
+      assert(!seen.has(alg.n), 'nom d’algorithme en double : ' + alg.n);
+      seen.add(alg.n);
+      const seq = parseAlg(alg.a);
+      assert(seq.length >= 3, 'algorithme trop court : ' + alg.a);
+      /* la démo place le cube dans le cas, l'algorithme doit le résoudre */
+      const start = applySeq(identityCube(), invertSeq(seq));
+      assert(!isSolvedCube(start), 'la démo de « ' + alg.n + ' » part d’un cube déjà résolu');
+      assert(isSolvedCube(applySeq(start, seq)), 'la démo de « ' + alg.n + ' » ne se résout pas');
+    });
+  });
+  /* les noms utilisés par le coach viennent bien de cette bibliothèque */
+  const s = applySeq(identityCube(), randomScrambleSeq(25));
+  const a = lblAdvice(s);
+  assert(typeof a.cases === 'string', 'le coach doit nommer le cas');
+  return n + ' algorithmes nommés, tous distincts · chaque démonstration part du cas correspondant et se résout';
+});
+test('Apprentissage : interface (onglets, coach, clavier, entraîneur)', () => {
+  const prevTab = LEARN.tab;
+  setFacelet(cubieToFacelet(applySeq(identityCube(), randomScrambleSeq(25))), {noSave:true});
+  showTab('learn');
+  assertEq(document.querySelectorAll('#colCTabs button').length, 3, 'onglets');
+  assertEq(document.querySelectorAll('#stepTrack .stepchip').length, 8, 'étapes affichées');
+  assert(document.querySelector('#coachCard h4'), 'carte du coach absente');
+  assert(document.getElementById('coachPlay'), 'bouton « jouer ce coup » absent');
+  assertEq(document.querySelectorAll('#keypad .kb').length, 18, 'clavier de coups');
+  assert(APP.focus && APP.focus.size > 0, 'aucune pièce surlignée');
+  assertEq(document.querySelectorAll('.stk.focus').length, APP.focus.size, 'surlignage du patron 2D');
+  assert(document.querySelectorAll('.sticker.focus3d').length > 0, 'surlignage 3D');
+  showTab('train');
+  LEARN.trainStep = 'oll-e';
+  newTrainCase();
+  assert(APP.valid.ok, 'cas d’entraînement invalide');
+  assertEq(lblStepOf(APP.valid.cubie), 3, 'cas positionné sur la croix jaune');
+  const before = trainStats().tries;
+  checkTrainCase();
+  assertEq(trainStats().tries, before + 1, 'essai comptabilisé');
+  assert(document.getElementById('trainVerdict').classList.contains('ko'), 'verdict attendu : pas encore résolu');
+  const adv = lblAdvice(APP.valid.cubie);
+  setFacelet(cubieToFacelet(applySeq(APP.valid.cubie, adv.seq)), {noSave:true});
+  checkTrainCase();
+  assert(document.getElementById('trainVerdict').classList.contains('ok'), 'verdict attendu : réussi');
+  showTab(prevTab === 'solve' ? 'solve' : prevTab);
+  setFacelet(SOLVED_FACELET, {noSave:true});
+  return '3 onglets · 8 étapes suivies · clavier de 18 coups · surlignage synchronisé patron 2D et 3D · ' +
+         'l’entraîneur compte les essais et valide l’étape une fois l’algorithme appliqué';
 });
 
 /* =========================================================================
