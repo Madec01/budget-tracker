@@ -671,6 +671,8 @@ details.lesson .body{padding:11px}
   <a href="?test=1">lancer le harnais de test</a>
   <span class="sep">·</span>
   <a href="#" id="footHelp">aide et raccourcis</a>
+  <span class="sep">·</span>
+  <span class="mono" id="buildStamp" style="opacity:.7"></span>
 </footer>
 
 <div id="toast"></div>
@@ -1806,7 +1808,8 @@ function buildSolverPanel(){
     '<div class="movelist" id="movelist"><div class="empty">Aucune solution chargée.<br>Choisissez un solveur puis <b>Résoudre</b>, ou chargez un mélange.</div></div>';
   host.appendChild(sec);
   wirePlayer();
-  if(PZ.learn){ buildLearnPanel(); buildTrainPanel(); }
+  buildLearnPanel();
+  if(PZ.learn) buildTrainPanel();
   showTab('solve');
   if(!buildSolverPanel.wired){
     buildSolverPanel.wired = true;
@@ -3736,6 +3739,7 @@ const APP = {
 function on(evt, fn){ (APP.listeners[evt] || (APP.listeners[evt] = [])).push(fn); }
 function emit(evt, arg){ (APP.listeners[evt] || []).forEach(fn => fn(arg)); }
 
+const APP_BUILD = 'build 2026-08-29 · 3×3 + tour 2×2×4 · caméra · apprentissage';
 const LS_KEY = 'cubesolver.v2';
 function saveLS(){
   try{
@@ -3822,7 +3826,8 @@ const HELP_HTML = () => `
     <kbd>Pg↑</kbd> <kbd>Pg↓</kbd> étape précédente / suivante · <kbd>Début</kbd> <kbd>Fin</kbd> ·
     <kbd>1</kbd>…<kbd>6</kbd> couleur · <kbd>0</kbd> mode cycle · <kbd>Échap</kbd> fermer · <kbd>?</kbd> aide
   </p>
-  <p class="hint">Ajoutez <b class="mono">?test=1</b> à l'URL pour lancer le harnais de test (§10).</p>
+  <p class="hint">Ajoutez <b class="mono">?test=1</b> à l'URL pour lancer le harnais de test.
+    Version du fichier ouvert : <b class="mono">${APP_BUILD}</b>.</p>
   <div class="row"><button class="btn pri" onclick="closeModal('modalHelp')">Fermer</button></div>`;
 
 function wireActions(){
@@ -3909,6 +3914,7 @@ function switchPuzzle(id, opt){
 /* --- bootstrap --- */
 function boot(){
   loadLS();
+  const stamp = $('#buildStamp'); if(stamp) stamp.textContent = APP_BUILD;
   const sel = $('#puzzleSel');
   sel.innerHTML = Object.values(PUZZLE_DEFS).map(d =>
     '<option value="' + d.id + '">' + d.label + '</option>').join('');
@@ -3939,15 +3945,14 @@ function buildTabs(){
   const host = document.getElementById('colC');
   const bar = document.createElement('div');
   bar.className = 'tabs'; bar.id = 'colCTabs';
-  const tabs = [['solve', '⚡ Solution']];
-  if(PZ.learn) tabs.push(['learn', '🎓 Apprendre'], ['train', '🎯 S’entraîner']);
+  const tabs = [['solve', '⚡ Solution'], ['learn', '🎓 Apprendre']];
+  if(PZ.learn) tabs.push(['train', '🎯 S’entraîner']);
   bar.innerHTML = tabs.map(([id, lbl]) => '<button data-tab="' + id + '">' + lbl + '</button>').join('');
   host.appendChild(bar);
-  bar.style.display = tabs.length > 1 ? '' : 'none';
   Array.from(bar.children).forEach(b => { b.onclick = () => showTab(b.dataset.tab); });
 }
 function showTab(id){
-  if(!PZ.learn && id !== 'solve') id = 'solve';
+  if(id === 'train' && !PZ.learn) id = 'learn';
   LEARN.tab = id;
   document.querySelectorAll('#colCTabs button').forEach(b => b.classList.toggle('on', b.dataset.tab === id));
   document.querySelectorAll('#colC .tabpane').forEach(p => p.classList.toggle('on', p.dataset.tab === id));
@@ -3987,8 +3992,20 @@ function buildLearnPanel(){
   sec.className = 'panel tabpane'; sec.dataset.tab = 'learn';
   sec.innerHTML =
     '<div class="ph">Apprendre à résoudre <span class="sp" id="learnMeta"></span></div>' +
-    '<div class="steptrack" id="stepTrack"></div>' +
-    '<div id="coachCard"></div>' +
+    (PZ.learn
+      ? '<div class="steptrack" id="stepTrack"></div><div id="coachCard"></div>'
+      : '<div class="card"><h4>' + PZ.label + '</h4>' +
+        '<p>Ce puzzle n’a pas de méthode humaine à apprendre : son espace d’états est assez petit pour que ' +
+        'l’app donne directement la solution <b>optimale</b> (onglet Solution), toujours ≤ 17 coups et sans jamais ' +
+        'déformer la tour.</p>' +
+        '<p>Ce qu’il faut comprendre, en revanche, c’est sa mécanique : <b>4 étages indépendants</b> qui tournent ' +
+        'chacun d’un quart de tour (<b class="mono">Z0</b> en bas … <b class="mono">Z3</b> en haut), et ' +
+        '<b>2 moitiés verticales</b> dans chaque direction qui n’acceptent que le demi-tour ' +
+        '(<b class="mono">X0 X1</b> gauche/droite, <b class="mono">Y0 Y1</b> arrière/avant). ' +
+        'Un demi-tour vertical retourne les pièces qu’il déplace : c’est ce qui rend les deux arêtes ' +
+        'd’une même paire de couleurs discernables.</p>' +
+        '<p>Le quart de tour vertical existe sur le puzzle physique mais déforme la tour en L ou en T : ' +
+        'il est volontairement exclu, et l’app vous prévient si votre mélange en a utilisé un.</p></div>') +
     '<details class="lesson" id="lesNotation"><summary>📐 La notation, et un clavier pour essayer</summary>' +
       '<div class="body">' +
         '<p class="hint" style="margin:0 0 8px">' +
@@ -3999,19 +4016,19 @@ function buildLearnPanel(){
         '<div class="keypad" id="keypad"></div>' +
         '<p class="hint">Cliquez : le coup est joué sur le cube. Les algorithmes ci-dessous se lisent de gauche à droite.</p>' +
       '</div></details>' +
-    '<details class="lesson" id="lesAlgs"><summary>📚 Les algorithmes de la méthode, étape par étape</summary>' +
-      '<div class="body" id="algLib"></div></details>' +
-    '<details class="lesson"><summary>🚀 Et après ? Aller plus vite</summary>' +
+    (PZ.learn ? '<details class="lesson" id="lesAlgs"><summary>📚 Les algorithmes de la méthode, étape par étape</summary>' +
+      '<div class="body" id="algLib"></div></details>' : '') +
+    (PZ.learn ? '<details class="lesson"><summary>🚀 Et après ? Aller plus vite</summary>' +
       '<div class="body"><p class="hint" style="margin:0">' +
         'La méthode débutant sépare chaque étape. Pour descendre sous la minute, les cubeurs utilisent <b>CFOP</b> : ' +
         'la croix, puis <b>F2L</b> (on place coin + arête ensemble, 41 cas mais intuitifs), ' +
         '<b>OLL</b> (orienter toute la dernière face en un algorithme, 57 cas) et ' +
         '<b>PLL</b> (permuter la dernière couche en un algorithme, 21 cas). ' +
         'Le solveur Kociemba de l’onglet Solution montre, lui, le chemin le plus court (≈ 20 coups) : ' +
-        'il n’est pas humainement mémorisable, mais il donne une borne.</p></div></details>';
+        'il n’est pas humainement mémorisable, mais il donne une borne.</p></div></details>' : '');
   host.appendChild(sec);
   buildKeypad();
-  buildAlgLibrary();
+  if(PZ.learn) buildAlgLibrary();
   if(!buildLearnPanel.wired){
     buildLearnPanel.wired = true;
     on('state', () => {
@@ -4033,8 +4050,9 @@ function buildKeypad(){
   });
 }
 function renderCoach(){
+  if(!PZ.learn) return;
   const track = document.getElementById('stepTrack'), card = document.getElementById('coachCard');
-  if(!track) return;
+  if(!track || !card) return;
   if(!APP.valid || !APP.valid.ok){
     track.innerHTML = '';
     card.innerHTML = '<div class="card"><p>Le cube saisi n’est pas valide : corrigez-le d’abord dans le patron 2D. ' +
@@ -5015,10 +5033,24 @@ test('Apprentissage : interface (onglets, coach, clavier, entraîneur)', () => {
   setFacelet(cubieToFacelet(applySeq(APP.valid.cubie, adv.seq)), {noSave:true});
   checkTrainCase();
   assert(document.getElementById('trainVerdict').classList.contains('ok'), 'verdict attendu : réussi');
+  /* la barre d'onglets ne disparaît jamais : sur un puzzle sans méthode
+     enseignée, « Apprendre » reste là avec la notation et le clavier */
+  switchPuzzle('2x2x4');
+  const bar = document.getElementById('colCTabs');
+  assert(getComputedStyle(bar).display !== 'none', 'la barre d’onglets ne doit jamais être masquée');
+  assertEq(bar.children.length, 2, 'onglets du 2×2×4');
+  showTab('learn');
+  assert(document.querySelector('.tabpane[data-tab="learn"].on'), 'onglet Apprendre absent sur la tour');
+  assertEq(document.querySelectorAll('#keypad .kb').length, 16, 'clavier des 16 coups de la tour');
+  showTab('train');
+  assertEq(LEARN.tab, 'learn', 'l’onglet entraînement se replie sur Apprendre quand il n’existe pas');
+  switchPuzzle('3x3x3');
   showTab(prevTab === 'solve' ? 'solve' : prevTab);
   setFacelet(SOLVED_FACELET, {noSave:true});
-  return '3 onglets · 8 étapes suivies · clavier de 18 coups · surlignage synchronisé patron 2D et 3D · ' +
-         'l’entraîneur compte les essais et valide l’étape une fois l’algorithme appliqué';
+  assert(document.getElementById('buildStamp').textContent.length > 10, 'tampon de version absent du pied de page');
+  return '3 onglets sur le 3×3, 2 sur la tour (barre jamais masquée) · 8 étapes suivies · ' +
+         'claviers de 18 et 16 coups · surlignage synchronisé patron 2D et 3D · ' +
+         'l’entraîneur compte les essais et valide l’étape · tampon de version affiché';
 });
 
 /* =========================================================================
