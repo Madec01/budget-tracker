@@ -1,6 +1,6 @@
 /* Marge PWA: immutable app shell; financial data never enter this cache. */
 'use strict';
-const APP_VERSION = '147a5f5c2b1d8a43';
+const APP_VERSION = '98fa5c0012e77947';
 const SCOPE = new URL(self.registration.scope);
 const CACHE_PREFIX = 'marge-shell:' + encodeURIComponent(SCOPE.href) + ':';
 const CACHE_NAME = CACHE_PREFIX + APP_VERSION;

@@ -1,6 +1,6 @@
 # Marge
 
-Application HTML autonome de budget mensuel, pensée pour le téléphone et utilisable sur ordinateur. Interface en français, sans dépendance externe ni connexion bancaire. La version hébergée peut s’installer comme une application Web (PWA).
+Application HTML autonome de budget mensuel, pensée pour le téléphone et utilisable sur ordinateur. Interface en français, sans framework ni connexion bancaire. La connexion Google facultative utilise Firebase Authentication et Cloud Firestore. La version hébergée peut s’installer comme une application Web (PWA).
 
 Le mois se présente comme un relevé épuré : deux onglets en haut, les montants utiles, les virements, puis les réserves. Les pourcentages se déplient dans Budget ; historique, progrès et sauvegardes sont regroupés dans le menu ⋯.
 
@@ -83,7 +83,23 @@ Les données sont enregistrées automatiquement dans le stockage du navigateur. 
 
 Utiliser régulièrement **Menu ⋯ → Préférences & sauvegardes → Exporter une sauvegarde**. L’import vérifie le fichier avant de proposer le remplacement des données. Une suppression des données du navigateur supprime aussi la sauvegarde locale. Le comportement du stockage d’un fichier HTML local peut varier selon le navigateur ; l’utilisation d’une adresse hébergée est recommandée sur téléphone.
 
-Cette version ne synchronise pas automatiquement les appareils. Exporter puis importer permet un transfert manuel. Un autre onglet qui modifie la sauvegarde place la page déjà ouverte en lecture seule jusqu’à son rechargement, afin d’éviter d’écraser ses changements.
+La connexion Google synchronise les données entre appareils. Sans connexion Google, exporter puis importer permet un transfert manuel. Un autre onglet qui modifie la sauvegarde place la page déjà ouverte en lecture seule jusqu’à son rechargement, afin d’éviter d’écraser ses changements.
+
+## Connexion Google et sauvegardes Firebase
+
+La configuration du projet et les règles sont décrites dans [FIREBASE_SETUP.md](FIREBASE_SETUP.md). Activer Google dans Authentication, autoriser `madec01.github.io`, créer Firestore puis publier `firestore.rules` avant le premier essai réel. La configuration Web publique est dans `dist/firebase-config.js`. Aucun compte de service ni secret d’administration ne doit être ajouté au dépôt.
+
+Le bouton nuage dans l’en-tête ouvre **Mon compte et mes sauvegardes**. Connecter le même compte Google sur le téléphone et l’ordinateur. Lorsqu’un appareil contient déjà des données différentes, un choix explicite propose sa copie ou celle de Google ; l’export JSON reste disponible avant remplacement. Une copie distante seule est restaurée automatiquement sur un appareil vide, dès qu’aucune saisie n’est ouverte.
+
+Après un enregistrement local, les changements sont regroupés pendant trois minutes, puis envoyés lorsque les formulaires sont fermés. Un seul document est écouté, sans interrogation périodique. Les paramètres de thème, le mois consulté et la date du dernier export restent propres à l’appareil ; naviguer ou exporter n’envoie pas une nouvelle sauvegarde. Le bouton **Synchroniser maintenant** permet un envoi ou une nouvelle tentative manuelle. La copie locale reste utilisable hors connexion ; la synchronisation reprend au retour du réseau.
+
+Chaque écriture Firestore compare atomiquement la révision connue. Si deux appareils ont modifié la même sauvegarde, aucun écrasement automatique n’est effectué : les deux versions restent sur leurs appareils et l’utilisateur choisit une version complète. Il n’y a pas de fusion de lignes ni d’historique de versions cloud : conserver les exports importants. Un changement de compte ne transfère jamais automatiquement les données locales au nouveau compte.
+
+Le document privé est `users/{uid}/apps/marge`, avec `schemaVersion`, `revision`, `payload` JSON et `updatedAt` serveur. Il est limité à 700 000 octets UTF-8 ; une sauvegarde plus grande reste locale et exportable avec une erreur visible. La copie locale et la référence de synchronisation doivent pouvoir être enregistrées avant tout envoi. Les règles refusent les autres comptes, les visiteurs anonymes, les requêtes de collection, les suppressions et les révisions incohérentes. Firebase Auth conserve l’identité ; le cache de données Firestore reste en mémoire, la copie durable de l’application reste dans LocalStorage.
+
+La déconnexion conserve la copie sur l’appareil. Pour réinitialiser seulement cet appareil, se déconnecter d’abord ; la sauvegarde Google reste intacte. Une importation confirmée pendant la connexion devient une modification à synchroniser. La démonstration n’est jamais envoyée à Firebase.
+
+Le SDK Firebase 13.2.0 est chargé depuis le CDN officiel, seulement pour la connexion et la synchronisation. Le moteur budgétaire et la copie locale restent utilisables si ce chargement échoue. Sur GitHub Pages, la connexion utilise une fenêtre Google ; une erreur de fenêtre bloquée indique comment la relancer. Le mode fichier local ne permet pas cette connexion.
 
 ## Passer de l’ancien hébergement à GitHub Pages
 
@@ -95,7 +111,7 @@ Le stockage du navigateur est lié à l’origine du site. Une nouvelle adresse 
 4. Vérifier le dernier mois, les budgets, le Livret A, le tampon et les opérations pointées.
 5. Conserver l’export ; installer ensuite la nouvelle application. Si l’app installée utilise un stockage distinct du navigateur, importer le même fichier depuis l’app.
 
-Un fichier de calendrier salarial importe seulement les revenus de référence. Pour migrer toute l’application, utiliser la sauvegarde complète. Répéter l’import sur chaque appareil souhaité ; il n’y a pas de synchronisation automatique.
+Un fichier de calendrier salarial importe seulement les revenus de référence. Pour migrer toute l’application, utiliser la sauvegarde complète. Après migration, connecter le même compte Google sur les appareils souhaités pour activer la synchronisation.
 
 ## Installer sur téléphone
 
@@ -107,15 +123,15 @@ L’installation et le fonctionnement hors ligne nécessitent une adresse HTTPS,
 
 Sur ordinateur, Chrome ou Edge peuvent proposer une icône d’installation dans la barre d’adresse. L’application reste utilisable dans un onglet classique.
 
-Le service worker conserve les fichiers de l’application pour les prochaines ouvertures hors ligne. Une première ouverture réussie et un cache conservé par le navigateur restent nécessaires. Les mises à jour sont recherchées à l’ouverture, au retour dans l’application et au retour de la connexion. Leur activation attend que les pages ouvertes de Marge ne soient plus occupées par une saisie ou des modifications à enregistrer ; le rechargement vérifie à nouveau cet état. Une mise à jour du code ne synchronise pas les montants entre appareils.
+Le service worker conserve les fichiers de l’application pour les prochaines ouvertures hors ligne. Une première ouverture réussie et un cache conservé par le navigateur restent nécessaires. Les mises à jour sont recherchées à l’ouverture, au retour dans l’application et au retour de la connexion. Leur activation attend que les pages ouvertes de Marge ne soient plus occupées par une saisie ou des modifications à enregistrer ; le rechargement vérifie à nouveau cet état. Les mises à jour du code sont indépendantes de la synchronisation des données via Google.
 
 Le fichier HTML peut toujours s’ouvrir localement, mais le mode `file://` ne permet pas cette installation PWA ni son mécanisme de mise à jour.
 
 ## Confidentialité
 
-- Les budgets, soldes, salaires et opérations pointées restent dans le `localStorage` du navigateur. Marge ne les envoie à aucun serveur et n’utilise aucun outil d’analyse d’audience.
+- Sans connexion Google, les budgets, soldes, salaires et opérations pointées restent dans le `localStorage` du navigateur. Après connexion et choix initial de sauvegarde, ils sont aussi conservés dans Firestore, dans un document privé lié à l’identifiant Firebase du compte. Marge n’utilise aucun outil d’analyse d’audience.
 - Le cache hors ligne contient les fichiers de l’application, pas les exports personnels ni les bulletins de paie.
-- Les données locales et les exports JSON ne sont pas chiffrés par Marge. Protéger l’accès à l’appareil et conserver les sauvegardes dans un emplacement privé.
+- Les données locales, les exports JSON et le contenu du document Firestore ne sont pas chiffrés de bout en bout par Marge. Protéger l’accès à l’appareil et conserver les sauvegardes dans un emplacement privé.
 - Les documents de paie et le calendrier salarial personnel doivent rester hors du dépôt Git. Le dépôt ne contient que le code, les ressources et des données de démonstration ou de test fictives.
 - `.gitignore` exclut les répertoires privés, les exports usuels et les documents financiers. Vérifier malgré tout les fichiers sélectionnés avant chaque commit : un fichier déjà suivi par Git n’est pas retiré par une règle d’exclusion.
 
@@ -139,7 +155,11 @@ Sources :
 
 - `dist/engine.js` : calculs purs et validation.
 - `dist/months.js` : reports chronologiques et projections des revenus.
-- `dist/app.js` : interface et sauvegarde.
+- `dist/app.js` : interface et sauvegarde locale.
+- `dist/cloud-sync.js` : synchronisation, révisions et conflits, indépendante du SDK.
+- `dist/firebase.js` : connexion Google et adaptateur Firestore.
+- `dist/cloud-ui.js` : état du compte, commandes de synchronisation et choix des versions.
+- `dist/firebase-config.js` : configuration Web publique du projet Firebase.
 - `dist/styles.css` : styles, responsive et thème sombre.
 - `dist/pwa.js`, `dist/sw.js`, `dist/manifest.webmanifest` et `dist/icons/` : installation, hors ligne et mises à jour.
 - `template.html` et `build.py` : assemblage du fichier autonome et version déterministe du cache.

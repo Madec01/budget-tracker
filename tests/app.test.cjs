@@ -23,7 +23,7 @@ window.__test = {
 render();
 })();`);
 
-function boot(raw = null) {
+function boot(raw = null, cloudOptions = null) {
   const nodes = new Map();
   const storage = new Map(raw === null ? [] : [[KEY, raw]]);
   const events = {};
@@ -44,6 +44,33 @@ function boot(raw = null) {
     addEventListener(name, fn) { events[name] = fn; },
     scrollTo() {}
   };
+  if(cloudOptions){
+    const fake=control.cloud={options:null,startCount:0,resumeCount:0,retryCount:0,localChanges:[],actions:[],forgetCalls:[],forgetResult:true,referenceForgotten:false,busy:false,actionResult:true,onAction:null,status:{user:cloudOptions.user||null}};
+    window.location={protocol:'https:'};
+    window.MargeFirebase={testAdapter:true};
+    window.MargeCloudSync={testController:true};
+    window.MargeFirebaseConfig={projectId:'test-project'};
+    window.MargeCloudUI={create(options){
+      fake.options=options;
+      return {
+        async start(){fake.startCount+=1;},
+        status(){return fake.status;},isBusy(){return fake.busy;},
+        badge(){return '<button data-action="cloud">Sauvegarde simulée</button>';},
+        panel(){return '<button data-action="cloud-login">Connexion simulée</button><button data-action="cloud-sync">Synchroniser</button>';},
+        localChanged(){fake.localChanges.push({raw:storage.get(KEY),writeCount:control.writeCount});},
+        forgetLocalReference(){
+          fake.forgetCalls.push({raw:storage.get(KEY),writeCount:control.writeCount,data:JSON.stringify(options.getData())});
+          if(fake.forgetResult===true)fake.referenceForgotten=true;
+          return fake.forgetResult;
+        },
+        resume(){fake.resumeCount+=1;},retryOnline(){fake.retryCount+=1;},
+        async action(name,revision){
+          fake.actions.push({name,revision,dialogOpen:!!element('#dialog').open,busy:options.isBusy()});
+          return fake.onAction?fake.onAction(name,revision):fake.actionResult;
+        }
+      };
+    }};
+  }
   const sandbox = {
     window, document: { querySelector: element, body: { dataset: {} }, createElement: element },
     localStorage: {
@@ -870,4 +897,275 @@ test('account cards show the latest observed balance and date separately from th
     assert.match(budgetLine,/Budget alloué au mois/);
     assert.ok(budgetLine.includes(`<strong>${money(budget)}</strong>`),id);
   }
+});
+
+function remoteBudgetFixture(){
+  const h=boot(),m=preparedSource(h);
+  m.executed={r:662,savings:640};
+  m.checkpoints=[{date:'2026-11-09',balanceCA:1948,balanceR:612}];
+  m.checkpointTransfers={'2026-11-09':{r:662,savings:640}};
+  m.closed=true;m.closing={closingCA:500,closingR:20,savingsActual:5300};
+  saveAutomaticMonth(h,'2026-12',3100);
+  h.api.getState().settings.goal=2800;
+  return copy(h.api.getState());
+}
+
+test('cloud payloads ignore local presentation preferences and keep real data during a demo',()=>{
+  const h=boot(null,{}),m=checkpointFixture(h),cloud=h.control.cloud;
+  h.api.getState().settings.goal=2500;
+  const original=copy(h.api.getState()),shared=copy(cloud.options.getData());
+  h.api.getState().selectedMonth='2028-04';
+  h.api.getState().settings.theme='dark';
+  h.api.getState().lastExport='2026-11-09T12:00:00.000Z';
+  assert.deepEqual(copy(cloud.options.getData()),shared);
+  assert.equal(shared.settings.goal,2500);
+  assert.deepEqual(shared.months[m.key],original.months[m.key]);
+  const independent=cloud.options.getData();independent.months[m.key].salary=9999;
+  assert.equal(h.api.getState().months[m.key].salary,3000);
+  h.api.startDemo();
+  assert.equal(h.api.flags().demo,true);
+  assert.equal(cloud.options.isEnabled(),false);
+  assert.deepEqual(copy(cloud.options.getData()),shared);
+  assert.equal(cloud.options.hasLocalData(),true);
+  assert.equal(cloud.localChanges.length,0);
+});
+
+test('successful local edits notify cloud once after the new data has reached local storage',()=>{
+  const h=boot(null,{});checkpointFixture(h);
+  const cloud=h.control.cloud;
+  editBudget(h,1250);h.api.saveBudget();
+  assert.equal(h.control.writeCount,1);
+  assert.equal(cloud.localChanges.length,1);
+  assert.equal(cloud.localChanges[0].writeCount,1);
+  assert.equal(cloud.localChanges[0].raw,h.storage.get(KEY));
+  assert.equal(JSON.parse(cloud.localChanges[0].raw).months[h.api.getState().selectedMonth].budget[0].amount,1250);
+});
+
+test('failed local saves do not notify cloud and a successful retry sends the saved version once',()=>{
+  const h=boot(null,{});checkpointFixture(h);
+  const raw=JSON.stringify(h.api.getState());h.storage.set(KEY,raw);
+  h.control.failSave=true;
+  editBudget(h,1250);h.api.saveBudget();
+  assert.equal(h.storage.get(KEY),raw);
+  assert.equal(h.control.cloud.localChanges.length,0);
+  assert.equal(h.control.cloud.options.isBusy(),true);
+  h.control.failSave=false;h.api.saveBudget();
+  assert.equal(h.control.cloud.localChanges.length,1);
+  assert.equal(h.control.cloud.localChanges[0].raw,h.storage.get(KEY));
+  assert.equal(h.api.flags().saveFailed,false);
+});
+
+test('receiving remote data preserves local preferences, checkpoint history and monthly reports without echoing an upload',()=>{
+  const h=boot(null,{});checkpointFixture(h);
+  const state=h.api.getState();
+  state.selectedMonth='2027-03';state.settings.theme='dark';state.lastExport='2026-11-09T12:00:00.000Z';
+  const remote=remoteBudgetFixture(),unchanged=JSON.stringify(remote),expectedReport=M.reportFor(remote,'2026-12');
+  assert.equal(h.control.cloud.options.applyRemote(remote),true);
+  const saved=h.api.getState(),stored=JSON.parse(h.storage.get(KEY));
+  assert.equal(saved.selectedMonth,'2027-03');
+  assert.equal(saved.settings.theme,'dark');
+  assert.equal(saved.lastExport,'2026-11-09T12:00:00.000Z');
+  assert.equal(saved.settings.goal,2800);
+  assert.deepEqual(copy(saved.months),remote.months);
+  assert.deepEqual(copy(M.reportFor(saved,'2026-12')),copy(expectedReport));
+  assert.deepEqual(copy(saved.months['2026-11'].checkpointTransfers),{'2026-11-09':{r:662,savings:640}});
+  assert.deepEqual(stored,copy(saved));
+  assert.equal(JSON.stringify(remote),unchanged);
+  assert.equal(h.control.writeCount,1);
+  assert.equal(h.control.cloud.localChanges.length,0);
+});
+
+test('invalid remote data cannot replace the current state or its stored backup',()=>{
+  const h=boot(null,{});checkpointFixture(h);
+  const raw=JSON.stringify(h.api.getState());h.storage.set(KEY,raw);
+  for(const invalid of [null,{version:1},remoteBudgetFixture()]){
+    if(invalid?.months)invalid.months['2026-11'].checkpoints[0].balanceCA=10.001;
+    assert.throws(()=>h.control.cloud.options.applyRemote(invalid));
+    assert.equal(JSON.stringify(h.api.getState()),raw);
+    assert.equal(h.storage.get(KEY),raw);
+    assert.equal(h.control.writeCount,0);
+    assert.equal(h.control.cloud.localChanges.length,0);
+  }
+});
+
+test('a remote storage failure leaves the old state intact and supports a later successful retry',()=>{
+  const h=boot(null,{});checkpointFixture(h);
+  const raw=JSON.stringify(h.api.getState());h.storage.set(KEY,raw);
+  const remote=remoteBudgetFixture();
+  h.control.failSave=true;
+  assert.equal(h.control.cloud.options.applyRemote(remote),false);
+  assert.equal(JSON.stringify(h.api.getState()),raw);
+  assert.equal(h.storage.get(KEY),raw);
+  assert.equal(h.api.flags().saveFailed,true);
+  assert.equal(h.control.cloud.options.isBusy(),true);
+  assert.equal(h.control.pwaBusy,true);
+  assert.match(h.element('#toast').textContent,/données actuelles sont conservées/);
+  assert.equal(h.control.cloud.localChanges.length,0);
+  h.control.failSave=false;
+  assert.equal(h.control.cloud.options.applyRemote(remote),true);
+  assert.equal(h.api.getState().settings.goal,2800);
+  assert.equal(h.api.flags().saveFailed,false);
+  assert.equal(h.control.cloud.localChanges.length,0);
+});
+
+test('remote replacements wait during unsaved editing, dialogs, tab conflicts, demos and unreadable storage',async()=>{
+  const remote=remoteBudgetFixture();
+  for(const mode of ['dirty','dialog','conflict','demo','unreadable']){
+    const h=boot(mode==='unreadable'?'{recoverable broken data':null,{});
+    if(mode!=='unreadable')checkpointFixture(h);
+    if(mode==='dirty'){h.api.navigate('budget');await h.api.action('preset',{dataset:{id:'balance'}});}
+    if(mode==='dialog')await h.api.action('prepare',{});
+    if(mode==='conflict')h.events.storage({key:KEY});
+    if(mode==='demo')h.api.startDemo();
+    const before=JSON.stringify(h.api.getState()),stored=h.storage.get(KEY),writes=h.control.writeCount;
+    assert.equal(h.control.cloud.options.applyRemote(remote),false,mode);
+    assert.equal(JSON.stringify(h.api.getState()),before,mode);
+    assert.equal(h.storage.get(KEY),stored,mode);
+    assert.equal(h.control.writeCount,writes,mode);
+    assert.equal(h.control.cloud.localChanges.length,0,mode);
+    if(['conflict','demo','unreadable'].includes(mode))assert.equal(h.control.cloud.options.isEnabled(),false,mode);
+    if(mode!=='demo')assert.equal(h.control.cloud.options.isBusy(),true,mode);
+  }
+});
+
+test('connected accounts cannot reset local data through either reset action',async()=>{
+  const h=boot(null,{user:{uid:'test-user'}});checkpointFixture(h);
+  const raw=JSON.stringify(h.api.getState());h.storage.set(KEY,raw);
+  h.element('#reset-word').value='EFFACER';
+  await h.api.action('reset-confirm',{});
+  assert.notEqual(h.element('#dialog').open,true);
+  await h.api.action('reset',{});
+  assert.equal(JSON.stringify(h.api.getState()),raw);
+  assert.equal(h.storage.get(KEY),raw);
+  assert.equal(h.control.writeCount,0);
+  assert.equal(h.control.cloud.localChanges.length,0);
+  assert.equal(h.control.cloud.forgetCalls.length,0);
+  assert.match(h.element('#toast').textContent,/Déconnecte-toi de Google/);
+});
+
+test('a disconnected reset forgets its cloud association before replacing the saved local data',async()=>{
+  const h=boot(null,{});checkpointFixture(h);
+  const cloud=h.control.cloud,raw=JSON.stringify(h.api.getState()),shared=JSON.stringify(cloud.options.getData());
+  h.storage.set(KEY,raw);
+  await h.api.action('reset-confirm',{});
+  assert.equal(cloud.forgetCalls.length,0);
+  h.element('#reset-word').value='EFFACER';
+  await h.api.action('reset',{});
+  assert.deepEqual(cloud.forgetCalls,[{raw,writeCount:0,data:shared}]);
+  assert.equal(cloud.referenceForgotten,true);
+  assert.deepEqual(copy(h.api.getState().months),{});
+  assert.equal(h.api.getState().settings.goal,1500);
+  assert.deepEqual(JSON.parse(h.storage.get(KEY)),copy(h.api.getState()));
+  assert.equal(h.control.writeCount,1);
+  assert.equal(cloud.localChanges.length,1);
+});
+
+test('a failed cloud dissociation aborts reset without clearing local data',async()=>{
+  const h=boot(null,{});checkpointFixture(h);
+  const cloud=h.control.cloud,raw=JSON.stringify(h.api.getState());
+  h.storage.set(KEY,raw);cloud.forgetResult=false;
+  h.element('#reset-word').value='EFFACER';
+  await h.api.action('reset',{});
+  assert.equal(cloud.forgetCalls.length,1);
+  assert.equal(cloud.referenceForgotten,false);
+  assert.equal(JSON.stringify(h.api.getState()),raw);
+  assert.equal(h.storage.get(KEY),raw);
+  assert.equal(h.control.writeCount,0);
+  assert.equal(cloud.localChanges.length,0);
+  assert.match(h.element('#toast').textContent,/Impossible de dissocier.*données de cet appareil sont conservées/);
+});
+
+test('a reset storage failure preserves local data even after its cloud association was forgotten',async()=>{
+  const h=boot(null,{});checkpointFixture(h);
+  const cloud=h.control.cloud,raw=JSON.stringify(h.api.getState());
+  h.storage.set(KEY,raw);h.control.failSave=true;
+  h.element('#reset-word').value='EFFACER';
+  await h.api.action('reset',{});
+  assert.equal(cloud.forgetCalls.length,1);
+  assert.equal(cloud.forgetCalls[0].raw,raw);
+  assert.equal(cloud.forgetCalls[0].writeCount,0);
+  assert.equal(cloud.referenceForgotten,true);
+  assert.equal(JSON.stringify(h.api.getState()),raw);
+  assert.equal(h.storage.get(KEY),raw);
+  assert.equal(h.control.writeCount,0);
+  assert.equal(cloud.localChanges.length,0);
+  assert.equal(h.api.flags().saveFailed,true);
+  assert.match(h.element('#toast').textContent,/Sauvegarde impossible/);
+});
+
+test('cloud controls appear in the header and settings and connected imports disclose synchronization',async()=>{
+  for(const connected of [false,true]){
+    const h=boot(null,{user:connected?{uid:'test-user'}:null}),cloud=h.control.cloud;
+    assert.equal(cloud.startCount,1);
+    assert.equal(cloud.options.delay,180000);
+    assert.match(h.element('#app').innerHTML,/data-cloud-badge/);
+    assert.match(h.element('#app').innerHTML,/data-action="cloud"/);
+    await h.api.action('settings',{});
+    assert.match(h.element('#dialog').innerHTML,/data-cloud-panel/);
+    assert.match(h.element('#dialog').innerHTML,/data-action="cloud-login"/);
+    const raw=JSON.stringify(remoteBudgetFixture());
+    await h.element('#import-file').listeners.change({target:{files:[{size:Buffer.byteLength(raw),text:async()=>raw}],value:'budget.json'}});
+    const confirmation=h.element('#dialog').innerHTML;
+    if(connected)assert.match(confirmation,/puis sera synchronisée avec ton compte Google/);
+    else assert.doesNotMatch(confirmation,/puis sera synchronisée avec ton compte Google/);
+    assert.equal(h.control.writeCount,0);
+  }
+});
+
+test('manual cloud choices close the dialog before the controller applies data and forward the reviewed revision',async()=>{
+  for(const name of ['cloud-sync','cloud-use-local','cloud-use-remote']){
+    const h=boot(null,{user:{uid:'test-user'}});checkpointFixture(h);
+    const cloud=h.control.cloud,remote=remoteBudgetFixture();
+    cloud.onAction=(action,revision)=>{
+      assert.equal(action,name);
+      assert.equal(revision,7);
+      assert.equal(h.element('#dialog').open,false);
+      assert.equal(cloud.options.isBusy(),false);
+      return cloud.options.applyRemote(remote);
+    };
+    await h.api.action('cloud',{});
+    assert.equal(h.element('#dialog').open,true);
+    await h.api.action(name,{dataset:{revision:'7'}});
+    assert.deepEqual(cloud.actions,[{name,revision:7,dialogOpen:false,busy:false}]);
+    assert.equal(h.api.getState().settings.goal,2800);
+    assert.equal(h.element('#dialog').open,false);
+  }
+});
+
+test('a rejected stale cloud choice keeps local data and reopens the decision panel',async()=>{
+  const h=boot(null,{user:{uid:'test-user'}});checkpointFixture(h);
+  const before=JSON.stringify(h.api.getState()),cloud=h.control.cloud;
+  cloud.onAction=(_name,revision)=>revision===8;
+  await h.api.action('cloud',{});
+  await h.api.action('cloud-use-remote',{dataset:{revision:'7'}});
+  assert.equal(cloud.actions[0].revision,7);
+  assert.equal(cloud.actions[0].dialogOpen,false);
+  assert.equal(JSON.stringify(h.api.getState()),before);
+  assert.equal(h.control.writeCount,0);
+  assert.equal(h.element('#dialog').open,true);
+  assert.match(h.element('#dialog').innerHTML,/data-cloud-panel/);
+});
+
+test('manual synchronization and conflict choices cannot bypass dirty or conflicted local state',async()=>{
+  for(const mode of ['dirty','conflict','demo']){
+    const h=boot(null,{});checkpointFixture(h);
+    if(mode==='dirty'){h.api.navigate('budget');await h.api.action('preset',{dataset:{id:'balance'}});}
+    if(mode==='conflict')h.events.storage({key:KEY});
+    if(mode==='demo')h.api.startDemo();
+    const before=JSON.stringify(h.api.getState());
+    for(const name of ['cloud-sync','cloud-use-local','cloud-use-remote'])await h.api.action(name,{dataset:{revision:'7'}});
+    assert.equal(h.control.cloud.actions.length,0,mode);
+    assert.equal(JSON.stringify(h.api.getState()),before,mode);
+    assert.equal(h.control.writeCount,0,mode);
+  }
+});
+
+test('cloud busy status blocks PWA updates and an online event retries synchronization',()=>{
+  const h=boot(null,{}),cloud=h.control.cloud;
+  cloud.busy=true;cloud.options.onChange();
+  assert.equal(h.control.pwaBusy,true);
+  cloud.busy=false;cloud.options.onChange();
+  assert.equal(h.control.pwaBusy,false);
+  h.events.online();
+  assert.equal(cloud.retryCount,1);
 });

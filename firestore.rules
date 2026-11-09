@@ -1,0 +1,43 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function owns(uid) {
+      return request.auth != null && request.auth.uid == uid;
+    }
+
+    function validBackup() {
+      let backup = request.resource.data;
+      return backup.keys().hasAll(['schemaVersion', 'revision', 'payload', 'updatedAt'])
+        && backup.keys().hasOnly(['schemaVersion', 'revision', 'payload', 'updatedAt'])
+        && backup.schemaVersion is int
+        && backup.schemaVersion == 1
+        && backup.revision is int
+        && backup.revision >= 1
+        && backup.revision <= 9007199254740991
+        && backup.payload is string
+        && backup.payload.toUtf8().size() > 0
+        && backup.payload.toUtf8().size() <= 700000
+        && backup.updatedAt is timestamp
+        && backup.updatedAt == request.time;
+    }
+
+    match /users/{uid}/apps/marge {
+      // A document listener is a get, not a collection query.
+      allow get: if owns(uid);
+      allow create: if owns(uid)
+        && validBackup()
+        && request.resource.data.revision == 1;
+      allow update: if owns(uid)
+        && validBackup()
+        && resource.data.revision is int
+        && request.resource.data.revision == resource.data.revision + 1;
+      allow list, delete: if false;
+    }
+
+    // No public collection, alternate account path or catch-all write access.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

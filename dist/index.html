@@ -2,7 +2,7 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#f6f4ef"><meta name="description" content="Marge, votre budget CA et Revolut en clair. Préparez le mois, constituez votre tampon et suivez votre Livret A."><title>Marge — Mon budget, en clair</title>
-<meta name="marge-version" content="147a5f5c2b1d8a43"><meta name="application-name" content="Marge"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="default"><meta name="apple-mobile-web-app-title" content="Marge">
+<meta name="marge-version" content="98fa5c0012e77947"><meta name="application-name" content="Marge"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="default"><meta name="apple-mobile-web-app-title" content="Marge">
 <link rel="manifest" href="./manifest.webmanifest"><link rel="icon" type="image/svg+xml" href="./icons/icon.svg"><link rel="apple-touch-icon" sizes="180x180" href="./icons/apple-touch-icon.png">
 <style>/* Marge 2 — a quiet monthly ledger. */
 :root{color-scheme:light;--paper:#f6f4ef;--ink:#252b29;--muted:#686f68;--line:#dcded6;--soft:#eeeee6;--accent:#bd4f2b;--accent-soft:#f3e5dc;--ca:#47715b;--r:#6f6c78;--danger:#ad3f34;--warning:#805628;--surface:var(--paper);--surface-soft:var(--soft);--bg:var(--paper);--blue:#657d85;--gold:#b17d42;--panel:#fffdfa;--panel-line:#c8cdc3;--panel-action:#edf0e9;--panel-buffer:#f4e7db;--panel-savings:#e7eee4}
@@ -211,6 +211,82 @@ body[data-theme=dark] .pacing-marker{box-shadow:0 0 0 1px var(--panel)}
   .checkpoint-preview-row{grid-template-columns:minmax(0,1fr) auto auto;gap:6px}
   .checkpoint-repair-note .inline-link{font-size:10px}
 }
+
+/* Sync stays a quiet status control; account and recovery details live in settings. */
+.header-tools{display:flex;align-items:center;gap:9px;flex-shrink:0}
+.cloud-button{position:relative;display:inline-flex;align-items:center;justify-content:center;gap:7px;min-width:44px;min-height:44px;padding:9px 12px;border:1px solid var(--line);border-radius:5px;background:transparent;color:var(--muted);font-size:11px;font-weight:500;line-height:1.4;white-space:nowrap;flex-shrink:0;transition:background .15s,border-color .15s}
+.cloud-button > svg{width:17px;height:17px}
+.cloud-button:hover{background:var(--soft);border-color:var(--panel-line)}
+.cloud-button.is-ok,.cloud-button.ok,.cloud-button[data-state="synced"],.cloud-button[data-state="connected"]{color:var(--ca)}
+.cloud-button.is-pending,.cloud-button.pending,.cloud-button[data-state="pending"],.cloud-button[data-state="syncing"],.cloud-button[data-state="offline"]{color:var(--warning)}
+.cloud-button.is-error,.cloud-button.error,.cloud-button[data-state="error"],.cloud-button[data-state="conflict"]{color:var(--danger)}
+.cloud-button:is(.is-ok,.ok,.is-pending,.pending,.is-error,.error,[data-state="synced"],[data-state="connected"],[data-state="pending"],[data-state="syncing"],[data-state="offline"],[data-state="error"],[data-state="conflict"])::after{content:"";width:5px;height:5px;border-radius:50%;background:currentColor;flex-shrink:0}
+.cloud-summary{min-width:0;margin:14px 0 0;padding:17px 18px;border:1px solid var(--line);border-radius:4px;background:var(--soft)}
+.cloud-summary > h3{margin:0 0 11px;font-size:13px;font-weight:550}
+.cloud-identity{min-width:0;color:var(--ink);font-size:13px;line-height:1.6;overflow-wrap:anywhere}
+.cloud-identity strong{display:block;font-size:14px;font-weight:550}
+.cloud-identity > span,.cloud-identity > small,.cloud-identity p{display:block;margin:3px 0 0;color:var(--muted);font-size:11px;line-height:1.65}
+.cloud-status-detail{margin:12px 0 0;color:var(--muted);font-size:11px;line-height:1.8;overflow-wrap:anywhere}
+.cloud-status-detail strong{color:var(--ink);font-weight:500}
+.cloud-status-detail small,.cloud-status-detail time{display:block;margin-top:4px;font-size:10px;color:var(--muted)}
+.cloud-status-detail.is-error,.cloud-status-detail.error{color:var(--danger)}
+.cloud-status-detail.is-pending,.cloud-status-detail.pending{color:var(--warning)}
+.cloud-status-detail.is-ok,.cloud-status-detail.ok{color:var(--ca)}
+.cloud-actions{display:flex;align-items:center;flex-wrap:wrap;gap:9px;margin-top:16px}
+.cloud-actions .btn{min-height:44px;font-size:12px}
+.cloud-actions .inline-link{min-height:44px;padding:10px 0;font-size:11px}
+.cloud-choice{min-width:0;margin-top:17px;padding:15px 16px;border:1px solid var(--panel-line);border-left:3px solid var(--warning);border-radius:3px;background:var(--panel);color:var(--ink);font-size:12px;line-height:1.75}
+.cloud-choice > strong,.cloud-choice h3{display:block;margin:0 0 6px;font-size:13px;font-weight:550}
+.cloud-choice p{margin:6px 0 0;color:var(--muted);font-size:11px}
+.cloud-choice .cloud-actions{align-items:stretch;margin-top:14px}
+.cloud-choice .btn{min-height:44px;white-space:normal;text-align:center;font-size:11px}
+.cloud-choice > .btn{margin-top:12px}
+.cloud-choice > .btn + .btn{margin-left:5px}
+.cloud-note{margin:12px 0 0;color:var(--muted);font-size:11px;line-height:1.75;overflow-wrap:anywhere}
+.cloud-note svg{width:13px;height:13px;margin-right:4px;vertical-align:-2px}
+.cloud-note strong{color:var(--ink);font-weight:500}
+.cloud-note code{font-size:10px;overflow-wrap:anywhere}
+.cloud-summary.is-unconfigured,.cloud-summary[data-state="unconfigured"]{background:transparent}
+.cloud-summary.is-unconfigured .cloud-status-detail,.cloud-summary[data-state="unconfigured"] .cloud-status-detail{margin-top:7px}
+.google-signin,.btn.google-signin{display:inline-flex;align-items:center;justify-content:center;gap:11px;min-height:44px;padding:10px 17px;border:1px solid #747775;border-radius:5px;background:#fff;color:#1f1f1f;font-size:13px;font-weight:500;line-height:1.4;box-shadow:none}
+.google-signin:hover,.btn.google-signin:hover{background:#f3f4f3;border-color:#555957;color:#1f1f1f}
+.google-mark,.google-signin > .google-g{display:inline-grid;place-items:center;flex-shrink:0;width:19px;height:19px;color:#4285f4;font-family:Arial,sans-serif;font-size:19px;font-weight:700;line-height:1}
+.google-signin:disabled{background:var(--soft);border-color:var(--line);color:var(--muted);opacity:.6}
+@media(max-width:700px){
+  .header-inner:has(.cloud-button){padding-inline:18px;gap:10px}
+  .header-inner:has(.cloud-button) .wordmark{font-size:30px}
+  .header-inner:has(.cloud-button) .primary-nav{gap:18px}
+  .header-inner:has(.cloud-button) .primary-nav button{font-size:12px}
+  .header-tools{gap:5px}
+  .cloud-button{width:44px;min-width:44px;min-height:44px;padding:10px;gap:0}
+  .cloud-button > span:not(.cloud-status-dot){display:none}
+  .cloud-button::after{position:absolute;right:7px;bottom:7px;box-shadow:0 0 0 2px var(--paper)}
+  .cloud-button > svg{width:18px;height:18px}
+}
+@media(max-width:560px){
+  .cloud-summary{padding:15px}
+  .cloud-identity strong{font-size:13px}
+  .cloud-status-detail,.cloud-note{font-size:11px}
+  .cloud-actions{align-items:stretch;gap:8px}
+  .cloud-actions .btn{flex:1 1 150px}
+  .cloud-actions .google-signin{flex-basis:100%}
+  .cloud-choice{padding:13px}
+  .cloud-choice > .btn{width:100%}
+  .cloud-choice > .btn + .btn{margin-left:0;margin-top:8px}
+}
+@media(max-width:370px){
+  .header-inner:has(.cloud-button){padding-inline:12px;gap:6px}
+  .header-inner:has(.cloud-button) .wordmark{font-size:26px}
+  .header-inner:has(.cloud-button) .primary-nav{gap:8px}
+  .header-inner:has(.cloud-button) .primary-nav button{font-size:10.5px;padding-inline:2px}
+  .header-tools{gap:4px}
+}
+@media(max-width:330px){
+  .header-inner:has(.cloud-button){gap:4px}
+  .header-inner:has(.cloud-button) .primary-nav{gap:6px}
+  .header-inner:has(.cloud-button) .primary-nav button{font-size:10px}
+}
+@media(prefers-reduced-motion:reduce){.cloud-button{transition:none}}
 </style>
 </head>
 <body><div id="app"></div><dialog id="dialog" aria-label="Modifier les informations"></dialog><div id="toast" class="toast hidden" role="status" aria-live="polite"></div><input type="file" id="import-file" accept="application/json,.json" hidden>
@@ -1007,7 +1083,7 @@ body[data-theme=dark] .pacing-marker{box-shadow:0 0 0 1px var(--panel)}
 <script>/* Marge PWA integration. Load before app.js; the app owns the explicit busy flag. */
 (function () {
   'use strict';
-  const VERSION = '147a5f5c2b1d8a43';
+  const VERSION = '98fa5c0012e77947';
   const BASE = new URL('./', document.baseURI);
   const supported = 'serviceWorker' in navigator && window.isSecureContext && /^https?:$/.test(location.protocol);
   let busy = true, registration = null, installPrompt = null, installed = false;
@@ -1141,6 +1217,659 @@ body[data-theme=dark] .pacing-marker{box-shadow:0 0 0 1px var(--panel)}
   } else emit();
 })();
 </script>
+<script>// Firebase Web configuration: public project identifiers, never admin credentials.
+window.MargeFirebaseConfig = {
+  apiKey: 'AIzaSyBFlapBLnZKbi9rnOU5Y6HD0YQwndUVHDQ',
+  authDomain: 'marge-6e2c9.firebaseapp.com',
+  projectId: 'marge-6e2c9',
+  storageBucket: 'marge-6e2c9.firebasestorage.app',
+  messagingSenderId: '907870656317',
+  appId: '1:907870656317:web:01a69f80e3bc6ebb48d754'
+};
+</script>
+<script>/* Marge — optional Firebase bridge. The budget remains usable without loading it. */
+(function (root, factory) {
+  'use strict';
+  if (typeof module === 'object' && module.exports) module.exports = factory();
+  else root.MargeFirebase = factory();
+})(typeof globalThis !== 'undefined' ? globalThis : this, function () {
+  'use strict';
+
+  var SDK_VERSION = '13.2.0';
+  var MAX_PAYLOAD_BYTES = 700000;
+  var clients = new Map();
+  var sdkPromise = null;
+
+  function object(value) { return value !== null && typeof value === 'object' && !Array.isArray(value); }
+  function failure(code, message, current) {
+    var error = new Error(message);
+    error.code = code;
+    if (arguments.length > 2) error.current = current;
+    return error;
+  }
+  function friendlyError(error) {
+    var clean = failure(error && error.code || 'cloud/error', humanMessage(error));
+    if (error && Object.prototype.hasOwnProperty.call(error, 'current')) clean.current = error.current;
+    return clean;
+  }
+  function bytes(value) { return new TextEncoder().encode(value).byteLength; }
+  function isConfigured(config) {
+    return object(config) && typeof config.apiKey === 'string' && /^[A-Za-z0-9_-]{20,200}$/.test(config.apiKey)
+      && typeof config.authDomain === 'string' && /^(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+[a-z]{2,63}$/i.test(config.authDomain)
+      && typeof config.projectId === 'string' && /^[a-z][a-z0-9-]{4,61}[a-z0-9]$/.test(config.projectId)
+      && typeof config.appId === 'string' && /^\d+:\d+:web:[a-z0-9]+$/i.test(config.appId);
+  }
+  function uidValue(uid) {
+    if (typeof uid !== 'string' || uid.length < 1 || uid.length > 128 || /[\x00-\x1f\x7f/]/.test(uid)
+      || uid === '.' || uid === '..' || /^__.*__$/.test(uid)) {
+      throw failure('cloud/invalid-user', 'Le compte connecté n’est pas valide.');
+    }
+    return uid;
+  }
+  function serialize(data) {
+    if (!object(data)) throw failure('cloud/invalid-data', 'La sauvegarde doit être un objet JSON.');
+    var payload;
+    try { payload = JSON.stringify(data); }
+    catch (_) { throw failure('cloud/invalid-data', 'La sauvegarde ne peut pas être convertie en JSON.'); }
+    if (typeof payload !== 'string') throw failure('cloud/invalid-data', 'La sauvegarde doit être un objet JSON.');
+    if (bytes(payload) > MAX_PAYLOAD_BYTES) throw failure('cloud/payload-too-large', 'La sauvegarde dépasse la taille autorisée.');
+    return payload;
+  }
+  function decode(snapshot) {
+    if (!snapshot.exists()) return null;
+    var value = snapshot.data();
+    if (!object(value) || Object.keys(value).sort().join(',') !== 'payload,revision,schemaVersion,updatedAt'
+      || value.schemaVersion !== 1 || !Number.isSafeInteger(value.revision) || value.revision < 1
+      || typeof value.payload !== 'string' || bytes(value.payload) > MAX_PAYLOAD_BYTES
+      || !value.updatedAt || typeof value.updatedAt.toMillis !== 'function') {
+      throw failure('cloud/invalid-data', 'La sauvegarde en ligne n’a pas un format reconnu.');
+    }
+    var data, updatedAt;
+    try { data = JSON.parse(value.payload); updatedAt = value.updatedAt.toMillis(); }
+    catch (_) { throw failure('cloud/invalid-data', 'La sauvegarde en ligne est illisible.'); }
+    if (!object(data) || !Number.isFinite(updatedAt) || updatedAt < 0) {
+      throw failure('cloud/invalid-data', 'La sauvegarde en ligne n’a pas un format reconnu.');
+    }
+    return { revision: value.revision, data: data, updatedAt: updatedAt };
+  }
+
+  /**
+   * The SDK is injected so transactions can be verified without a real account.
+   * Only server-confirmed documents are delivered. The application's own local
+   * storage is the offline source; Firestore does not keep a persistent cache.
+   */
+  function createAdapter(sdk, db) {
+    function ref(uid) { return sdk.doc(db, 'users', uidValue(uid), 'apps', 'marge'); }
+    var adapter = {
+      listen: function (uid, onDocument, onError) {
+        return sdk.onSnapshot(ref(uid), { includeMetadataChanges: true }, function (snapshot) {
+          if (snapshot.metadata && (snapshot.metadata.fromCache || snapshot.metadata.hasPendingWrites)) return;
+          try { onDocument(decode(snapshot)); }
+          catch (error) { if (onError) onError(error); }
+        }, onError);
+      },
+      read: async function (uid) {
+        var snapshot = await sdk.getDocFromServer(ref(uid));
+        if (snapshot.metadata && (snapshot.metadata.fromCache || snapshot.metadata.hasPendingWrites)) {
+          throw failure('cloud/server-unavailable', 'La sauvegarde en ligne n’a pas encore été confirmée.');
+        }
+        return decode(snapshot);
+      },
+      write: async function (uid, expectedRevision, data) {
+        var document = ref(uid);
+        if (!Number.isSafeInteger(expectedRevision) || expectedRevision < 0 || expectedRevision >= Number.MAX_SAFE_INTEGER) {
+          throw failure('cloud/invalid-revision', 'La version de la sauvegarde n’est pas valide.');
+        }
+        var payload = serialize(data), saved = JSON.parse(payload);
+        var committed;
+        try {
+          committed = await sdk.runTransaction(db, async function (transaction) {
+            var current = decode(await transaction.get(document));
+            var revision = current ? current.revision : 0;
+            if (revision !== expectedRevision) {
+              throw failure('cloud/conflict', 'Une autre version a été enregistrée sur un autre appareil.', current);
+            }
+            transaction.set(document, {
+              schemaVersion: 1, revision: revision + 1,
+              payload: payload, updatedAt: sdk.serverTimestamp()
+            });
+            return { revision: revision + 1, data: saved };
+          });
+        } catch (error) {
+          // Rules can reject a stale revision before the SDK retries a racing
+          // transaction. A single exceptional read distinguishes that conflict
+          // from an actual access denial; no polling or successful-write re-read.
+          if (error && error.code === 'permission-denied') {
+            var confirmed = false, latest = null;
+            try {
+              var latestSnapshot = await sdk.getDocFromServer(document);
+              if (!latestSnapshot.metadata || (!latestSnapshot.metadata.fromCache && !latestSnapshot.metadata.hasPendingWrites)) {
+                latest = decode(latestSnapshot);
+                confirmed = true;
+              }
+            } catch (_) { /* Preserve the original denial if no server version is readable. */ }
+            if (confirmed && (latest ? latest.revision : 0) !== expectedRevision) {
+              throw failure('cloud/conflict', 'Une autre version a été enregistrée sur un autre appareil.', latest);
+            }
+          }
+          throw error;
+        }
+        // runTransaction resolves only after the server accepts this revision.
+        // Do not re-read here: another writer could already have created a newer
+        // revision. The listener supplies the exact server timestamp afterwards.
+        return { revision: committed.revision, data: committed.data, updatedAt: Date.now() };
+      }
+    };
+    return {
+      listen: function (uid, onDocument, onError) {
+        try {
+          return adapter.listen(uid, onDocument, function (error) { if (onError) onError(friendlyError(error)); });
+        } catch (error) { throw friendlyError(error); }
+      },
+      read: async function (uid) {
+        try { return await adapter.read(uid); }
+        catch (error) { throw friendlyError(error); }
+      },
+      write: async function (uid, expectedRevision, data) {
+        try { return await adapter.write(uid, expectedRevision, data); }
+        catch (error) { throw friendlyError(error); }
+      }
+    };
+  }
+
+  function publicUser(user) {
+    return user ? { uid: user.uid, email: user.email || '', displayName: user.displayName || '' } : null;
+  }
+  async function createClient(sdk, config) {
+    if (!isConfigured(config)) throw failure('cloud/not-configured', 'Firebase n’est pas encore configuré pour Marge.');
+    var name = 'marge-budget-' + config.projectId;
+    var app = sdk.getApps().find(function (candidate) { return candidate.name === name; });
+    if (!app) app = sdk.initializeApp(config, name);
+    var auth = sdk.getAuth(app);
+    await sdk.setPersistence(auth, sdk.browserLocalPersistence);
+    var db = sdk.getFirestore(app); // Default memory cache; no Firestore disk persistence.
+    var provider = new sdk.GoogleAuthProvider();
+    provider.setCustomParameters({ prompt: 'select_account' });
+    return {
+      signIn: function () {
+        // This call must start in the click handler, after load() has completed.
+        // No redirect fallback: GitHub Pages cannot host Firebase's auth helper.
+        return sdk.signInWithPopup(auth, provider).then(function (result) { return publicUser(result.user); });
+      },
+      signOut: function () { return sdk.signOut(auth); },
+      onUser: function (callback, onError) {
+        return sdk.onAuthStateChanged(auth, function (user) { callback(publicUser(user)); }, onError);
+      },
+      adapter: createAdapter(sdk, db)
+    };
+  }
+  function load(config) {
+    if (!isConfigured(config)) return Promise.reject(failure('cloud/not-configured', 'Firebase n’est pas encore configuré pour Marge.'));
+    // Copy public web configuration; no service-account credential belongs here.
+    var selected = {};
+    ['apiKey', 'authDomain', 'projectId', 'appId', 'storageBucket', 'messagingSenderId'].forEach(function (key) {
+      if (typeof config[key] === 'string') selected[key] = config[key];
+    });
+    var key = JSON.stringify(selected);
+    if (clients.has(key)) return clients.get(key);
+    if (!sdkPromise) {
+      // Official CDN version pinned for reproducibility. Nothing loads until load().
+      sdkPromise = Promise.all([
+        import('https://www.gstatic.com/firebasejs/13.2.0/firebase-app.js'),
+        import('https://www.gstatic.com/firebasejs/13.2.0/firebase-auth.js'),
+        import('https://www.gstatic.com/firebasejs/13.2.0/firebase-firestore.js')
+      ]).then(function (modules) { return Object.assign({}, modules[0], modules[1], modules[2]); })
+        .catch(function (error) { sdkPromise = null; throw error; });
+    }
+    var promise = sdkPromise.then(function (sdk) { return createClient(sdk, selected); })
+      .catch(function (error) { clients.delete(key); throw error; });
+    clients.set(key, promise);
+    return promise;
+  }
+  function humanMessage(error) {
+    var code = typeof error === 'string' ? error : error && error.code;
+    var messages = {
+      'cloud/not-configured': 'La connexion Google sera disponible après la configuration de Firebase.',
+      'cloud/invalid-user': 'Reconnecte-toi pour retrouver ton compte Google.',
+      'cloud/invalid-data': 'La sauvegarde en ligne est illisible. Tes données locales sont conservées.',
+      'cloud/invalid-revision': 'La version de la sauvegarde est invalide. Tes données locales sont conservées.',
+      'cloud/payload-too-large': 'Cette sauvegarde est trop volumineuse pour la synchronisation. Exporte-la pour la conserver.',
+      'cloud/conflict': 'Deux versions différentes existent. Choisis celle à conserver avant de synchroniser.',
+      'cloud/server-unavailable': 'Le serveur n’a pas confirmé la sauvegarde. Réessaie avec une connexion Internet.',
+      'auth/popup-blocked': 'Autorise la fenêtre de connexion Google, puis réessaie. Sur téléphone, ouvre Marge dans Safari ou Chrome si nécessaire.',
+      'auth/popup-closed-by-user': 'La fenêtre Google a été fermée. Tu peux te reconnecter quand tu le souhaites.',
+      'auth/cancelled-popup-request': 'Une connexion Google est déjà en cours.',
+      'auth/unauthorized-domain': 'Ce site doit être ajouté aux domaines autorisés dans Firebase Authentication.',
+      'auth/operation-not-allowed': 'La connexion Google doit être activée dans Firebase Authentication.',
+      'auth/invalid-api-key': 'La configuration Web Firebase doit être vérifiée.',
+      'auth/invalid-app-credential': 'La configuration Web Firebase doit être vérifiée.',
+      'auth/configuration-not-found': 'La configuration de Firebase Authentication doit être terminée.',
+      'auth/web-storage-unsupported': 'Le navigateur bloque le stockage de connexion. Autorise le stockage du site ou utilise un autre navigateur.',
+      'auth/operation-not-supported-in-this-environment': 'Ouvre la version HTTPS de Marge dans Safari ou Chrome pour te connecter.',
+      'auth/network-request-failed': 'Connexion impossible pour le moment. Tes données restent sur cet appareil.',
+      'auth/user-disabled': 'Ce compte a été désactivé dans Firebase Authentication.',
+      'auth/too-many-requests': 'Trop de tentatives de connexion. Patiente avant de réessayer.',
+      'permission-denied': 'Firebase refuse l’accès. Vérifie les règles Firestore et le compte connecté.',
+      'unauthenticated': 'Reconnecte-toi avec Google pour reprendre la synchronisation.',
+      'unavailable': 'La synchronisation reprendra avec la connexion. Tes données restent sur cet appareil.',
+      'deadline-exceeded': 'Le serveur met trop de temps à répondre. Tes données restent sur cet appareil.',
+      'resource-exhausted': 'Le quota Firebase est atteint. Tes données restent sur cet appareil.',
+      'failed-precondition': 'La base Firestore doit être créée et configurée avant la synchronisation.'
+    };
+    return messages[code] || 'La synchronisation n’a pas abouti. Tes données restent sur cet appareil.';
+  }
+  return Object.freeze({ SDK_VERSION: SDK_VERSION, MAX_PAYLOAD_BYTES: MAX_PAYLOAD_BYTES,
+    isConfigured: isConfigured, load: load, createClient: createClient, createAdapter: createAdapter,
+    humanMessage: humanMessage });
+});
+</script>
+<script>(function (root, factory) {
+  'use strict';
+  if (typeof module === 'object' && module.exports) module.exports = factory();
+  else root.MargeCloudSync = factory();
+}(typeof globalThis !== 'undefined' ? globalThis : this, function () {
+  'use strict';
+
+  const copy = value => JSON.parse(JSON.stringify(value));
+  // Exact canonical comparison, not a lossy hash. Navigation/export metadata is local.
+  function fingerprint(value) {
+    function sorted(v, top) {
+      if (Array.isArray(v)) return v.map(x => sorted(x, false));
+      if (v && typeof v === 'object') {
+        const result = Object.create(null);
+        Object.keys(v).sort().forEach(key => {
+          if (!top || (key !== 'selectedMonth' && key !== 'lastExport')) result[key] = sorted(v[key], false);
+        });
+        return result;
+      }
+      return v;
+    }
+    return JSON.stringify(sorted(value, true));
+  }
+
+  /**
+   * The app owns its local data. This controller never accesses Firebase directly.
+   * adapter.listen(uid, next, error) -> unsubscribe, confirmed server documents only.
+   * adapter.read(uid) -> Promise<document|null>.
+   * adapter.write(uid, expectedRevision, data) -> Promise<committedDocument>.
+   * write MUST use an atomic compare-and-set transaction (0 means absent).
+   * A document is {revision: positive integer, data, updatedAt?: milliseconds}.
+   * applyRemote(data) MUST synchronously validate/persist before returning true.
+   */
+  function create(options) {
+    const o = options || {};
+    if (!o.getData || !o.validate || !o.applyRemote || !o.storage) throw Error('Configuration de synchronisation incomplète.');
+    const key = o.metadataKey || 'marge.cloud.meta.v1';
+    const timerSet = o.setTimeout || setTimeout, timerClear = o.clearTimeout || clearTimeout;
+    const clock = o.now || Date.now, delay = o.delay === undefined ? 180000 : o.delay;
+    const enabled = () => !o.isEnabled || o.isEnabled();
+    const busy = () => !!(o.isBusy && o.isBusy());
+    const meaningful = () => o.hasLocalData ? !!o.hasLocalData() : true;
+    let metadata = null, metadataError = false, user = null, adapter = null;
+    let unsubscribe = null, timer = null, generation = 0, destroyed = false;
+    let remote = null, remoteSeen = false, pendingRemote = false, writing = false, applying = false, observations = 0;
+    let deferred = undefined, phase = 'disconnected', error = null, conflict = null, lastSynced = null;
+    let emitting = false, emittedStatus = null;
+    let observedLocalFingerprint = fingerprint(o.getData());
+    const listeners = new Set();
+    if (o.onChange) listeners.add(o.onChange);
+
+    try {
+      const raw = o.storage.getItem(key);
+      if (raw) {
+        const m = JSON.parse(raw);
+        if (m.version !== 1 || typeof m.owner !== 'string' || !m.owner || !Number.isSafeInteger(m.baseRevision) || m.baseRevision < 0 || typeof m.baseFingerprint !== 'string' || typeof m.dirty !== 'boolean') throw Error('invalid metadata');
+        metadata = m;
+        lastSynced = Number.isFinite(m.lastSynced) ? m.lastSynced : null;
+      }
+    } catch (_) { metadataError = true; error = 'La référence de synchronisation locale est illisible. Exporte tes données avant de reconnecter ce compte.'; }
+
+    const owned = () => !!(user && metadata && metadata.owner === user.uid);
+    const localFingerprint = () => fingerprint(o.getData());
+    const dirty = () => owned() ? localFingerprint() !== metadata.baseFingerprint : meaningful();
+    function getStatus() {
+      return { phase, user: user ? { ...user } : null, dirty: dirty(), remotePending: pendingRemote,
+        conflict: conflict ? { ...conflict } : null, lastSynced, error,
+        baseRevision: owned() ? metadata.baseRevision : null,
+        remoteRevision: remoteSeen ? (remote ? remote.revision : 0) : null,
+        remoteSummary: remoteSeen ? { months: Object.keys(remote?.data.months || {}).length,
+          latestMonth: Object.keys(remote?.data.months || {}).sort().at(-1) || null, updatedAt: remote?.updatedAt || null } : null };
+    }
+    function emit() {
+      const status = getStatus(), signature = JSON.stringify(status);
+      if (emitting || signature === emittedStatus) return;
+      emittedStatus = signature; emitting = true;
+      try { listeners.forEach(fn => { try { fn(status); } catch (_) {} }); }
+      finally { emitting = false; }
+    }
+    function clearTimer() { if (timer !== null) timerClear(timer); timer = null; }
+    function stopListening() { if (unsubscribe) unsubscribe(); unsubscribe = null; }
+    function fail(message, code) {
+      error = message;
+      phase = code === 'unavailable' || code === 'network-request-failed' || code === 'offline' ? 'offline' : 'error';
+      clearTimer(); emit();
+    }
+    function remember(next) {
+      try {
+        o.storage.setItem(key, JSON.stringify(next));
+        metadata = next; metadataError = false;
+        return true;
+      } catch (_) {
+        metadataError = true;
+        fail('La référence de sauvegarde ne peut pas être enregistrée sur cet appareil. La synchronisation est suspendue.');
+        return false;
+      }
+    }
+    function baseline(doc, fp) {
+      const synced = clock();
+      if (!remember({ version: 1, owner: user.uid, baseRevision: doc ? doc.revision : 0,
+        baseFingerprint: fp, dirty: localFingerprint() !== fp, lastSynced: synced })) return false;
+      lastSynced = synced;
+      return true;
+    }
+    function validateDoc(doc) {
+      if (doc === null) return null;
+      if (!doc || typeof doc !== 'object' || !Number.isSafeInteger(doc.revision) || doc.revision < 1 || !doc.data || typeof doc.data !== 'object') throw Error('La sauvegarde en ligne a un format non reconnu.');
+      o.validate(doc.data);
+      return { revision: doc.revision, data: copy(doc.data), updatedAt: Number.isFinite(doc.updatedAt) ? doc.updatedAt : null };
+    }
+    function setConflict(reason) {
+      conflict = { reason, remoteRevision: remote ? remote.revision : 0, remoteUpdatedAt: remote?.updatedAt || null };
+      pendingRemote = false; error = null; phase = 'conflict'; clearTimer(); emit();
+    }
+    function schedule(restart) {
+      if (restart) clearTimer();
+      if (!user || !adapter || !enabled() || destroyed || metadataError || !owned() || !remoteSeen || conflict || writing) return;
+      if (!dirty()) { clearTimer(); phase = 'ready'; emit(); return; }
+      phase = 'pending'; emit();
+      if (busy()) { clearTimer(); return; }
+      if (timer === null) timer = timerSet(() => { timer = null; void flush(); }, delay);
+    }
+    function applyDocument(doc, explicit) {
+      if (!doc) { setConflict('remote-deleted'); return false; }
+      if (!enabled() || busy()) { pendingRemote = true; phase = 'pending'; emit(); return false; }
+      // Replacing a changed local version is only allowed after an explicit choice.
+      if (!explicit && owned() && dirty()) { setConflict('changed-both'); return false; }
+      applying = true;
+      try {
+        if (o.applyRemote(copy(doc.data)) !== true) throw Error('La sauvegarde en ligne n’a pas pu être enregistrée sur cet appareil. Les données locales sont conservées.');
+      } catch (e) { fail(e.message || 'Impossible de restaurer la sauvegarde en ligne.'); return false; }
+      finally { applying = false; }
+      observedLocalFingerprint = localFingerprint();
+      pendingRemote = false; conflict = null; error = null;
+      if (!baseline(doc, fingerprint(doc.data))) return false;
+      phase = 'ready'; emit();
+      schedule();
+      return true;
+    }
+    function reconcile(doc) {
+      remote = doc; remoteSeen = true;
+      if (!user || !enabled()) { phase = user ? 'paused' : 'disconnected'; emit(); return; }
+      if (metadataError) { phase = 'error'; emit(); return; }
+      const local = localFingerprint(), online = doc ? fingerprint(doc.data) : null;
+      if (owned() && doc && doc.revision < metadata.baseRevision) { setConflict('changed-remotely'); return; }
+      if (doc && online === local) {
+        pendingRemote = false; conflict = null; error = null;
+        if (baseline(doc, online)) { phase = 'ready'; emit(); }
+        return;
+      }
+      if (!owned()) {
+        if (!meaningful()) {
+          if (doc) applyDocument(doc, false);
+          else if (baseline(null, local)) { conflict = null; error = null; phase = 'ready'; emit(); }
+        } else setConflict(metadata ? 'account-change' : 'first-connection');
+        return;
+      }
+      if (!doc) {
+        if (metadata.baseRevision > 0) setConflict('remote-deleted');
+        else { conflict = null; error = null; schedule(); }
+        return;
+      }
+      if (doc.revision === metadata.baseRevision && online === metadata.baseFingerprint) {
+        conflict = null; error = null; pendingRemote = false; schedule(); return;
+      }
+      if (doc.revision <= metadata.baseRevision) { setConflict('changed-remotely'); return; }
+      if (local !== metadata.baseFingerprint) { setConflict('changed-both'); return; }
+      if (busy()) { pendingRemote = true; phase = 'pending'; error = null; clearTimer(); emit(); return; }
+      applyDocument(doc, false);
+    }
+    function receive(value, token) {
+      if (token !== generation || destroyed || !user) return;
+      let doc;
+      try { doc = validateDoc(value); } catch (e) { fail(e.message); return; }
+      observations++;
+      // A slower read/listener cannot roll back a confirmed newer observation.
+      if (doc && remoteSeen && remote && doc.revision < remote.revision) return;
+      if (writing) {
+        if (deferred === undefined || doc === null || deferred === null || doc.revision >= deferred.revision) deferred = doc;
+        return;
+      }
+      reconcile(doc);
+    }
+    function listen() {
+      if (!user || !adapter || unsubscribe || destroyed || !enabled()) return;
+      const token = generation;
+      try {
+        unsubscribe = adapter.listen(user.uid, doc => receive(doc, token), e => {
+          if (token === generation) { stopListening(); fail('La sauvegarde en ligne est momentanément indisponible. Tes données restent sur cet appareil.', e?.code); }
+        });
+      } catch (e) { fail('Impossible de joindre la sauvegarde en ligne.', e?.code); }
+    }
+    function connect(nextUser, nextAdapter) {
+      clearTimer(); stopListening(); generation++; writing = false; deferred = undefined;
+      remote = null; remoteSeen = false; pendingRemote = false; conflict = null;
+      if (!nextUser?.uid) { user = null; adapter = null; lastSynced = null; phase = 'disconnected'; emit(); return; }
+      if (!nextAdapter?.listen || !nextAdapter?.read || !nextAdapter?.write) throw Error('Adaptateur Firebase incomplet.');
+      user = { uid: String(nextUser.uid), email: nextUser.email || '', displayName: nextUser.displayName || '' };
+      lastSynced = owned() && Number.isFinite(metadata.lastSynced) ? metadata.lastSynced : null;
+      adapter = nextAdapter; phase = metadataError ? 'error' : enabled() ? 'connecting' : 'paused';
+      if (!metadataError) error = null;
+      emit(); listen();
+    }
+    function disconnect() { connect(null, null); }
+    function localChanged() {
+      if (destroyed || applying || !enabled()) return;
+      const currentFingerprint = localFingerprint();
+      if (currentFingerprint === observedLocalFingerprint) return;
+      observedLocalFingerprint = currentFingerprint;
+      if (metadata && !metadataError) {
+        const changed = currentFingerprint !== metadata.baseFingerprint;
+        if (changed !== metadata.dirty && !remember({ ...metadata, dirty: changed })) return;
+      }
+      if (pendingRemote && remoteSeen) { reconcile(remote); return; }
+      schedule(true);
+    }
+    async function readLatest(token) {
+      const observedBeforeRead = observations;
+      const value = await adapter.read(user.uid);
+      if (token !== generation || destroyed) return false;
+      if (observations === observedBeforeRead) receive(value, token);
+      listen();
+      return true;
+    }
+    async function upload(forceLocal, approvedRevision) {
+      clearTimer();
+      if (!user || !adapter || destroyed || !enabled() || busy() || writing || metadataError) return false;
+      const token = generation, activeAdapter = adapter, owner = user.uid;
+      try {
+        if (!remoteSeen || phase === 'error' || phase === 'offline') {
+          if (!await readLatest(token)) return false;
+        }
+        if (!enabled() || busy() || writing || token !== generation || metadataError) return false;
+        if (forceLocal && approvedRevision !== (remote ? remote.revision : 0)) { setConflict('changed-remotely'); return false; }
+        if (conflict && !forceLocal) return false;
+        if (!forceLocal && !owned()) return false;
+        if (!forceLocal && !dirty()) return true;
+        const data = copy(o.getData()); o.validate(data);
+        const sentFingerprint = fingerprint(data);
+        const expectedRevision = forceLocal ? (remote ? remote.revision : 0) : metadata.baseRevision;
+        const baseFingerprint = forceLocal ? (remote ? fingerprint(remote.data) : '') : metadata.baseFingerprint;
+        if (!remember({ version: 1, owner, baseRevision: expectedRevision, baseFingerprint, dirty: true, lastSynced })) return false;
+        writing = true; error = null; conflict = null; pendingRemote = false; phase = 'syncing'; emit();
+        const committed = validateDoc(await activeAdapter.write(owner, expectedRevision, data));
+        if (token !== generation || destroyed) return false;
+        if (!committed || committed.revision !== expectedRevision + 1 || fingerprint(committed.data) !== sentFingerprint) throw Error('La confirmation de sauvegarde en ligne est incohérente.');
+        writing = false;
+        remote = committed; remoteSeen = true;
+        if (!baseline(committed, sentFingerprint)) return false;
+        phase = enabled() ? 'ready' : 'paused'; emit();
+        const next = deferred; deferred = undefined;
+        if (next !== undefined && (next === null || next.revision >= committed.revision)) reconcile(next);
+        else schedule();
+        return true;
+      } catch (e) {
+        if (token !== generation || destroyed) return false;
+        writing = false;
+        if (e?.code === 'cloud/conflict') {
+          try {
+            const latest = e.current !== undefined ? e.current : await activeAdapter.read(owner);
+            if (token !== generation) return false;
+            remote = validateDoc(latest); remoteSeen = true; deferred = undefined;
+            setConflict('changed-both');
+          } catch (_) { fail('Deux versions différentes existent. Actualise la synchronisation avant de choisir laquelle conserver.'); }
+        } else fail(e?.message || 'Sauvegarde en ligne impossible. Tes modifications restent sur cet appareil.', e?.code);
+        return false;
+      }
+    }
+    function flush() { return upload(false); }
+    function resume() {
+      if (destroyed || !user || applying || emitting) return;
+      if (!enabled()) { clearTimer(); stopListening(); phase = 'paused'; emit(); return; }
+      listen();
+      if (writing || metadataError || phase === 'error' || phase === 'offline') return;
+      if (pendingRemote && !busy()) reconcile(remote);
+      else if (!conflict && remoteSeen) schedule();
+    }
+    function chooseRemote(expectedRevision) {
+      if (!user || !enabled() || writing || !remoteSeen || metadataError) return false;
+      if (expectedRevision !== undefined && expectedRevision !== (remote ? remote.revision : 0)) { setConflict('changed-remotely'); return false; }
+      return applyDocument(remote, true);
+    }
+    function chooseLocal(expectedRevision) {
+      if (!remoteSeen) return Promise.resolve(false);
+      if (expectedRevision === undefined) expectedRevision = remote ? remote.revision : 0;
+      if (expectedRevision !== undefined && expectedRevision !== (remote ? remote.revision : 0)) { setConflict('changed-remotely'); return Promise.resolve(false); }
+      return upload(true, expectedRevision);
+    }
+    function subscribe(fn) { listeners.add(fn); fn(getStatus()); return () => listeners.delete(fn); }
+    function forgetLocalReference() {
+      if (user || writing || destroyed) return false;
+      try {
+        if (o.storage.removeItem) o.storage.removeItem(key);
+        else o.storage.setItem(key, '');
+      } catch (_) { metadataError = true; fail('La référence de synchronisation n’a pas pu être retirée. La réinitialisation est interrompue.'); return false; }
+      clearTimer(); metadata = null; metadataError = false; error = null; lastSynced = null;
+      remote = null; remoteSeen = false; pendingRemote = false; conflict = null;
+      observedLocalFingerprint = localFingerprint(); phase = 'disconnected'; emit();
+      return true;
+    }
+    function destroy() { destroyed = true; generation++; clearTimer(); stopListening(); listeners.clear(); }
+    return { connect, disconnect, localChanged, flush, resume, chooseRemote, chooseLocal, forgetLocalReference, getStatus, subscribe, destroy };
+  }
+  return { create, fingerprint };
+}));
+</script>
+<script>(function (root, factory) {
+  'use strict';
+  if (typeof module === 'object' && module.exports) module.exports = factory();
+  else root.MargeCloudUI = factory();
+}(typeof globalThis !== 'undefined' ? globalThis : this, function () {
+  'use strict';
+  const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const cloudIcon = '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 18h12a4 4 0 0 0 .5-8A6.5 6.5 0 0 0 6 8a5 5 0 0 0 0 10Z"/></svg>';
+  const dateLabel = value => value ? new Date(value).toLocaleString('fr-FR', {day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}) : '';
+
+  function create(options) {
+    const o = options;
+    let client = null, loading = false, authBusy = false, loadError = '', authUnsubscribe = null;
+    const configured = o.firebase.isConfigured(o.config);
+    const controller = o.sync.create({...o, onChange: () => change()});
+    function change() { if (o.onChange) o.onChange(); }
+    function status() {
+      const s = controller.getStatus();
+      if (!configured) return {...s,phase:'unconfigured',error:null};
+      if (loadError) return {...s,phase:'error',error:loadError};
+      if (loading || authBusy) return {...s,phase:'connecting'};
+      return s;
+    }
+    function label(s = status()) {
+      if (s.phase === 'unconfigured') return 'Sauvegarde';
+      if (s.phase === 'disconnected') return 'Connexion Google';
+      if (s.phase === 'connecting') return 'Connexion…';
+      if (s.phase === 'conflict') return 'À vérifier';
+      if (s.phase === 'error') return 'Sauvegarde à vérifier';
+      if (s.phase === 'offline') return 'Hors connexion';
+      if (s.phase === 'syncing') return 'Sauvegarde…';
+      if (s.phase === 'paused') return 'Synchro en pause';
+      if (s.remotePending) return 'Mise à jour reçue';
+      if (s.dirty && s.user) return 'À synchroniser';
+      return 'Sauvegardé';
+    }
+    function badge() {
+      const s = status(), text = label(s);
+      const tone = ['error','conflict'].includes(s.phase) ? 'is-error' : s.phase === 'ready' && !s.dirty ? 'is-ok' : s.user ? 'is-pending' : '';
+      return `<button class="cloud-button ${tone}" data-action="cloud" data-state="${esc(s.phase)}" aria-label="Compte Google et sauvegarde : ${esc(text)}" title="${esc(text)}">${cloudIcon}<span class="cloud-button-label">${esc(text)}</span></button>`;
+    }
+    function detail(s) {
+      if (s.error) return s.error;
+      if (s.phase === 'connecting') return 'Connexion à ton espace de sauvegarde…';
+      if (s.phase === 'syncing') return 'Envoi de tes modifications en cours. La copie locale est déjà enregistrée.';
+      if (s.remotePending) return 'Une version plus récente est disponible. Termine ta saisie et ferme cette fenêtre pour la recevoir.';
+      if (s.phase === 'offline') return 'Tes modifications restent sur cet appareil et seront synchronisées au retour de la connexion.';
+      if (s.phase === 'paused') return 'La synchronisation reprendra lorsque les données pourront être enregistrées.';
+      if (s.dirty && s.user) return 'Modifications enregistrées sur cet appareil. Envoi automatique après 3 minutes sans nouvelle modification, une fois les saisies fermées.';
+      if (s.user) return 'Tes budgets, relevés, reports et prévisions sont synchronisés. Les prochains changements seront regroupés pendant 3 minutes avant envoi.';
+      return 'Retrouve tes budgets sur ton téléphone et ton ordinateur avec le même compte Google.';
+    }
+    function choices(s) {
+      if (!s.conflict) return '';
+      const localCount = Object.keys(o.getData().months || {}).length;
+      const remote = s.remoteSummary;
+      const first = ['first-connection','account-change'].includes(s.conflict.reason);
+      return `<div class="cloud-choice"><h3>${first?'Quelle sauvegarde utiliser ?':'Deux versions à départager'}</h3><p>${first?'Cet appareil contient déjà des données. Choisis celles à utiliser avec ce compte Google.':'Des modifications différentes existent sur deux appareils. Choisis la version complète à conserver.'}</p><p class="cloud-note">Cet appareil : ${localCount} mois enregistré${localCount>1?'s':''}.<br>Compte Google : ${remote?.months || 0} mois enregistré${remote?.months>1?'s':''}${remote?.updatedAt?` · ${esc(dateLabel(remote.updatedAt))}`:''}.</p><p class="cloud-note">La version choisie remplacera l’autre. Tu peux exporter la copie de cet appareil avant de choisir.</p><div class="cloud-actions"><button class="btn secondary" data-action="export">Exporter cet appareil</button>${s.remoteRevision>0?`<button class="btn secondary" data-action="cloud-use-remote" data-revision="${s.remoteRevision}">Utiliser la sauvegarde Google</button>`:''}<button class="btn primary" data-action="cloud-use-local" data-revision="${s.remoteRevision ?? 0}">${s.remoteRevision>0?'Utiliser les données de cet appareil':'Sauvegarder cet appareil sur Google'}</button></div></div>`;
+    }
+    function panel() {
+      const s = status();
+      if (!configured) return '<div class="cloud-summary"><h3>Connexion Google</h3><p>La connexion sera disponible une fois le projet Firebase raccordé à Marge.</p><p class="cloud-note">Tes données restent enregistrées sur cet appareil. L’export JSON reste disponible.</p></div>';
+      return `<div class="cloud-summary">${s.user?`<div class="cloud-identity"><strong>${esc(s.user.displayName || 'Mon compte Google')}</strong><span>${esc(s.user.email)}</span></div>`:'<h3>Mes sauvegardes avec Google</h3>'}<div class="cloud-status-detail" role="status"><strong>${esc(label(s))}</strong><p>${esc(detail(s))}</p>${s.user&&s.lastSynced?`<small>Dernière synchronisation : ${esc(dateLabel(s.lastSynced))}</small>`:''}</div>${choices(s)}<div class="cloud-actions">${!client?`<button class="btn secondary" data-action="cloud-retry" ${loading?'disabled':''}>${loading?'Préparation…':'Réessayer la connexion'}</button>`:s.user?`<button class="btn secondary" data-action="cloud-sync" ${authBusy||s.phase==='syncing'||s.conflict?'disabled':''}>Synchroniser maintenant</button><button class="btn text-btn" data-action="cloud-logout" ${authBusy||s.phase==='syncing'?'disabled':''}>Se déconnecter</button>`:`<button class="btn google-signin" data-action="cloud-login" ${authBusy||loading?'disabled':''}><span class="google-mark" aria-hidden="true">G</span>Se connecter avec Google</button>`}</div><p class="cloud-note">${s.user?'La déconnexion conserve la copie sur cet appareil. ':'La connexion permet de sauvegarder tes données budgétaires dans ton espace Firebase. '}Sans connexion Internet, tu peux continuer à utiliser ta copie locale. Le mode démonstration reste séparé.</p></div>`;
+    }
+    async function start() {
+      if (!configured || client || loading) return;
+      loading = true; loadError = ''; change();
+      try {
+        if (o.protocol === 'file:') throw Object.assign(Error('Ouvre Marge depuis son adresse GitHub Pages pour utiliser la connexion Google.'), {code:'cloud/local-file'});
+        client = await o.firebase.load(o.config);
+        authUnsubscribe = client.onUser(user => {
+          authBusy = false;
+          if (user) controller.connect(user, client.adapter);
+          else controller.disconnect();
+          change();
+        }, error => { loadError = o.firebase.humanMessage(error); change(); });
+      } catch (e) { loadError = e.code === 'cloud/local-file' ? e.message : o.firebase.humanMessage(e); }
+      finally { loading = false; change(); }
+    }
+    async function action(name, revision) {
+      if (name === 'cloud-retry') { await start(); return !loadError; }
+      if (name === 'cloud-sync') return controller.flush();
+      if (name === 'cloud-use-local') return controller.chooseLocal(revision);
+      if (name === 'cloud-use-remote') return controller.chooseRemote(revision);
+      if (!client || authBusy) return false;
+      authBusy = true; loadError = ''; change();
+      try {
+        if (name === 'cloud-login') await client.signIn();
+        else if (name === 'cloud-logout') { await client.signOut(); controller.disconnect(); }
+        else return false;
+        return true;
+      } catch (e) { loadError = o.firebase.humanMessage(e); return false; }
+      finally { authBusy = false; change(); }
+    }
+    function retryOnline() { if (!client) void start(); else { controller.resume(); void controller.flush(); } }
+    return {start,action,badge,panel,status,localChanged:controller.localChanged,resume:controller.resume,retryOnline,forgetLocalReference:()=>controller.forgetLocalReference(),
+      destroy(){authUnsubscribe?.();controller.destroy();},isBusy(){return authBusy||loading||status().phase==='syncing';}};
+  }
+  return {create};
+}));
+</script>
 <script>(() => {
 'use strict';
 const E=window.BudgetEngine, M=window.BudgetMonths, KEY='marge.budget.v1', $=s=>document.querySelector(s), clone=x=>JSON.parse(JSON.stringify(x));
@@ -1158,7 +1887,7 @@ const blankBudget=()=>[['ca','Logement','Fixes'],['ca','Assurances','Administrat
 const fresh=()=>({version:1,selectedMonth:today(),settings:{goal:1500,theme:'light'},plans:[{from:'1900-01',budget:blankBudget(),rules:rules()}],months:{},achievements:{},lastExport:null});
 let persistent=fresh(),loadError=false,saveFailed=false,storageConflict=false;
 try{const raw=localStorage.getItem(KEY);if(raw){const loaded=JSON.parse(raw);validateState(loaded);persistent=normalizeTransfers(loaded);}}catch(e){loadError=true;}
-let state=persistent,demo=false,page='overview',budgetAccount='ca',draft=null,dirty=false,activeForm=null,checkpointContext=null,toastTimer;
+let state=persistent,demo=false,page='overview',budgetAccount='ca',draft=null,dirty=false,activeForm=null,checkpointContext=null,toastTimer,cloud=null;
 // Freeze the amounts represented by old checkmarks before a later budget edit.
 function normalizeTransfers(data){
   const months={...data.months};
@@ -1169,12 +1898,52 @@ function normalizeTransfers(data){
   return {...data,months};
 }
 const app=$('#app'),dialog=$('#dialog');
-function syncPWA(){window.MargePWA?.setBusy(dirty||dialog.open||saveFailed||storageConflict||loadError);}
+function syncPWA(){window.MargePWA?.setBusy(dirty||dialog.open||saveFailed||storageConflict||loadError||!!cloud?.isBusy());}
+function cloudData(){const value=clone(demo?persistent:state);value.selectedMonth='2000-01';value.settings.theme='light';value.lastExport=null;return value;}
+function hasLocalBudget(){const value=demo?persistent:state;return Object.keys(value.months).length>0||Object.keys(value.incomePlan||{}).length>0||value.settings.goal!==1500||value.plans.some(p=>p.budget.some(b=>b.amount!==0));}
+function refreshCloudUI(){
+  const badge=app.querySelector('[data-cloud-badge]');if(badge&&cloud)badge.innerHTML=cloud.badge();
+  const panel=dialog.querySelector('[data-cloud-panel]');if(panel&&cloud)panel.innerHTML=cloud.panel();
+  syncPWA();
+}
+function applyCloudData(data){
+  if(demo||dirty||dialog.open||writesBlocked())return false;
+  const next=normalizeTransfers(clone(data));validateState(next);
+  next.selectedMonth=state.selectedMonth;next.settings.theme=state.settings.theme;next.lastExport=state.lastExport;
+  try{localStorage.setItem(KEY,JSON.stringify(next));}catch(e){saveFailed=true;render();toast('La sauvegarde reçue n’a pas pu être enregistrée sur cet appareil. Tes données actuelles sont conservées.',true);return false;}
+  state=next;persistent=next;draft=null;dirty=false;saveFailed=false;
+  render();toast('Sauvegarde Google reçue. Tes données sont à jour.');return true;
+}
+function initializeCloud(){
+  if(!window.MargeCloudUI||!window.MargeCloudSync||!window.MargeFirebase)return;
+  cloud=window.MargeCloudUI.create({firebase:window.MargeFirebase,sync:window.MargeCloudSync,config:window.MargeFirebaseConfig,
+    delay:180000,storage:localStorage,metadataKey:`marge.cloud.${window.MargeFirebaseConfig?.projectId||"local"}.v1`,protocol:window.location?.protocol,getData:cloudData,validate:validateState,applyRemote:applyCloudData,
+    hasLocalData:hasLocalBudget,isEnabled:()=>!demo&&!loadError&&!storageConflict,
+    isBusy:()=>dirty||dialog.open||saveFailed||storageConflict||loadError,
+    onChange:refreshCloudUI});
+  void cloud.start();
+}
+function cloudDialog(){if(!cloud)return;openDialog('Mon compte et mes sauvegardes',`<div data-cloud-panel>${cloud.panel()}</div>`);}
+async function cloudAction(name,el){
+  if(!cloud)return;
+  if(demo)return toast('Quitte la démonstration pour connecter tes données personnelles.',true);
+  if(['cloud-sync','cloud-use-local','cloud-use-remote'].includes(name)){
+    if(writesBlocked()||dirty)return toast('Enregistre tes modifications avant de synchroniser.',true);
+    dialog.close();
+  }
+  const revision=el?.dataset.revision===undefined?undefined:Number(el.dataset.revision);
+  const success=await cloud.action(name,revision);
+  if(name==='cloud-sync'&&success)toast('Sauvegarde Google à jour.');
+  if(name==='cloud-use-local'&&success)toast('Les données de cet appareil sont sauvegardées sur Google.');
+  if(['cloud-sync','cloud-use-local','cloud-use-remote'].includes(name)&&!success)cloudDialog();
+  if(name==='cloud-logout'&&success)toast('Déconnecté. La copie de cet appareil est conservée.');
+  refreshCloudUI();
+}
 function pwaStatusText(){const s=window.MargePWA?.getStatus();if(!s)return 'Ouvre la version hébergée pour installer Marge.';if(s.error)return s.error;if(s.updateAvailable)return 'Mise à jour prête : elle s’appliquera après fermeture des fenêtres et enregistrement des saisies.';if(s.offlineReady)return 'Disponible hors connexion. Les mises à jour sont vérifiées automatiquement.';return s.supported?'Préparation du mode hors connexion…':'L’installation nécessite la version HTTPS et un navigateur compatible.';}
 function refreshPWAStatus(){const el=dialog.querySelector('[data-pwa-status]');if(el)el.textContent=pwaStatusText();}
-async function installApp(){const result=await window.MargePWA?.install();if(!result)return;switch(result.outcome){case'instructions':openDialog('Installer Marge',`<p class="dialog-intro">${esc(result.instructions)}</p><p class="help">Ouvre Marge une première fois en ligne. Ensuite, ton budget reste accessible hors connexion. Les données restent sur cet appareil.</p>`);break;case'accepted':toast('Installation demandée. Termine la validation du navigateur.');break;case'already-installed':toast('Marge est déjà ouverte en tant qu’application.');break;}}
+async function installApp(){const result=await window.MargePWA?.install();if(!result)return;switch(result.outcome){case'instructions':openDialog('Installer Marge',`<p class="dialog-intro">${esc(result.instructions)}</p><p class="help">Ouvre Marge une première fois en ligne. Ensuite, une copie de ton budget reste accessible sur cet appareil hors connexion.</p>`);break;case'accepted':toast('Installation demandée. Termine la validation du navigateur.');break;case'already-installed':toast('Marge est déjà ouverte en tant qu’application.');break;}}
 function writesBlocked(allowRecovery=false){if(demo)return false;if(storageConflict){toast('Un autre onglet a modifié les données. Recharge cette page avant de les modifier.',true);return true;}if(loadError&&!allowRecovery){toast('Exporte la sauvegarde illisible depuis les paramètres, puis importe une sauvegarde ou réinitialise l’application.',true);return true;}return false;}
-function persist(){if(demo)return true;if(writesBlocked())return false;try{localStorage.setItem(KEY,JSON.stringify(state));persistent=state;saveFailed=false;return true;}catch(e){saveFailed=true;toast('Sauvegarde impossible sur cet appareil. Tes modifications restent dans cette page : exporte-les pour les conserver.',true);return false;}finally{syncPWA();}}
+function persist(){if(demo)return true;if(writesBlocked())return false;try{localStorage.setItem(KEY,JSON.stringify(state));persistent=state;saveFailed=false;cloud?.localChanged();return true;}catch(e){saveFailed=true;toast('Sauvegarde impossible sur cet appareil. Tes modifications restent dans cette page : exporte-les pour les conserver.',true);return false;}finally{syncPWA();}}
 function toast(msg,error=false){if(saveFailed&&!error)return;const t=$('#toast');t.textContent=msg;t.className=`toast${error?' error':''}`;clearTimeout(toastTimer);toastTimer=setTimeout(()=>t.classList.add('hidden'),5500);}
 function defaultsFor(k){return [...state.plans].filter(p=>p.from<=k).sort((a,b)=>b.from.localeCompare(a.from))[0]||state.plans[0];}
 function getMonth(k=state.selectedMonth){return M.getMonth(state,k);}
@@ -1205,8 +1974,8 @@ function render(){
   document.body.dataset.theme=state.settings.theme;
   const m=current(),c=calc(m),s=stats();
   const label=m.closed?'Clôturé':m.forecast?'Prévision':!m.prepared?'À préparer':c.budgetTotal===0&&!m.budgetConfirmed?'Budget à compléter':!c.funded?'À équilibrer':'En cours';
-  app.innerHTML=`<div class="app-shell"><header class="app-header"><div class="header-inner"><a class="wordmark" href="#" data-action="overview" aria-label="Marge, vue d'ensemble">marge<span>.</span></a><nav class="primary-nav" aria-label="Navigation principale"><button data-action="overview" class="${page==='overview'?'active':''}" ${page==='overview'?'aria-current="page"':''}>Vue d’ensemble</button><button data-action="budget" class="${page==='budget'?'active':''}" ${page==='budget'?'aria-current="page"':''}>Budget</button></nav><button class="icon-btn more-button" data-action="more" aria-label="Plus : historique, progrès et paramètres"><span aria-hidden="true">···</span></button></div></header><main class="main ${page==='forecast'?'main-forecast':''}">${banner()}<header class="page-heading"><div><div class="month-context"><span class="year-label">${page==='forecast'?'LES PROCHAINS MOIS':m.key.slice(0,4)}</span><span class="status ${m.closed?'closed':c.funded&&m.prepared?'ready':''}">${page==='forecast'?'Estimation':label}</span></div><div class="heading-line"><h1>${page==='overview'?`<button class="month-title" data-action="choose-month" aria-label="Choisir le mois : ${esc(monthName(m.key))}">${esc(monthName(m.key).replace(/ \d{4}$/,''))}<span class="heading-dot">.</span></button>`:page==='forecast'?'La suite<span class="heading-dot">.</span>':'Le budget<span class="heading-dot">.</span>'}</h1><div class="month-arrows">${page==='budget'?`<button class="compact-month" data-action="choose-month">${esc(monthName(m.key))}</button>`:''}<button class="icon-btn" data-action="prev-month" aria-label="Mois précédent"><span class="rotate">${icon('chevron')}</span></button><button class="icon-btn" data-action="next-month" aria-label="Mois suivant">${icon('chevron')}</button></div></div></div>${m.prepared&&page==='overview'?`<button class="income-link" data-action="${m.closed?'show-closing':'prepare'}"><span>${m.closed?'Mois clôturé':m.forecast?'Revenu estimé':'Revenu net'}</span><strong>${eur(m.salary)}</strong>${icon(m.closed?'history':'edit')}</button>`:''}</header>${page==='overview'?overview(m,s):page==='forecast'?forecastView():budgetView(m)}<footer class="page-footer"><span>Un peu plus de liberté.</span><button data-action="history">Historique ${icon('arrow')}</button></footer></main></div>`;
-  syncPWA();
+  app.innerHTML=`<div class="app-shell"><header class="app-header"><div class="header-inner"><a class="wordmark" href="#" data-action="overview" aria-label="Marge, vue d'ensemble">marge<span>.</span></a><nav class="primary-nav" aria-label="Navigation principale"><button data-action="overview" class="${page==='overview'?'active':''}" ${page==='overview'?'aria-current="page"':''}>Vue d’ensemble</button><button data-action="budget" class="${page==='budget'?'active':''}" ${page==='budget'?'aria-current="page"':''}>Budget</button></nav><div class="header-tools"><span data-cloud-badge>${cloud?cloud.badge():""}</span><button class="icon-btn more-button" data-action="more" aria-label="Plus : historique, progrès et paramètres"><span aria-hidden="true">···</span></button></div></div></header><main class="main ${page==='forecast'?'main-forecast':''}">${banner()}<header class="page-heading"><div><div class="month-context"><span class="year-label">${page==='forecast'?'LES PROCHAINS MOIS':m.key.slice(0,4)}</span><span class="status ${m.closed?'closed':c.funded&&m.prepared?'ready':''}">${page==='forecast'?'Estimation':label}</span></div><div class="heading-line"><h1>${page==='overview'?`<button class="month-title" data-action="choose-month" aria-label="Choisir le mois : ${esc(monthName(m.key))}">${esc(monthName(m.key).replace(/ \d{4}$/,''))}<span class="heading-dot">.</span></button>`:page==='forecast'?'La suite<span class="heading-dot">.</span>':'Le budget<span class="heading-dot">.</span>'}</h1><div class="month-arrows">${page==='budget'?`<button class="compact-month" data-action="choose-month">${esc(monthName(m.key))}</button>`:''}<button class="icon-btn" data-action="prev-month" aria-label="Mois précédent"><span class="rotate">${icon('chevron')}</span></button><button class="icon-btn" data-action="next-month" aria-label="Mois suivant">${icon('chevron')}</button></div></div></div>${m.prepared&&page==='overview'?`<button class="income-link" data-action="${m.closed?'show-closing':'prepare'}"><span>${m.closed?'Mois clôturé':m.forecast?'Revenu estimé':'Revenu net'}</span><strong>${eur(m.salary)}</strong>${icon(m.closed?'history':'edit')}</button>`:''}</header>${page==='overview'?overview(m,s):page==='forecast'?forecastView():budgetView(m)}<footer class="page-footer"><span>Un peu plus de liberté.</span><button data-action="history">Historique ${icon('arrow')}</button></footer></main></div>`;
+  syncPWA();cloud?.resume();
 }
 function heroMoney(value){return new Intl.NumberFormat('fr-FR',{maximumFractionDigits:2}).format(value);}
 // Checkpoints: balances only; movements are frozen separately to preserve past readings.
@@ -1360,7 +2129,7 @@ function showClosing(){const m=current();if(!m.closed)return;const c=calc(m),t=m
 function history(){const ms=Object.values(state.months).filter(m=>m.prepared).sort((a,b)=>b.key.localeCompare(a.key));openDialog('Mon historique',ms.length?`<p class="dialog-intro">Les budgets et les règles de chaque mois sont conservés.</p>${ms.map(m=>{const c=calc(getMonth(m.key));return `<button class="history-row" data-action="open-history" data-key="${m.key}"><div><strong>${esc(monthName(m.key))}</strong><span>${m.closed?'Clôturé':'En cours'} · Salaire ${eur(m.salary)}</span></div><div><strong>${eur(m.closed?m.closing.closingCA+m.closing.closingR:c.bufferEndPlan)}</strong><span>Tampon ${m.closed?'réel':'prévu'}</span></div>${icon('chevron')}</button>`;}).join('')}`:`<div class="empty-state">${icon('history')}<h3>Ton histoire commence ici.</h3><p>Prépare ton premier mois pour le retrouver dans cet espace.</p></div>`);}
 function trophies(){const s=stats(),awards=[['first','Premier cap','Préparer son premier mois.','spark'],['closed','Mois bouclé','Clôturer son premier mois.','check'],['regular','Bonne habitude','Clôturer trois mois.','history'],['goal','Une belle marge','Atteindre son objectif tampon à la clôture.','shield']];openDialog('Chaque petit pas compte',`<div class="progress-header"><div class="level-badge">${icon('trophy')}</div><div><span class="mini-label">NIVEAU ${s.level}</span><h3>${levelName(s.level)}</h3><p class="muted">${s.xp} points gagnés</p></div></div><div class="progress"><div class="progress-fill" style="width:${s.progress/150*100}%"></div></div><p class="help">Encore ${150-s.progress} points jusqu’au niveau suivant.</p><div class="trophy-grid">${awards.map(([id,title,desc,ic])=>`<div class="trophy ${state.achievements[id]?'unlocked':''}"><div>${icon(ic)}</div><strong>${title}</strong><p>${desc}</p><span>${state.achievements[id]?'Débloqué':'À découvrir'}</span></div>`).join('')}</div><div class="info-note">${icon('leaf')} +30 points par mois préparé, +70 par clôture, +100 pour ton objectif atteint. Les modifications ne rapportent pas de points supplémentaires. Utiliser ton tampon ne te pénalise pas.</div>`);}
 function moreMenu(){openDialog('À portée de main',`<div class="utility-menu"><button data-action="forecast">${icon('up')}<span>Prévisions sur les prochains mois</span>${icon('arrow')}</button><button data-action="history">${icon('history')}<span>Historique des mois</span>${icon('arrow')}</button><button data-action="trophies">${icon('trophy')}<span>Mes progrès</span><small>Niveau ${stats().level}</small></button><button data-action="settings">${icon('settings')}<span>Préférences & sauvegardes</span>${icon('arrow')}</button>${!demo?'<button data-action="demo">'+icon('spark')+'<span>Voir un exemple</span>'+icon('arrow')+'</button>':''}</div>`);}
-function settings(){openDialog('Mes préférences',`<div class="form-section"><h3>Marge sur cet appareil</h3><p class="help" data-pwa-status>${esc(pwaStatusText())}</p><div class="settings-buttons"><button class="btn secondary" data-action="install-app">${icon('download')} Installer Marge</button><button class="btn text-btn" data-action="check-update">Vérifier les mises à jour</button></div></div><div class="form-section"><h3>Affichage</h3><div class="settings-row"><div><strong>Mode sombre</strong><p class="help">Un affichage plus doux en soirée.</p></div><button class="btn secondary" data-action="theme">${icon('moon')} ${state.settings.theme==='dark'?'Activé':'Désactivé'}</button></div></div><div class="form-section"><h3>Mes données</h3><p class="help">La sauvegarde est automatique sur cet appareil. Téléphone et ordinateur ont chacun leurs données : utilise l’export et l’import pour les transférer. Aucune connexion bancaire n’est effectuée.</p><div class="settings-buttons"><button class="btn secondary" data-action="export">${icon('download')} Exporter une sauvegarde</button><button class="btn secondary" data-action="import">Importer une sauvegarde</button></div><p class="help">${state.lastExport?'Dernier export : '+new Date(state.lastExport).toLocaleString('fr-FR'):'Pense à exporter après une clôture mensuelle.'}</p>${loadError?'<button class="btn secondary" data-action="export-raw">Exporter la sauvegarde illisible</button>':''}</div><div class="form-section"><h3>Découvrir l’application</h3><button class="btn secondary" data-action="${demo?'exit-demo':'demo'}">${icon('spark')} ${demo?'Quitter la démonstration':'Ouvrir une démonstration'}</button></div><div class="form-section"><h3>Repartir de zéro</h3><p class="help">Efface les mois et les réglages de cet appareil. Exporte tes données avant de continuer.</p><button class="btn danger" data-action="reset-confirm">Réinitialiser mes données</button></div><p class="help version-line">Marge · Version 2.4 · Soldes et points d’étape</p>`);}
+function settings(){openDialog('Mes préférences',`${cloud?`<div class="form-section" data-cloud-panel>${cloud.panel()}</div>`:''}<div class="form-section"><h3>Marge sur cet appareil</h3><p class="help" data-pwa-status>${esc(pwaStatusText())}</p><div class="settings-buttons"><button class="btn secondary" data-action="install-app">${icon('download')} Installer Marge</button><button class="btn text-btn" data-action="check-update">Vérifier les mises à jour</button></div></div><div class="form-section"><h3>Affichage</h3><div class="settings-row"><div><strong>Mode sombre</strong><p class="help">Un affichage plus doux en soirée.</p></div><button class="btn secondary" data-action="theme">${icon('moon')} ${state.settings.theme==='dark'?'Activé':'Désactivé'}</button></div></div><div class="form-section"><h3>Mes données</h3><p class="help">Une copie reste enregistrée automatiquement sur cet appareil. Connecte le même compte Google sur tes appareils pour synchroniser tes budgets. L’export et l’import JSON restent disponibles. Aucune connexion bancaire n’est effectuée.</p><div class="settings-buttons"><button class="btn secondary" data-action="export">${icon('download')} Exporter une sauvegarde</button><button class="btn secondary" data-action="import">Importer une sauvegarde</button></div><p class="help">${state.lastExport?'Dernier export : '+new Date(state.lastExport).toLocaleString('fr-FR'):'Pense à exporter après une clôture mensuelle.'}</p>${loadError?'<button class="btn secondary" data-action="export-raw">Exporter la sauvegarde illisible</button>':''}</div><div class="form-section"><h3>Découvrir l’application</h3><button class="btn secondary" data-action="${demo?'exit-demo':'demo'}">${icon('spark')} ${demo?'Quitter la démonstration':'Ouvrir une démonstration'}</button></div><div class="form-section"><h3>Repartir de zéro</h3><p class="help">Efface les mois et les réglages de cet appareil. Exporte tes données avant de continuer.</p><button class="btn danger" data-action="reset-confirm">Réinitialiser mes données</button></div><p class="help version-line">Marge · Version 2.5 · Sauvegarde Google</p>`);}
 function exportData(raw=false){if(loadError&&!demo&&!raw)return exportData(true);const content=raw?localStorage.getItem(KEY)||'':JSON.stringify({...state,lastExport:new Date().toISOString()},null,2);download(content,`Marge_${raw?'recuperation':today()}_${new Date().toISOString().slice(0,10)}.json`,'application/json');if(!raw){state.lastExport=new Date().toISOString();if(!storageConflict)persist();toast('Sauvegarde exportée. Garde ce fichier en lieu sûr.');}}
 function download(content,name,type){const url=URL.createObjectURL(new Blob([content],{type})),a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
 function validateState(x){if(!x||x.version!==1||!x.settings||!Number.isFinite(x.settings.goal)||x.settings.goal<=0||x.settings.goal>1e9||!['light','dark'].includes(x.settings.theme)||!/^\d{4}-(0[1-9]|1[0-2])$/.test(x.selectedMonth)||!Array.isArray(x.plans)||!x.plans.length||!x.months||typeof x.months!=='object'||Array.isArray(x.months)||!x.achievements||typeof x.achievements!=='object')throw Error('Format de sauvegarde non reconnu.');if(x.incomePlan!==undefined)validateIncomePlan(x.incomePlan);if(x.plans.length>1200||Object.keys(x.months).length>1200)throw Error('Sauvegarde trop volumineuse.');for(const p of x.plans){if(!/^\d{4}-(0[1-9]|1[0-2])$/.test(p.from))throw Error('Date de budget invalide.');checkBudget(p.budget);const c=E.calculate({salary:0,openingCA:0,openingR:0,salaryIncluded:false,savingsOpening:0,budget:p.budget,rules:p.rules,useBuffer:false});if(c.errors.length)throw Error(c.errors.join(' '));}for(const [key,m] of Object.entries(x.months)){if(!/^\d{4}-(0[1-9]|1[0-2])$/.test(key)||m.key!==key||typeof m.prepared!=='boolean'||typeof m.closed!=='boolean'||!m.done||typeof m.done.r!=='boolean'||typeof m.done.savings!=='boolean')throw Error('Mois invalide dans la sauvegarde.');if(m.forecast!==undefined&&typeof m.forecast!=='boolean')throw Error('Prévision mensuelle invalide.');if(m.salaryReference!==undefined)validateIncomeEntry(m.salaryReference);if(m.carry!==undefined&&(!m.carry||typeof m.carry!=='object'||Array.isArray(m.carry)||typeof m.carry.buffer!=='boolean'||typeof m.carry.savings!=='boolean'))throw Error('Reports mensuels invalides.');if(m.executed!==undefined){if(!m.executed||typeof m.executed!=='object'||Array.isArray(m.executed)||!['r','savings'].every(id=>typeof m.executed[id]==='number'&&Number.isFinite(m.executed[id])&&Math.abs(m.executed[id])<=1e9&&Math.abs(m.executed[id]*100-Math.round(m.executed[id]*100))<1e-6)||m.executed.savings<0)throw Error('Historique des virements invalide.');}const checkpointErrors=E.validateCheckpoints(m);if(checkpointErrors.length)throw Error(checkpointErrors.join(' '));checkBudget(m.budget);const c=E.calculate(m);if(c.errors.length)throw Error(c.errors.join(' '));if(m.closed){if(!m.prepared||!m.closing)throw Error('Clôture invalide.');const r=E.closeMonth(m,m.closing);if(r.errors.length)throw Error(r.errors.join(' '));}}M.validateReports(x);}
@@ -1398,21 +2167,23 @@ function importIncomePlan(){
 
 function checkBudget(b){if(!Array.isArray(b)||b.length>300)throw Error('Liste de dépenses invalide.');const ids=new Set();for(const r of b){if(typeof r.id!=='string'||!/^[A-Za-z0-9_-]{1,100}$/.test(r.id)||ids.has(r.id)||typeof r.name!=='string'||r.name.length>80||!['ca','r'].includes(r.account)||typeof r.enabled!=='boolean')throw Error('Dépense invalide.');ids.add(r.id);}}
 let pendingImport=null,pendingIncomePlan=null;
-$('#import-file').addEventListener('change',async ev=>{const file=ev.target.files[0];ev.target.value='';if(!file)return;if(file.size>5e6)return toast('Le fichier dépasse la limite de 5 Mo.',true);try{const parsed=JSON.parse(await file.text());if(parsed.kind==='marge-income-plan'){showIncomeImport(parsed);return;}pendingImport=parsed;validateState(pendingImport);openDialog('Remplacer mes données ?',`<p>Cette sauvegarde contient <strong>${Object.keys(pendingImport.months).length} mois</strong>. Elle remplacera les données actuelles de cet appareil.</p><p class="help">Exporte d’abord tes données actuelles si tu souhaites les conserver.</p>`,`<button class="btn secondary" data-action="export">Exporter avant remplacement</button><button class="btn primary" data-action="confirm-import">Importer ces données</button>`);}catch(e){pendingImport=null;toast(`Import refusé : ${e.message}`,true);}});
+$('#import-file').addEventListener('change',async ev=>{const file=ev.target.files[0];ev.target.value='';if(!file)return;if(file.size>5e6)return toast('Le fichier dépasse la limite de 5 Mo.',true);try{const parsed=JSON.parse(await file.text());if(parsed.kind==='marge-income-plan'){showIncomeImport(parsed);return;}pendingImport=parsed;validateState(pendingImport);openDialog('Remplacer mes données ?',`<p>Cette sauvegarde contient <strong>${Object.keys(pendingImport.months).length} mois</strong>. Elle remplacera les données actuelles de cet appareil${cloud?.status().user?", puis sera synchronisée avec ton compte Google":""}.</p><p class="help">Exporte d’abord tes données actuelles si tu souhaites les conserver.</p>`,`<button class="btn secondary" data-action="export">Exporter avant remplacement</button><button class="btn primary" data-action="confirm-import">Importer ces données</button>`);}catch(e){pendingImport=null;toast(`Import refusé : ${e.message}`,true);}});
 function startDemo(){if(dirty)return toast('Enregistre ton budget avant d’ouvrir la démonstration.',true);state=fresh();demo=true;state.selectedMonth=today();const b=blankBudget(),amounts=[950,180,120,250,55,350,195,100];b.forEach((x,i)=>x.amount=amounts[i]);state.plans[0].budget=clone(b);const m={...getMonth(),prepared:true,salary:3000,openingCA:450,openingR:150,savingsOpening:4800,budget:b};state.months[m.key]=m;state.achievements.first=true;draft=null;page='overview';dialog.close();render();}
 function leaveDemo(){state=persistent;demo=false;draft=null;dirty=false;page='overview';dialog.close();render();}
 function navigate(p){if(dirty&&p!==page)return toast('Enregistre les modifications du budget avant de changer de vue.',true);page=p;render();window.scrollTo({top:0,behavior:'instant'});}
 function changeMonth(key){if(dirty)return toast('Enregistre le budget avant de changer de mois.',true);if(!/^\d{4}-(0[1-9]|1[0-2])$/.test(key))return;state.selectedMonth=key;draft=null;if(!loadError&&!storageConflict)persist();dialog.close();render();}
 const writeActions=new Set(['save-checkpoint','save-month','save-budget','save-closing','reopen','confirm-buffer','cancel-buffer','toggle-done','save-goal','theme','confirm-import','confirm-income-import','reset']);
-async function action(name,el){if(writeActions.has(name)&&writesBlocked(name==='reset'||name==='confirm-import'))return;const m=current();switch(name){case'checkpoint':checkpointDialog();break;case'repair-checkpoint':checkpointDialog(true);break;case'save-checkpoint':saveCheckpoint();break;case'more':moreMenu();break;case'forecast':dialog.close();navigate('forecast');break;case'confirm-income-import':importIncomePlan();break;case'forecast-start':changeMonth(today());navigate('overview');prepare();break;case'overview':navigate('overview');break;case'budget':navigate('budget');break;case'prev-month':changeMonth(moveMonth(state.selectedMonth,-1));break;case'next-month':changeMonth(moveMonth(state.selectedMonth,1));break;case'choose-month':openDialog('Choisir un mois',`<label class="field"><span>Mois à consulter</span><input id="month-choice" type="month" value="${state.selectedMonth}"></label>`,`<button class="btn primary" data-action="select-month">Afficher ce mois</button>`);break;case'select-month':changeMonth($('#month-choice').value);break;case'prepare':prepare();break;case'save-month':saveMonth();break;case'close-dialog':dialog.close();break;case'close-month':closeMonthDialog();break;case'save-closing':saveClosing();break;case'show-closing':showClosing();break;case'reopen':if(!Object.values(state.months).some(o=>o.key>m.key&&o.prepared&&(!o.forecast||o.closed))){m.closed=false;delete m.closing;commitMonth(m);dialog.close();render();toast('Mois rouvert. Tu peux corriger puis clôturer à nouveau.');}break;case'use-buffer':if(m.closed)return;openDialog('Utiliser une partie du tampon',`<p>Pour maintenir tes budgets, <strong>${eur(Math.min(calc(m).deficit,calc(m).bufferAvailable))}</strong> seront pris sur ta réserve.</p><p class="help">Le reste disponible sera affiché séparément. Aucun versement d’épargne ni bonus ne sera prévu pendant ce déficit.</p>`,`<button class="btn secondary" data-action="close-dialog">Annuler</button><button class="btn primary" data-action="confirm-buffer">Utiliser le tampon</button>`);break;case'confirm-buffer':m.useBuffer=true;m.done={r:false,savings:false};commitMonth(m);dialog.close();render();break;case'cancel-buffer':m.useBuffer=false;m.done={r:false,savings:false};commitMonth(m);render();break;case'toggle-done':if(!m.closed&&['r','savings'].includes(el.dataset.id)){const id=el.dataset.id,o=operation(m,id);m.executed={r:0,savings:0,...m.executed};m.executed[id]=o.complete?0:o.target;m.done[id]=!o.complete;commitMonth(m);render();}break;case'budget-ca':budgetAccount='ca';render();break;case'budget-r':budgetAccount='r';render();break;case'add-line':if(!m.closed){if(draft.budget.length>=300)return toast('Le budget contient déjà 300 postes.',true);draft.budget.push({id:uid(),account:el.dataset.account,name:'',category:'Autres',amount:0,enabled:true});dirty=true;render();const rows=app.querySelectorAll(`.budget-panel.${el.dataset.account} .name-input`);rows[rows.length-1]?.focus();}break;case'remove-line':if(!m.closed){draft.budget=draft.budget.filter(b=>b.id!==el.dataset.id);dirty=true;render();}break;case'preset':if(!m.closed){const sets={buffer:[70,0,30],balance:[60,20,20],available:[90,10,0]},[r,ca,t]=sets[el.dataset.id];Object.assign(draft.rules,{rPct:r,caPct:ca,tPct:t});dirty=true;render();const fold=app.querySelector('.rules-fold');if(fold)fold.open=true;}break;case'save-budget':saveBudget();break;case'goal':openDialog('Mon objectif tampon',`<p class="dialog-intro">Choisis la réserve avec laquelle tu te sentiras à l’aise. Tu peux la faire évoluer à tout moment.</p>${numberField('goal','Objectif à atteindre',state.settings.goal)}<div class="form-error banner warning hidden"></div>`,`<button class="btn primary" data-action="save-goal">Enregistrer mon objectif</button>`);break;case'save-goal':{const value=fieldValue('goal');if(!Number.isFinite(value)||value<=0||value>1e9||round(value)!==value)return errorBox('Indique un montant positif, avec deux décimales maximum.');state.settings.goal=value;award();persist();dialog.close();render();break;}case'history':history();break;case'open-history':changeMonth(el.dataset.key);navigate('overview');break;case'trophies':trophies();break;case'settings':settings();break;case'install-app':await installApp();break;case'check-update':await window.MargePWA?.checkForUpdates(true);refreshPWAStatus();break;case'theme':state.settings.theme=state.settings.theme==='dark'?'light':'dark';persist();render();settings();break;case'export':exportData();break;case'export-raw':exportData(true);break;case'import':$('#import-file').click();break;case'confirm-import':if(pendingImport){const previous={state,persistent,demo,loadError};state=normalizeTransfers(pendingImport);demo=false;loadError=false;if(!persist()){state=previous.state;persistent=previous.persistent;demo=previous.demo;loadError=previous.loadError;render();return;}pendingImport=null;dirty=false;draft=null;page='overview';dialog.close();render();toast('Sauvegarde importée. Tes mois sont restaurés.');}break;case'demo':startDemo();break;case'exit-demo':leaveDemo();break;case'reset-confirm':openDialog('Réinitialiser cet appareil ?',`<p>Tous les mois, budgets et réglages seront supprimés de cet appareil.</p><label class="field"><span>Écris EFFACER pour confirmer</span><input id="reset-word" autocomplete="off" placeholder="EFFACER"></label>`,`<button class="btn secondary" data-action="close-dialog">Annuler</button><button class="btn danger" data-action="reset">Effacer les données</button>`);break;case'reset':if($('#reset-word').value!=='EFFACER')return toast('Écris EFFACER pour confirmer.',true);{const previous={state,persistent,loadError};state=fresh();loadError=false;if(!persist()){state=previous.state;persistent=previous.persistent;loadError=previous.loadError;render();return;}dirty=false;draft=null;page='overview';dialog.close();render();toast('Tu peux préparer ton premier mois.');}break;}}
+async function action(name,el){if(writeActions.has(name)&&writesBlocked(name==='reset'||name==='confirm-import'))return;const m=current();switch(name){case'cloud':cloudDialog();break;case'cloud-login':case'cloud-logout':case'cloud-sync':case'cloud-retry':case'cloud-use-local':case'cloud-use-remote':await cloudAction(name,el);break;case'checkpoint':checkpointDialog();break;case'repair-checkpoint':checkpointDialog(true);break;case'save-checkpoint':saveCheckpoint();break;case'more':moreMenu();break;case'forecast':dialog.close();navigate('forecast');break;case'confirm-income-import':importIncomePlan();break;case'forecast-start':changeMonth(today());navigate('overview');prepare();break;case'overview':navigate('overview');break;case'budget':navigate('budget');break;case'prev-month':changeMonth(moveMonth(state.selectedMonth,-1));break;case'next-month':changeMonth(moveMonth(state.selectedMonth,1));break;case'choose-month':openDialog('Choisir un mois',`<label class="field"><span>Mois à consulter</span><input id="month-choice" type="month" value="${state.selectedMonth}"></label>`,`<button class="btn primary" data-action="select-month">Afficher ce mois</button>`);break;case'select-month':changeMonth($('#month-choice').value);break;case'prepare':prepare();break;case'save-month':saveMonth();break;case'close-dialog':dialog.close();break;case'close-month':closeMonthDialog();break;case'save-closing':saveClosing();break;case'show-closing':showClosing();break;case'reopen':if(!Object.values(state.months).some(o=>o.key>m.key&&o.prepared&&(!o.forecast||o.closed))){m.closed=false;delete m.closing;commitMonth(m);dialog.close();render();toast('Mois rouvert. Tu peux corriger puis clôturer à nouveau.');}break;case'use-buffer':if(m.closed)return;openDialog('Utiliser une partie du tampon',`<p>Pour maintenir tes budgets, <strong>${eur(Math.min(calc(m).deficit,calc(m).bufferAvailable))}</strong> seront pris sur ta réserve.</p><p class="help">Le reste disponible sera affiché séparément. Aucun versement d’épargne ni bonus ne sera prévu pendant ce déficit.</p>`,`<button class="btn secondary" data-action="close-dialog">Annuler</button><button class="btn primary" data-action="confirm-buffer">Utiliser le tampon</button>`);break;case'confirm-buffer':m.useBuffer=true;m.done={r:false,savings:false};commitMonth(m);dialog.close();render();break;case'cancel-buffer':m.useBuffer=false;m.done={r:false,savings:false};commitMonth(m);render();break;case'toggle-done':if(!m.closed&&['r','savings'].includes(el.dataset.id)){const id=el.dataset.id,o=operation(m,id);m.executed={r:0,savings:0,...m.executed};m.executed[id]=o.complete?0:o.target;m.done[id]=!o.complete;commitMonth(m);render();}break;case'budget-ca':budgetAccount='ca';render();break;case'budget-r':budgetAccount='r';render();break;case'add-line':if(!m.closed){if(draft.budget.length>=300)return toast('Le budget contient déjà 300 postes.',true);draft.budget.push({id:uid(),account:el.dataset.account,name:'',category:'Autres',amount:0,enabled:true});dirty=true;render();const rows=app.querySelectorAll(`.budget-panel.${el.dataset.account} .name-input`);rows[rows.length-1]?.focus();}break;case'remove-line':if(!m.closed){draft.budget=draft.budget.filter(b=>b.id!==el.dataset.id);dirty=true;render();}break;case'preset':if(!m.closed){const sets={buffer:[70,0,30],balance:[60,20,20],available:[90,10,0]},[r,ca,t]=sets[el.dataset.id];Object.assign(draft.rules,{rPct:r,caPct:ca,tPct:t});dirty=true;render();const fold=app.querySelector('.rules-fold');if(fold)fold.open=true;}break;case'save-budget':saveBudget();break;case'goal':openDialog('Mon objectif tampon',`<p class="dialog-intro">Choisis la réserve avec laquelle tu te sentiras à l’aise. Tu peux la faire évoluer à tout moment.</p>${numberField('goal','Objectif à atteindre',state.settings.goal)}<div class="form-error banner warning hidden"></div>`,`<button class="btn primary" data-action="save-goal">Enregistrer mon objectif</button>`);break;case'save-goal':{const value=fieldValue('goal');if(!Number.isFinite(value)||value<=0||value>1e9||round(value)!==value)return errorBox('Indique un montant positif, avec deux décimales maximum.');state.settings.goal=value;award();persist();dialog.close();render();break;}case'history':history();break;case'open-history':changeMonth(el.dataset.key);navigate('overview');break;case'trophies':trophies();break;case'settings':settings();break;case'install-app':await installApp();break;case'check-update':await window.MargePWA?.checkForUpdates(true);refreshPWAStatus();break;case'theme':state.settings.theme=state.settings.theme==='dark'?'light':'dark';persist();render();settings();break;case'export':exportData();break;case'export-raw':exportData(true);break;case'import':$('#import-file').click();break;case'confirm-import':if(pendingImport){const previous={state,persistent,demo,loadError};state=normalizeTransfers(pendingImport);demo=false;loadError=false;if(!persist()){state=previous.state;persistent=previous.persistent;demo=previous.demo;loadError=previous.loadError;render();return;}pendingImport=null;dirty=false;draft=null;page='overview';dialog.close();render();toast('Sauvegarde importée. Tes mois sont restaurés.');}break;case'demo':startDemo();break;case'exit-demo':leaveDemo();break;case'reset-confirm':if(cloud?.status().user)return toast('Déconnecte-toi de Google avant de réinitialiser cet appareil. La sauvegarde Google sera conservée.',true);openDialog('Réinitialiser cet appareil ?',`<p>Tous les mois, budgets et réglages seront supprimés de cet appareil.</p><label class="field"><span>Écris EFFACER pour confirmer</span><input id="reset-word" autocomplete="off" placeholder="EFFACER"></label>`,`<button class="btn secondary" data-action="close-dialog">Annuler</button><button class="btn danger" data-action="reset">Effacer les données</button>`);break;case'reset':if(cloud?.status().user)return toast('Déconnecte-toi de Google avant de réinitialiser cet appareil.',true);if($('#reset-word').value!=='EFFACER')return toast('Écris EFFACER pour confirmer.',true);if(cloud&&cloud.forgetLocalReference()!==true)return toast('Impossible de dissocier la sauvegarde Google. Les données de cet appareil sont conservées.',true);{const previous={state,persistent,loadError};state=fresh();loadError=false;if(!persist()){state=previous.state;persistent=previous.persistent;loadError=previous.loadError;render();return;}dirty=false;draft=null;page='overview';dialog.close();render();toast('Tu peux préparer ton premier mois.');}break;}}
 for(const root of [app,dialog])root.addEventListener('click',ev=>{const el=ev.target.closest('[data-action]');if(!el)return;ev.preventDefault();action(el.dataset.action,el);});
 app.addEventListener('input',ev=>{const el=ev.target;if(current().closed)return;if(el.dataset.budgetId){const b=draft.budget.find(b=>b.id===el.dataset.budgetId),p=el.dataset.prop;if(b){b[p]=p==='enabled'?el.checked:p==='amount'?num(el.value):el.value;refreshDraft();}}if(el.dataset.rule){draft.rules[el.dataset.rule]=num(el.value);app.querySelectorAll('.preset').forEach(p=>p.classList.remove('active'));refreshDraft();}});
 dialog.addEventListener('input',ev=>{if(activeForm==='checkpoint')updateCheckpointPreview();if(activeForm==='month')syncCarryFields(ev.target.name);if(activeForm==='closing'){const a=fieldValue('closingCA'),b=fieldValue('closingR');const el=$('#close-preview');if(el)el.textContent=`Nouveau tampon : ${Number.isFinite(a+b)?eur(a+b):'—'}`;}});
 dialog.addEventListener('submit',e=>{e.preventDefault();if(activeForm==='month')saveMonth();if(activeForm==='checkpoint')saveCheckpoint();});
-dialog.addEventListener('close',syncPWA);
+dialog.addEventListener('close',()=>{syncPWA();cloud?.resume();});
+window.addEventListener('online',()=>cloud?.retryOnline());
 window.addEventListener('marge:pwa-status',refreshPWAStatus);
 window.addEventListener('beforeunload',e=>{if(dirty){e.preventDefault();e.returnValue='';}});
 window.addEventListener('storage',e=>{if(e.key===KEY||e.key===null){storageConflict=true;if(!demo){render();toast('Les données ont changé dans un autre onglet. Cette page est en lecture seule jusqu’au rechargement.',true);}}});
+initializeCloud();
 render();
 })();
 </script>

@@ -10,7 +10,7 @@ import re
 p = Path(__file__).parent
 dist = p / 'dist'
 template = (p / 'template.html').read_text(encoding='utf-8')
-sources = [('STYLES', 'styles.css'), ('ENGINE', 'engine.js'), ('MONTHS', 'months.js'), ('PWA', 'pwa.js'), ('APP', 'app.js')]
+sources = [('STYLES', 'styles.css'), ('ENGINE', 'engine.js'), ('MONTHS', 'months.js'), ('PWA', 'pwa.js'), ('FIREBASE_CONFIG', 'firebase-config.js'), ('FIREBASE', 'firebase.js'), ('CLOUD_SYNC', 'cloud-sync.js'), ('CLOUD_UI', 'cloud-ui.js'), ('APP', 'app.js')]
 worker = (dist / 'sw.js').read_text(encoding='utf-8')
 worker = re.sub(r"const APP_VERSION = '[^']*';", "const APP_VERSION = '__MARGE_BUILD_VERSION__';", worker, count=1)
 digest = hashlib.sha256()

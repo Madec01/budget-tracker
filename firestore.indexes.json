@@ -1,0 +1,10 @@
+{
+  "indexes": [],
+  "fieldOverrides": [
+    {
+      "collectionGroup": "apps",
+      "fieldPath": "payload",
+      "indexes": []
+    }
+  ]
+}

@@ -205,3 +205,79 @@ body[data-theme=dark] .pacing-marker{box-shadow:0 0 0 1px var(--panel)}
   .checkpoint-preview-row{grid-template-columns:minmax(0,1fr) auto auto;gap:6px}
   .checkpoint-repair-note .inline-link{font-size:10px}
 }
+
+/* Sync stays a quiet status control; account and recovery details live in settings. */
+.header-tools{display:flex;align-items:center;gap:9px;flex-shrink:0}
+.cloud-button{position:relative;display:inline-flex;align-items:center;justify-content:center;gap:7px;min-width:44px;min-height:44px;padding:9px 12px;border:1px solid var(--line);border-radius:5px;background:transparent;color:var(--muted);font-size:11px;font-weight:500;line-height:1.4;white-space:nowrap;flex-shrink:0;transition:background .15s,border-color .15s}
+.cloud-button > svg{width:17px;height:17px}
+.cloud-button:hover{background:var(--soft);border-color:var(--panel-line)}
+.cloud-button.is-ok,.cloud-button.ok,.cloud-button[data-state="synced"],.cloud-button[data-state="connected"]{color:var(--ca)}
+.cloud-button.is-pending,.cloud-button.pending,.cloud-button[data-state="pending"],.cloud-button[data-state="syncing"],.cloud-button[data-state="offline"]{color:var(--warning)}
+.cloud-button.is-error,.cloud-button.error,.cloud-button[data-state="error"],.cloud-button[data-state="conflict"]{color:var(--danger)}
+.cloud-button:is(.is-ok,.ok,.is-pending,.pending,.is-error,.error,[data-state="synced"],[data-state="connected"],[data-state="pending"],[data-state="syncing"],[data-state="offline"],[data-state="error"],[data-state="conflict"])::after{content:"";width:5px;height:5px;border-radius:50%;background:currentColor;flex-shrink:0}
+.cloud-summary{min-width:0;margin:14px 0 0;padding:17px 18px;border:1px solid var(--line);border-radius:4px;background:var(--soft)}
+.cloud-summary > h3{margin:0 0 11px;font-size:13px;font-weight:550}
+.cloud-identity{min-width:0;color:var(--ink);font-size:13px;line-height:1.6;overflow-wrap:anywhere}
+.cloud-identity strong{display:block;font-size:14px;font-weight:550}
+.cloud-identity > span,.cloud-identity > small,.cloud-identity p{display:block;margin:3px 0 0;color:var(--muted);font-size:11px;line-height:1.65}
+.cloud-status-detail{margin:12px 0 0;color:var(--muted);font-size:11px;line-height:1.8;overflow-wrap:anywhere}
+.cloud-status-detail strong{color:var(--ink);font-weight:500}
+.cloud-status-detail small,.cloud-status-detail time{display:block;margin-top:4px;font-size:10px;color:var(--muted)}
+.cloud-status-detail.is-error,.cloud-status-detail.error{color:var(--danger)}
+.cloud-status-detail.is-pending,.cloud-status-detail.pending{color:var(--warning)}
+.cloud-status-detail.is-ok,.cloud-status-detail.ok{color:var(--ca)}
+.cloud-actions{display:flex;align-items:center;flex-wrap:wrap;gap:9px;margin-top:16px}
+.cloud-actions .btn{min-height:44px;font-size:12px}
+.cloud-actions .inline-link{min-height:44px;padding:10px 0;font-size:11px}
+.cloud-choice{min-width:0;margin-top:17px;padding:15px 16px;border:1px solid var(--panel-line);border-left:3px solid var(--warning);border-radius:3px;background:var(--panel);color:var(--ink);font-size:12px;line-height:1.75}
+.cloud-choice > strong,.cloud-choice h3{display:block;margin:0 0 6px;font-size:13px;font-weight:550}
+.cloud-choice p{margin:6px 0 0;color:var(--muted);font-size:11px}
+.cloud-choice .cloud-actions{align-items:stretch;margin-top:14px}
+.cloud-choice .btn{min-height:44px;white-space:normal;text-align:center;font-size:11px}
+.cloud-choice > .btn{margin-top:12px}
+.cloud-choice > .btn + .btn{margin-left:5px}
+.cloud-note{margin:12px 0 0;color:var(--muted);font-size:11px;line-height:1.75;overflow-wrap:anywhere}
+.cloud-note svg{width:13px;height:13px;margin-right:4px;vertical-align:-2px}
+.cloud-note strong{color:var(--ink);font-weight:500}
+.cloud-note code{font-size:10px;overflow-wrap:anywhere}
+.cloud-summary.is-unconfigured,.cloud-summary[data-state="unconfigured"]{background:transparent}
+.cloud-summary.is-unconfigured .cloud-status-detail,.cloud-summary[data-state="unconfigured"] .cloud-status-detail{margin-top:7px}
+.google-signin,.btn.google-signin{display:inline-flex;align-items:center;justify-content:center;gap:11px;min-height:44px;padding:10px 17px;border:1px solid #747775;border-radius:5px;background:#fff;color:#1f1f1f;font-size:13px;font-weight:500;line-height:1.4;box-shadow:none}
+.google-signin:hover,.btn.google-signin:hover{background:#f3f4f3;border-color:#555957;color:#1f1f1f}
+.google-mark,.google-signin > .google-g{display:inline-grid;place-items:center;flex-shrink:0;width:19px;height:19px;color:#4285f4;font-family:Arial,sans-serif;font-size:19px;font-weight:700;line-height:1}
+.google-signin:disabled{background:var(--soft);border-color:var(--line);color:var(--muted);opacity:.6}
+@media(max-width:700px){
+  .header-inner:has(.cloud-button){padding-inline:18px;gap:10px}
+  .header-inner:has(.cloud-button) .wordmark{font-size:30px}
+  .header-inner:has(.cloud-button) .primary-nav{gap:18px}
+  .header-inner:has(.cloud-button) .primary-nav button{font-size:12px}
+  .header-tools{gap:5px}
+  .cloud-button{width:44px;min-width:44px;min-height:44px;padding:10px;gap:0}
+  .cloud-button > span:not(.cloud-status-dot){display:none}
+  .cloud-button::after{position:absolute;right:7px;bottom:7px;box-shadow:0 0 0 2px var(--paper)}
+  .cloud-button > svg{width:18px;height:18px}
+}
+@media(max-width:560px){
+  .cloud-summary{padding:15px}
+  .cloud-identity strong{font-size:13px}
+  .cloud-status-detail,.cloud-note{font-size:11px}
+  .cloud-actions{align-items:stretch;gap:8px}
+  .cloud-actions .btn{flex:1 1 150px}
+  .cloud-actions .google-signin{flex-basis:100%}
+  .cloud-choice{padding:13px}
+  .cloud-choice > .btn{width:100%}
+  .cloud-choice > .btn + .btn{margin-left:0;margin-top:8px}
+}
+@media(max-width:370px){
+  .header-inner:has(.cloud-button){padding-inline:12px;gap:6px}
+  .header-inner:has(.cloud-button) .wordmark{font-size:26px}
+  .header-inner:has(.cloud-button) .primary-nav{gap:8px}
+  .header-inner:has(.cloud-button) .primary-nav button{font-size:10.5px;padding-inline:2px}
+  .header-tools{gap:4px}
+}
+@media(max-width:330px){
+  .header-inner:has(.cloud-button){gap:4px}
+  .header-inner:has(.cloud-button) .primary-nav{gap:6px}
+  .header-inner:has(.cloud-button) .primary-nav button{font-size:10px}
+}
+@media(prefers-reduced-motion:reduce){.cloud-button{transition:none}}
