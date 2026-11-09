@@ -31,6 +31,36 @@ Le Livret A et le tampon se reportent indépendamment. Dans **Ajuster mon mois**
 
 Les projections démarrent après un point de départ réellement préparé avec un budget valide. Elles supposent que les budgets sont dépensés ; intérêts, opérations exceptionnelles et hausses de salaire ne sont pas inventés. Le fichier de calendrier personnel est indépendant du code et ne doit jamais être ajouté au dépôt.
 
+## Points d’étape : suivre sans saisir les dépenses
+
+Dans **Vue d’ensemble → Mes comptes ce mois-ci → Faire le point**, saisir uniquement les soldes actuels du CA et de Revolut, tampon compris. Deux ou trois relevés dans le mois suffisent pour un repère ponctuel. Les champs reprennent le dernier relevé, ou les soldes d’ouverture s’il n’y en a pas. Un nouveau point le même jour corrige le précédent ; les autres jours sont conservés.
+
+Le mois doit être préparé, son salaire confirmé et son budget validé. Les nouveaux points sont saisis pendant le mois courant, avant clôture. Les mois passés restent consultables et les mois futurs restent prévisionnels.
+
+Chaque compte affiche le montant net consommé et son pourcentage du budget utilisable, surplus compris. La barre conserve la couleur du compte ; elle devient rouge si la consommation dépasse la part du mois écoulée. Le trait représente le jour courant inclus : jour / nombre de jours du mois. Il est à 100 % pour un mois passé et à 0 % pour un mois futur. Le pourcentage réel reste visible au-delà de 100 %, même si la barre est bornée. Un compte sans budget affiche « Sans budget » ; aucun pourcentage trompeur n’est calculé.
+
+**Pointer les virements réellement réalisés avant de relever les comptes.** Les montants de `executed` sont figés pour chaque point, afin qu’un virement effectué plus tard ne change pas le relevé précédent. Les formules en centimes sont :
+
+- CA consommé = ouverture CA hors salaire + salaire reçu − virement net vers Revolut − épargne virée − solde CA relevé.
+- Revolut consommé = ouverture Revolut + virement net reçu du CA − solde Revolut relevé.
+
+Un retour Revolut → CA est un virement négatif ; il est neutralisé de la même façon. L’option « salaire déjà inclus » évite de compter le salaire deux fois. Le Livret A initial n’est pas une dépense. Le tampon reste dans les soldes et s’annule naturellement dans le calcul.
+
+Cette mesure correspond à des **sorties nettes** : remboursements et autres entrées réduisent la consommation calculée. Si le résultat est négatif, l’interface affiche des entrées nettes et une barre à zéro. Une jauge rapide sur CA peut simplement refléter des charges fixes prélevées en début de mois : c’est un repère, pas une prévision de découvert. La date du dernier relevé reste affichée ; les dépenses faites depuis ne sont pas connues.
+
+Les points ne modifient ni les budgets, ni les soldes d’ouverture, ni les reports du tampon et du Livret A. La clôture reste l’endroit où enregistrer les soldes réels de fin de mois.
+
+### Structure et emplacement du code
+
+Les nouveaux mois contiennent `checkpoints: []`. Chaque relevé respecte `{date, balanceCA, balanceR}`, avec une date ISO locale `YYYY-MM-DD`. Le champ facultatif `checkpointTransfers[date] = {r, savings}` conserve les virements cumulés pointés à cette date. L’import accepte les anciennes sauvegardes sans ces champs et valide les dates, les montants et les liens entre relevés et virements. Les points importés sans instantané des virements utilisent les montants pointés actuels comme repli ; une nouvelle saisie fige leur référence.
+
+- `dist/engine.js` : fonctions pures `validateCheckpoints`, `elapsedMonthPct`, `checkpointTracking`, ajoutées à l’export de `BudgetEngine`.
+- `dist/months.js` : `checkpoints: []` dans le nouvel objet créé par `resolveCandidate`.
+- `dist/app.js` : `checkpointDialog`, `saveCheckpoint`, `checkpointGauge` avant `overview` ; bouton et cartes dans `overview` ; validation dans `validateState` ; actions `checkpoint` / `save-checkpoint` et soumission du formulaire.
+- `dist/styles.css` : bloc final « Account checkpoints », pour les cartes, les jauges, les marqueurs et les champs monétaires.
+
+Le `index.html` racine reste autonome et contient tous ces blocs CSS/JS. Modifier les sources ci-dessus puis exécuter `python3 publish.py` régénère ce fichier et la version PWA ; ne pas modifier uniquement la copie générée.
+
 ## Répartition
 
 - Reste hors budget = salaire − budget CA − budget Revolut.

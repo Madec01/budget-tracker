@@ -295,3 +295,272 @@ test('the same implementation exposes BudgetEngine in a standalone browser scrip
   assert.equal(typeof sandbox.BudgetEngine.closeMonth, 'function');
   assert.equal(sandbox.BudgetEngine.calculate(month()).savingsAdd, 480);
 });
+
+const checkpoint = (date, balanceCA, balanceR) => ({ date, balanceCA, balanceR });
+function observed(overrides = {}) {
+  return month({ key: '2026-11',
+    checkpoints: [checkpoint('2026-11-09', 1336, 384)],
+    checkpointTransfers: { '2026-11-09': { r: 584, savings: 480 } },
+    executed: { r: 584, savings: 480 }, ...overrides });
+}
+
+test('checkpoint consumption neutralizes actual CA/Revolut and CA/savings transfers', () => {
+  const m = observed();
+  const r = Engine.checkpointTracking(m, '2026-11-09');
+  assert.equal(r.valid, true);
+  assert.equal(r.elapsedPct, 30);
+  assert.equal(r.transferSnapshotSource, 'checkpoint');
+  assert.equal(r.accounts.ca.spent, 1000);
+  assert.equal(r.accounts.r.spent, 400);
+  assert.equal(r.accounts.ca.budget, 1700);
+  assert.equal(r.accounts.r.budget, 784);
+  assert.equal(r.accounts.ca.remaining, 700);
+  assert.equal(r.accounts.r.remaining, 384);
+  assert.equal(r.accounts.ca.ahead, true);
+  assert.equal(r.accounts.ca.spentPct, 1000 / 1700 * 100);
+  assert.equal(cents(r.accounts.ca.spent) + cents(r.accounts.r.spent),
+    cents(600 + 3000 - 480 - 1336 - 384));
+});
+
+test('a snapshot freezes transfer effects when later transfers are marked complete', () => {
+  const m = observed();
+  const before = Engine.checkpointTracking(m, '2026-11-09');
+  m.executed = { r: 900, savings: 700 };
+  const after = Engine.checkpointTracking(m, '2026-11-09');
+  assert.deepEqual(after.accounts, before.accounts);
+  assert.deepEqual(after.transferSnapshot, { r: 584, savings: 480 });
+});
+
+test('missing snapshots explicitly fall back to executed amounts, including legacy zero', () => {
+  const m = observed({ checkpointTransfers: undefined, executed: { r: 900, savings: 700 } });
+  let r = Engine.checkpointTracking(m, '2026-11-09');
+  assert.equal(r.transferSnapshotSource, 'executed-fallback');
+  assert.equal(r.accounts.ca.spent, 464);
+  assert.equal(r.accounts.r.spent, 716);
+  delete m.executed;
+  r = Engine.checkpointTracking(m, '2026-11-09');
+  assert.deepEqual(r.transferSnapshot, { r: 0, savings: 0 });
+  assert.equal(r.accounts.ca.spent, 2064);
+  assert.equal(r.accounts.r.spent, -184);
+});
+
+test('reverse Revolut and savings movements are neutralized with their signed amounts', () => {
+  const returned = observed({ openingR: 1000,
+    checkpoints: [checkpoint('2026-11-09', 2136, 484)],
+    checkpointTransfers: { '2026-11-09': { r: -216, savings: 480 } } });
+  let r = Engine.checkpointTracking(returned, '2026-11-09');
+  assert.equal(r.accounts.ca.spent, 1000);
+  assert.equal(r.accounts.r.spent, 300);
+  const withdrawal = observed({
+    checkpoints: [checkpoint('2026-11-09', 3350, 280)],
+    checkpointTransfers: { '2026-11-09': { r: 100, savings: -100 } } });
+  r = Engine.checkpointTracking(withdrawal, '2026-11-09');
+  assert.equal(r.accounts.ca.spent, 50);
+  assert.equal(r.accounts.r.spent, 20);
+});
+
+test('salary already included in the opening CA balance is counted exactly once', () => {
+  const before = Engine.checkpointTracking(observed(), '2026-11-09');
+  const included = Engine.checkpointTracking(observed({ openingCA: 3400, salaryIncluded: true }), '2026-11-09');
+  assert.deepEqual(included.accounts, before.accounts);
+});
+
+test('budget percentages use both CA and Revolut surplus additions', () => {
+  const m = observed({ rules: { ...month().rules, caPct: 20, rPct: 60, tPct: 20 } });
+  const r = Engine.checkpointTracking(m, '2026-11-09');
+  assert.equal(r.accounts.ca.budget, 1724);
+  assert.equal(r.accounts.r.budget, 772);
+  assert.equal(r.accounts.ca.spentPct, 1000 / 1724 * 100);
+  assert.equal(r.accounts.r.spentPct, 400 / 772 * 100);
+});
+
+test('net outside inflows remain signed while their visual bars stay at zero', () => {
+  const m = observed({ checkpoints: [checkpoint('2026-11-09', 2386, 809)] });
+  const r = Engine.checkpointTracking(m, '2026-11-09');
+  assert.equal(r.accounts.ca.spent, -50);
+  assert.equal(r.accounts.r.spent, -25);
+  assert.ok(r.accounts.ca.spentPct < 0);
+  assert.equal(r.accounts.ca.barPct, 0);
+  assert.equal(r.accounts.ca.netInflow, true);
+  assert.equal(r.accounts.ca.ahead, false);
+  assert.equal(r.accounts.ca.remaining, 1750);
+});
+
+test('overspending keeps its percentage above 100 and clamps only the bar', () => {
+  const m = observed({ checkpoints: [checkpoint('2026-11-09', 336, -16)] });
+  const r = Engine.checkpointTracking(m, '2026-11-09');
+  assert.equal(r.accounts.ca.spent, 2000);
+  assert.equal(r.accounts.r.spent, 800);
+  assert.ok(r.accounts.ca.spentPct > 100);
+  assert.ok(r.accounts.r.spentPct > 100);
+  assert.equal(r.accounts.ca.barPct, 100);
+  assert.equal(r.accounts.ca.remaining, -300);
+  assert.equal(r.accounts.ca.netInflow, false);
+  assert.equal(r.accounts.ca.ahead, true);
+});
+
+test('zero budgets have no percentage or pacing difference and do not divide by zero', () => {
+  const m = observed({ salary: 100, budget: [],
+    checkpoints: [checkpoint('2026-11-09', 390, 195)],
+    checkpointTransfers: { '2026-11-09': { r: 0, savings: 100 } } });
+  const r = Engine.checkpointTracking(m, '2026-11-09');
+  assert.equal(r.accounts.ca.spent, 10);
+  assert.equal(r.accounts.r.spent, 5);
+  for (const account of Object.values(r.accounts)) {
+    assert.equal(account.spentPct, null);
+    assert.equal(account.paceDifferencePct, null);
+    assert.equal(account.barPct, 0);
+    assert.equal(account.ahead, false);
+  }
+});
+
+test('checkpoint arithmetic is exact at the cent, including ordinary binary float noise', () => {
+  const m = observed({ salary: 0.1 + 0.2, openingCA: 0.2, openingR: 0.1,
+    budget: [row('ca', 'ca', 0.1), row('r', 'r', 0.1)],
+    checkpoints: [checkpoint('2026-11-09', 0.2, 0.15)],
+    checkpointTransfers: { '2026-11-09': { r: 0.1, savings: 0.1 } } });
+  const r = Engine.checkpointTracking(m, '2026-11-09');
+  assert.equal(r.accounts.ca.spent, 0.1);
+  assert.equal(r.accounts.r.spent, 0.05);
+  assert.equal(r.accounts.ca.spentPct, 100);
+  assert.equal(r.accounts.r.spentPct, 50);
+});
+
+test('latest observation is selected by actual instant, not insertion or textual date order', () => {
+  const m = observed({ checkpoints: [
+    checkpoint('2026-11-01T00:00:00-12:00', 100, 200),
+    checkpoint('2026-11-01T01:00:00+14:00', 300, 400)
+  ], checkpointTransfers: {}, executed: { r: 0, savings: 0 } });
+  assert.equal(Engine.validateCheckpoints(m).length, 0);
+  const r = Engine.checkpointTracking(m, '2026-11-02');
+  assert.equal(r.latest.date, '2026-11-01T00:00:00-12:00');
+  assert.notEqual(r.latest, m.checkpoints[0]);
+  assert.equal(r.accounts.ca.spent, 3300);
+});
+
+test('ISO dates belong to their written local month even when UTC is in another month', () => {
+  const m = observed({ checkpoints: [checkpoint('2026-11-01T00:30:00+14:00', 1, 2)], checkpointTransfers: {} });
+  assert.deepEqual(Engine.validateCheckpoints(m), []);
+  assert.equal(Engine.elapsedMonthPct('2026-11', '2026-11-01T00:30:00+14:00'), 100 / 30);
+});
+
+test('elapsed month includes today, handles leap years and clamps past/future months', () => {
+  assert.equal(Engine.elapsedMonthPct('2024-02', '2024-02-01'), 100 / 29);
+  assert.equal(Engine.elapsedMonthPct('2024-02', '2024-02-29T23:59:59-08:00'), 100);
+  assert.equal(Engine.elapsedMonthPct('2026-02', '2026-02-14'), 50);
+  assert.equal(Engine.elapsedMonthPct('2026-11', '2026-11-30'), 100);
+  assert.equal(Engine.elapsedMonthPct('2026-10', '2026-11-01'), 100);
+  assert.equal(Engine.elapsedMonthPct('2026-12', '2026-11-30'), 0);
+  assert.equal(Engine.elapsedMonthPct('2027-01', '2026-12-31'), 0);
+  assert.equal(Engine.elapsedMonthPct('2025-12', '2026-01-01'), 100);
+});
+
+test('Date pacing uses the runtime local calendar across timezone day boundaries', () => {
+  const { execFileSync } = require('node:child_process');
+  const enginePath = require.resolve('../dist/engine.js');
+  const script = `const E=require(${JSON.stringify(enginePath)}); process.stdout.write(String(E.elapsedMonthPct('2026-11',new Date('2026-11-01T01:00:00Z'))));`;
+  const west = Number(execFileSync(process.execPath, ['-e', script], { env: { ...process.env, TZ: 'America/Los_Angeles' } }).toString());
+  const east = Number(execFileSync(process.execPath, ['-e', script], { env: { ...process.env, TZ: 'Pacific/Kiritimati' } }).toString());
+  assert.equal(west, 0);
+  assert.equal(east, 100 / 30);
+});
+
+test('legacy absence and an empty checkpoint array are accepted with no invented tracking', () => {
+  assert.deepEqual(Engine.validateCheckpoints(month()), []);
+  const m = month({ key: '2026-11' });
+  const r = Engine.checkpointTracking(m, '2026-11-09');
+  assert.equal(r.valid, true);
+  assert.equal(r.latest, null);
+  assert.equal(r.accounts, null);
+  assert.equal(r.transferSnapshot, null);
+  assert.equal(r.transferSnapshotSource, null);
+  assert.equal(r.elapsedPct, 30);
+});
+
+test('checkpoint imports reject rollovers, missing timezone, duplicates and invalid amounts', () => {
+  const invalidDates = ['2026-11-31', '2026-02-29', '2026-11-00', '2026-00-01',
+    '2026-11-09T24:00:00Z', '2026-11-09T12:60:00Z', '2026-11-09T12:00:60Z',
+    '2026-11-09T12:00:00+25:00', '2026-11-09T12:00:00+01:60',
+    '2026-11-09T12:00:00', '2026-11-9', 'not-a-date'];
+  for (const date of invalidDates) {
+    assert.ok(Engine.validateCheckpoints(observed({ checkpoints: [checkpoint(date, 0, 0)], checkpointTransfers: undefined })).length, date);
+  }
+  for (const value of [NaN, Infinity, '10', 0.001, 1000000000.01, -1000000000.01]) {
+    assert.ok(Engine.validateCheckpoints(observed({ checkpoints: [checkpoint('2026-11-09', value, 0)] })).length);
+  }
+  const duplicates = observed({ checkpoints: [checkpoint('2026-11-09T10:00:00+01:00', 0, 0), checkpoint('2026-11-09T09:00:00Z', 0, 0)], checkpointTransfers: {} });
+  assert.ok(Engine.validateCheckpoints(duplicates).some(e => /déjà utilisée/.test(e)));
+  assert.ok(Engine.validateCheckpoints(observed({ checkpoints: [checkpoint('2026-10-31', 0, 0)], checkpointTransfers: {} })).length);
+  assert.ok(Engine.validateCheckpoints(observed({ checkpoints: null })).length);
+  assert.ok(Engine.validateCheckpoints(observed({ checkpoints: [null] })).length);
+});
+
+test('leap dates follow Gregorian calendar rules without Date rollover', () => {
+  for (const [key, date, valid] of [
+    ['2000-02', '2000-02-29', true], ['1900-02', '1900-02-29', false],
+    ['2024-02', '2024-02-29', true], ['2026-02', '2026-02-29', false]
+  ]) {
+    const m = observed({ key, checkpoints: [checkpoint(date, 0, 0)], checkpointTransfers: {} });
+    assert.equal(Engine.validateCheckpoints(m).length === 0, valid);
+  }
+});
+
+test('snapshots reject orphan keys and malformed values, while signed values are valid', () => {
+  const valid = observed({ checkpointTransfers: { '2026-11-09': { r: -10.25, savings: -5.50 } } });
+  assert.deepEqual(Engine.validateCheckpoints(valid), []);
+  for (const checkpointTransfers of [null, [], { '2026-11-10': { r: 0, savings: 0 } },
+    { '2026-11-09': {} }, { '2026-11-09': { r: 0, savings: NaN } },
+    { '2026-11-09': { r: 0.001, savings: 0 } }, { '2026-11-09': null }]) {
+    assert.ok(Engine.validateCheckpoints(observed({ checkpointTransfers })).length);
+  }
+});
+
+test('checkpoint history allows 93 observations and rejects a 94th', () => {
+  const checkpoints = Array.from({ length: 93 }, (_, i) => checkpoint(new Date(Date.UTC(2026, 10, 1, i)).toISOString(), 0, 0));
+  assert.deepEqual(Engine.validateCheckpoints(observed({ checkpoints, checkpointTransfers: {} })), []);
+  checkpoints.push(checkpoint(new Date(Date.UTC(2026, 10, 1, 93)).toISOString(), 0, 0));
+  assert.ok(Engine.validateCheckpoints(observed({ checkpoints, checkpointTransfers: {} })).length);
+});
+
+test('tracking fails explicitly for bad fallback transfers and invalid current date', () => {
+  for (const executed of [null, { r: NaN, savings: 0 }, { r: 0, savings: 0.001 }]) {
+    const result = Engine.checkpointTracking(observed({ checkpointTransfers: {}, executed }), '2026-11-09');
+    assert.equal(result.valid, false);
+    assert.equal(result.accounts, null);
+    assert.ok(result.errors.length);
+  }
+  for (const now of ['2026-11-31', new Date(NaN), 123, null]) {
+    assert.equal(Engine.elapsedMonthPct('2026-11', now), null);
+    assert.equal(Engine.checkpointTracking(observed(), now).valid, false);
+  }
+  assert.equal(Engine.elapsedMonthPct('2026-13', '2026-11-09'), null);
+});
+
+test('checkpoint tracking does not mutate sorted history, snapshots or nested state', () => {
+  const m = observed({ checkpoints: [checkpoint('2026-11-10', 1200, 300), checkpoint('2026-11-09', 1336, 384)] });
+  const before = JSON.stringify(m);
+  function freeze(value) { if (value && typeof value === 'object') { Object.values(value).forEach(freeze); Object.freeze(value); } }
+  freeze(m);
+  const r = Engine.checkpointTracking(m, '2026-11-10');
+  assert.equal(r.latest.date, '2026-11-10');
+  assert.equal(r.transferSnapshotSource, 'executed-fallback');
+  assert.equal(JSON.stringify(m), before);
+});
+
+test('500 signed transfer scenarios conserve consumption at the cent', () => {
+  let seed = 10973;
+  const rand = limit => { seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0; return seed % limit; };
+  for (let i = 0; i < 500; i += 1) {
+    const rCents = rand(300001) - 100000, savingsCents = rand(200001) - 100000;
+    const spentCA = rand(400001) - 100000, spentR = rand(200001) - 100000;
+    const m = observed({
+      checkpoints: [checkpoint('2026-11-09', (340000 - rCents - savingsCents - spentCA) / 100, (20000 + rCents - spentR) / 100)],
+      checkpointTransfers: { '2026-11-09': { r: rCents / 100, savings: savingsCents / 100 } }
+    });
+    const result = Engine.checkpointTracking(m, '2026-11-09');
+    assert.equal(result.valid, true, result.errors.join(' '));
+    assert.equal(cents(result.accounts.ca.spent), spentCA);
+    assert.equal(cents(result.accounts.r.spent), spentR);
+    assert.equal(cents(result.accounts.ca.spent) + cents(result.accounts.r.spent), spentCA + spentR);
+  }
+});

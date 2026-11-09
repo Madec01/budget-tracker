@@ -231,5 +231,185 @@
     return result;
   }
 
-  return Object.freeze({ calculate: calculate, closeMonth: closeMonth });
+  function daysInMonth(year, month) {
+    if (month === 2) return year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0) ? 29 : 28;
+    return [4, 6, 9, 11].indexOf(month) !== -1 ? 30 : 31;
+  }
+
+  // Preserve the local calendar printed in an ISO string; do not round-trip its
+  // month through UTC. The timestamp is used only to order actual observations.
+  function parseCheckpointDate(value) {
+    if (typeof value !== 'string') return null;
+    var match = /^(\d{4})-(\d{2})-(\d{2})(?:T(\d{2}):(\d{2})(?::(\d{2})(?:\.(\d{1,3}))?)?(Z|[+-]\d{2}:\d{2}))?$/.exec(value);
+    if (!match) return null;
+    var year = Number(match[1]), month = Number(match[2]), day = Number(match[3]);
+    if (month < 1 || month > 12 || day < 1 || day > daysInMonth(year, month)) return null;
+    var timestamp;
+    if (match[4] === undefined) {
+      var local = new Date(0);
+      local.setFullYear(year, month - 1, day);
+      local.setHours(0, 0, 0, 0);
+      timestamp = local.getTime();
+    } else {
+      var hours = Number(match[4]), minutes = Number(match[5]), seconds = Number(match[6] || 0);
+      var milliseconds = Number((match[7] || '').padEnd(3, '0'));
+      if (hours > 23 || minutes > 59 || seconds > 59) return null;
+      var offset = 0, zone = match[8];
+      if (zone !== 'Z') {
+        var offsetHours = Number(zone.slice(1, 3)), offsetMinutes = Number(zone.slice(4, 6));
+        if (offsetHours > 23 || offsetMinutes > 59) return null;
+        offset = (offsetHours * 60 + offsetMinutes) * (zone[0] === '-' ? -1 : 1);
+      }
+      var utc = new Date(0);
+      utc.setUTCFullYear(year, month - 1, day);
+      utc.setUTCHours(hours, minutes, seconds, milliseconds);
+      timestamp = utc.getTime() - offset * 60000;
+    }
+    return { year: year, month: month, day: day, key: value.slice(0, 7), timestamp: timestamp };
+  }
+
+  /**
+   * validateCheckpoints(month) -> French error strings; never mutates the month.
+   * checkpoints is optional (legacy), otherwise at most 93 observations:
+   * {date:'YYYY-MM-DD' or ISO datetime with Z/offset,balanceCA,balanceR}.
+   * Dates must be real, unique (also by instant), and in month.key according to
+   * the calendar written in the date. Date-only values mean local midnight.
+   * Optional checkpointTransfers maps exact checkpoint date strings to signed
+   * cumulative {r,savings} transfers. Orphan snapshot keys are rejected.
+   * This validation is intentionally separate from calculate(), which also
+   * accepts standalone plans with no month key or observation history.
+   */
+  function validateCheckpoints(month) {
+    var errors = [];
+    if (!object(month)) return ['Le mois doit être un objet.'];
+    var points = month.checkpoints === undefined ? [] : month.checkpoints;
+    var dateKeys = Object.create(null), instants = Object.create(null);
+    if (!Array.isArray(points) || points.length > 93) {
+      errors.push('Les relevés doivent être une liste de 93 points au maximum.');
+    } else {
+      var validMonth = typeof month.key === 'string' && /^\d{4}-(0[1-9]|1[0-2])$/.test(month.key);
+      if (points.length && !validMonth) errors.push('Le mois des relevés doit respecter le format AAAA-MM.');
+      points.forEach(function (point, index) {
+        var label = 'Le relevé ' + (index + 1);
+        if (!object(point)) { errors.push(label + ' doit être un objet.'); return; }
+        var parsed = parseCheckpointDate(point.date);
+        if (!parsed) errors.push(label + ' doit porter une date réelle au format ISO (date seule ou heure avec fuseau).');
+        else {
+          if (validMonth && parsed.key !== month.key) errors.push(label + ' doit appartenir au mois ' + month.key + '.');
+          if (dateKeys[point.date] || instants[parsed.timestamp]) errors.push(label + ' possède une date déjà utilisée.');
+          dateKeys[point.date] = true;
+          instants[parsed.timestamp] = true;
+        }
+        money(point.balanceCA, 'Le solde CA du relevé ' + (index + 1), errors, true);
+        money(point.balanceR, 'Le solde Revolut du relevé ' + (index + 1), errors, true);
+      });
+    }
+    if (month.checkpointTransfers !== undefined) {
+      var snapshots = month.checkpointTransfers;
+      if (!object(snapshots) || Object.keys(snapshots).length > 93) {
+        errors.push('Les virements des relevés doivent former une liste de 93 instantanés au maximum.');
+      } else Object.keys(snapshots).forEach(function (date) {
+        if (!dateKeys[date]) errors.push('Les virements du ' + date + ' ne correspondent à aucun relevé.');
+        var snapshot = snapshots[date];
+        if (!object(snapshot)) { errors.push('Les virements du ' + date + ' doivent préciser Revolut et le Livret A.'); return; }
+        money(snapshot.r, 'Le virement cumulé Revolut du ' + date, errors, true);
+        money(snapshot.savings, 'Le virement cumulé Livret A du ' + date, errors, true);
+      });
+    }
+    return errors;
+  }
+
+  /**
+   * elapsedMonthPct('YYYY-MM', now = new Date()) -> number in [0,100], or null.
+   * Includes the current day: day / daysInMonth * 100. Past months are 100,
+   * future months 0. Date objects use the runtime's local calendar. ISO strings
+   * retain their written local date (including when an explicit offset is used).
+   * Invalid keys, rolled-over dates and invalid Date objects return null.
+   */
+  function elapsedMonthPct(key, now) {
+    if (typeof key !== 'string' || !/^\d{4}-(0[1-9]|1[0-2])$/.test(key)) return null;
+    if (now === undefined) now = new Date();
+    var current;
+    if (typeof now === 'string') current = parseCheckpointDate(now);
+    else {
+      try {
+        var time = Date.prototype.getTime.call(now);
+        if (!Number.isFinite(time)) return null;
+        var date = new Date(time);
+        current = { year: date.getFullYear(), month: date.getMonth() + 1, day: date.getDate() };
+      } catch (_) { return null; }
+    }
+    if (!current) return null;
+    var targetIndex = Number(key.slice(0, 4)) * 12 + Number(key.slice(5, 7)) - 1;
+    var currentIndex = current.year * 12 + current.month - 1;
+    if (targetIndex < currentIndex) return 100;
+    if (targetIndex > currentIndex) return 0;
+    return current.day / daysInMonth(current.year, current.month) * 100;
+  }
+
+  function accountTracking(budgetCents, spentCents, elapsedPct) {
+    var spentPct = budgetCents > 0 ? spentCents / budgetCents * 100 : null;
+    return {
+      budget: euros(budgetCents), spent: euros(spentCents),
+      spentPct: spentPct, barPct: spentPct === null ? 0 : Math.min(100, Math.max(0, spentPct)),
+      remaining: euros(budgetCents - spentCents),
+      paceDifferencePct: spentPct === null ? null : spentPct - elapsedPct,
+      netInflow: spentCents < 0,
+      ahead: spentPct !== null && spentPct > elapsedPct
+    };
+  }
+
+  /**
+   * checkpointTracking(month, now = new Date()) ->
+   * {valid,errors,latest,elapsedPct,transferSnapshotSource,transferSnapshot,accounts}.
+   * latest is a shallow copy of the most recent checkpoint by instant, not array
+   * order. With no checkpoint latest/accounts/snapshot/source are null.
+   * transferSnapshotSource is 'checkpoint' or 'executed-fallback'. Missing
+   * snapshots explicitly fall back to month.executed (absent amounts -> zero).
+   * Transfers are cumulative actual movements: r > 0 CA->R; savings > 0 CA->livret.
+   * Negative values represent the reverse movement. Future pointages do not
+   * change a checkpoint that already has its own snapshot.
+   * accounts.ca/r = {budget,spent,spentPct,barPct,remaining,paceDifferencePct,
+   * netInflow:boolean,ahead:boolean}. Budgets include monthly surplus bonuses.
+   * spent is net consumption, not a transaction ledger: negative values indicate
+   * net outside inflows. Percentages remain signed/unbounded; only bars clamp.
+   * Invalid inputs return valid:false and null tracking fields, never throw.
+   */
+  function checkpointTracking(month, now) {
+    var plan = calculate(month);
+    var errors = plan.errors.concat(validateCheckpoints(month));
+    var elapsed = elapsedMonthPct(object(month) ? month.key : undefined, now);
+    if (elapsed === null) errors.push('Le mois ou la date de suivi est invalide.');
+    var result = { valid: false, errors: errors, latest: null, elapsedPct: elapsed,
+      transferSnapshotSource: null, transferSnapshot: null, accounts: null };
+    if (errors.length) return result;
+    var points = month.checkpoints || [];
+    if (!points.length) { result.valid = true; return result; }
+    var latest = points.reduce(function (last, point) {
+      return !last || parseCheckpointDate(point.date).timestamp > parseCheckpointDate(last.date).timestamp ? point : last;
+    }, null);
+    var snapshots = month.checkpointTransfers;
+    var hasSnapshot = snapshots && Object.prototype.hasOwnProperty.call(snapshots, latest.date);
+    var snapshot = hasSnapshot ? snapshots[latest.date] : month.executed;
+    if (snapshot !== undefined && !object(snapshot)) errors.push('Les virements effectués doivent préciser Revolut et le Livret A.');
+    if (errors.length) return result;
+    var transferR = money(snapshot && snapshot.r !== undefined ? snapshot.r : 0, 'Le virement Revolut effectué', errors, true);
+    var transferSavings = money(snapshot && snapshot.savings !== undefined ? snapshot.savings : 0, 'Le virement Livret A effectué', errors, true);
+    if (errors.length) return result;
+    var spentCA = Math.round(plan.openingCANormalized * 100) + Math.round(month.salary * 100)
+      - transferR - transferSavings - Math.round(latest.balanceCA * 100);
+    var spentR = Math.round(month.openingR * 100) + transferR - Math.round(latest.balanceR * 100);
+    result.valid = true;
+    result.latest = Object.assign({}, latest);
+    result.transferSnapshotSource = hasSnapshot ? 'checkpoint' : 'executed-fallback';
+    result.transferSnapshot = { r: euros(transferR), savings: euros(transferSavings) };
+    result.accounts = {
+      ca: accountTracking(Math.round(plan.availableCA * 100), spentCA, elapsed),
+      r: accountTracking(Math.round(plan.availableR * 100), spentR, elapsed)
+    };
+    return result;
+  }
+
+  return Object.freeze({ calculate: calculate, closeMonth: closeMonth,
+    validateCheckpoints: validateCheckpoints, elapsedMonthPct: elapsedMonthPct, checkpointTracking: checkpointTracking });
 });

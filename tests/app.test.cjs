@@ -17,7 +17,8 @@ window.__test = {
   flags:()=>({loadError,saveFailed,storageConflict,demo,dirty}),
   setDraft:d=>{draft=d;}, setPendingImport:x=>{pendingImport=x;},
   getMonth,calc,operation,changeMonth,saveBudget,saveMonth,saveClosing,validateState,
-  action,navigate,exportData,startDemo,leaveDemo,showIncomeImport,importIncomePlan
+  action,navigate,exportData,startDemo,leaveDemo,showIncomeImport,importIncomePlan,
+  checkpointDialog,saveCheckpoint,checkpointEligible,render
 };
 render();
 })();`);
@@ -26,7 +27,7 @@ function boot(raw = null) {
   const nodes = new Map();
   const storage = new Map(raw === null ? [] : [[KEY, raw]]);
   const events = {};
-  const control = { failSave: false, writeCount: 0, downloads: 0, pwaBusy: null };
+  const control = { failSave: false, writeCount: 0, downloads: 0, downloadedBlobs: [], pwaBusy: null };
   const element = selector => {
     if (!nodes.has(selector)) nodes.set(selector, {
       value: '', checked: false, textContent: '', innerHTML: '', dataset: {},
@@ -54,7 +55,7 @@ function boot(raw = null) {
       }
     },
     Intl, Date, Math, Number, JSON, crypto, Blob,
-    URL: { createObjectURL() { control.downloads += 1; return 'blob:test'; }, revokeObjectURL() {} },
+    URL: { createObjectURL(blob) { control.downloads += 1; control.downloadedBlobs.push(blob); return 'blob:test'; }, revokeObjectURL() {} },
     setTimeout() { return 1; }, clearTimeout() {}
   };
   vm.createContext(sandbox);
@@ -506,4 +507,184 @@ test('PWA reload stays blocked after storage errors or another tab changes data'
   assert.equal(h.control.pwaBusy,true);
   const broken=boot('{broken');
   assert.equal(broken.control.pwaBusy,true);
+});
+
+
+// Checkpoints are observations of the current month, not changes to its plan.
+const localDateKey = date => `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`;
+function checkpointFixture(h, monthOffset = 0) {
+  const now=new Date(),date=new Date(now.getFullYear(),now.getMonth()+monthOffset,15);
+  const key=localDateKey(date).slice(0,7),state=h.api.getState();
+  state.selectedMonth=key;
+  const m=h.api.getMonth();
+  Object.assign(m,{prepared:true,closed:false,forecast:false,salary:3000,openingCA:450,openingR:150,salaryIncluded:false,savingsOpening:4800,budgetConfirmed:true,carry:{buffer:false,savings:false},executed:{r:662,savings:640}});
+  m.budget.forEach((b,i)=>b.amount=i===0?1500:i===4?700:0);
+  state.months[key]=m;
+  state.plans=[{from:'1900-01',confirmed:true,budget:copy(m.budget),rules:copy(m.rules)}];
+  return m;
+}
+function checkpointFields(h,ca,r) {
+  h.element('[name="checkpointCA"]').value=String(ca);
+  h.element('[name="checkpointR"]').value=String(r);
+}
+
+test('legacy exports without checkpoints remain readable and editable',()=>{
+  const h=boot(),m=checkpointFixture(h);
+  delete m.checkpoints;delete m.checkpointTransfers;
+  assert.equal(m.checkpoints,undefined);
+  assert.equal(m.checkpointTransfers,undefined);
+  const restored=boot(JSON.stringify(h.api.getState()));
+  assert.equal(restored.api.flags().loadError,false);
+  assert.equal(restored.api.getMonth().salary,3000);
+  assert.doesNotThrow(()=>restored.api.validateState(restored.api.getState()));
+  assert.equal(restored.api.checkpointEligible(restored.api.getMonth()),true);
+});
+
+test('recording today keeps salary, opening balances, allocations and subsequent reports unchanged',async()=>{
+  const h=boot(),m=checkpointFixture(h),key=m.key;
+  const nextDate=new Date(Number(key.slice(0,4)),Number(key.slice(5)),1),nextKey=localDateKey(nextDate).slice(0,7);
+  const before=copy(m),nextBefore=copy(h.api.getMonth(nextKey));
+  await h.api.action('checkpoint',{});
+  assert.match(h.element('#dialog').innerHTML,/name="checkpointCA"/);
+  assert.match(h.element('#dialog').innerHTML,/name="checkpointR"/);
+  checkpointFields(h,1234.56,-12.34);
+  await h.api.action('save-checkpoint',{});
+  const after=h.api.getMonth();
+  assert.deepEqual(copy(after.checkpoints),[{date:localDateKey(new Date()),balanceCA:1234.56,balanceR:-12.34}]);
+  assert.deepEqual(copy(after.checkpointTransfers),{[localDateKey(new Date())]:{r:662,savings:640}});
+  for(const prop of ['salary','openingCA','openingR','savingsOpening','salaryIncluded','carry','budget','rules','executed']) assert.deepEqual(copy(after[prop]),before[prop],prop);
+  assert.deepEqual(copy(h.api.getMonth(nextKey)),nextBefore);
+  assert.equal(h.control.writeCount,1);
+  assert.doesNotThrow(()=>h.api.validateState(h.api.getState()));
+});
+
+test('a second observation today replaces the previous one and its transfer snapshot',async()=>{
+  const h=boot();checkpointFixture(h);
+  await h.api.action('checkpoint',{});checkpointFields(h,1400,500);
+  await h.api.action('save-checkpoint',{});
+  h.api.getState().months[h.api.getState().selectedMonth].executed={r:700,savings:660};
+  await h.api.action('checkpoint',{});checkpointFields(h,1350.5,480.25);
+  await h.api.action('save-checkpoint',{});
+  const m=h.api.getMonth();
+  assert.equal(m.checkpoints.length,1);
+  assert.deepEqual(copy(m.checkpoints[0]),{date:localDateKey(new Date()),balanceCA:1350.5,balanceR:480.25});
+  assert.equal(Object.keys(m.checkpointTransfers).length,1);
+  assert.deepEqual(copy(m.checkpointTransfers[localDateKey(new Date())]),{r:700,savings:660});
+});
+
+test('checkpoint observations and snapshots survive a real JSON export and import roundtrip',async()=>{
+  const h=boot();checkpointFixture(h);
+  await h.api.action('checkpoint',{});checkpointFields(h,980.75,260.99);
+  await h.api.action('save-checkpoint',{});
+  const snapshot=copy(h.api.getMonth());
+  h.api.exportData();
+  const raw=await h.control.downloadedBlobs.at(-1).text();
+  const imported=boot();
+  const input=imported.element('#import-file');
+  await input.listeners.change({target:{files:[{size:Buffer.byteLength(raw),text:async()=>raw}],value:'checkpoint.json'}});
+  await imported.api.action('confirm-import',{});
+  assert.deepEqual(copy(imported.api.getMonth().checkpoints),snapshot.checkpoints);
+  assert.deepEqual(copy(imported.api.getMonth().checkpointTransfers),snapshot.checkpointTransfers);
+  const reloaded=boot(imported.storage.get(KEY));
+  assert.equal(reloaded.api.flags().loadError,false);
+  assert.deepEqual(copy(reloaded.api.getMonth().checkpoints),snapshot.checkpoints);
+  assert.deepEqual(copy(reloaded.api.getMonth().checkpointTransfers),snapshot.checkpointTransfers);
+});
+
+test('checkpoint validation rejects impossible dates, injected strings, invalid money and orphan snapshots',()=>{
+  const h=boot();checkpointFixture(h);
+  const base=copy(h.api.getState()),key=base.selectedMonth,validDate=localDateKey(new Date());
+  const cases=[
+    {date:key+'-32',balanceCA:10,balanceR:20},
+    {date:validDate+'"><img src=x onerror=alert(1)>',balanceCA:10,balanceR:20},
+    {date:validDate,balanceCA:'<svg onload=alert(1)>',balanceR:20},
+    {date:validDate,balanceCA:NaN,balanceR:20},
+    {date:validDate,balanceCA:10,balanceR:Infinity},
+    {date:validDate,balanceCA:10.001,balanceR:20},
+    {date:validDate,balanceCA:1000000000.01,balanceR:20}
+  ];
+  for(const point of cases){const data=copy(base);data.months[key].checkpoints=[point];assert.throws(()=>h.api.validateState(data));}
+  const orphan=copy(base);orphan.months[key].checkpoints=[];orphan.months[key].checkpointTransfers={[validDate]:{r:10,savings:20}};
+  assert.throws(()=>h.api.validateState(orphan));
+  const tooMany=copy(base);tooMany.months[key].checkpoints=Array.from({length:94},()=>({date:validDate,balanceCA:1,balanceR:2}));
+  assert.throws(()=>h.api.validateState(tooMany));
+});
+
+test('invalid checkpoint form values do not save or inject markup into the view',async()=>{
+  const h=boot();checkpointFixture(h);
+  await h.api.action('checkpoint',{});
+  for(const value of ['100.001','Infinity','<img src=x onerror=alert(1)>']){
+    checkpointFields(h,value,50);
+    await h.api.action('save-checkpoint',{});
+    assert.equal(h.control.writeCount,0);
+    assert.equal((h.api.getMonth().checkpoints||[]).length,0);
+    assert.doesNotMatch(h.element('#app').innerHTML,/<img src=x/);
+    assert.doesNotMatch(h.element('#dialog').innerHTML,/<img src=x/);
+  }
+});
+
+test('closed, past, future, forecast and unprepared months cannot record current-day observations',async()=>{
+  for(const mode of ['closed','past','future','forecast','unprepared']){
+    const h=boot(),m=checkpointFixture(h,mode==='past'?-1:mode==='future'?1:0);
+    if(mode==='closed'){m.closed=true;m.closing={closingCA:500,closingR:20,savingsActual:5440};}
+    if(mode==='forecast')m.forecast=true;
+    if(mode==='unprepared')m.prepared=false;
+    assert.equal(h.api.checkpointEligible(m),false,mode);
+    const before=JSON.stringify(h.api.getState());
+    await h.api.action('checkpoint',{});checkpointFields(h,100,20);
+    await h.api.action('save-checkpoint',{});
+    assert.equal(JSON.stringify(h.api.getState()),before,mode);
+    assert.equal(h.control.writeCount,0,mode);
+  }
+});
+
+test('checkpoint save failure remains visible and prevents automatic PWA reload',async()=>{
+  const h=boot();checkpointFixture(h);
+  const stored=JSON.stringify(h.api.getState());h.storage.set(KEY,stored);
+  await h.api.action('checkpoint',{});checkpointFields(h,100,20);
+  h.control.failSave=true;
+  await h.api.action('save-checkpoint',{});
+  assert.equal(h.storage.get(KEY),stored);
+  assert.equal(h.api.flags().saveFailed,true);
+  assert.equal(h.control.pwaBusy,true);
+  assert.match(h.element('#toast').textContent,/Sauvegarde impossible/);
+  assert.doesNotMatch(h.element('#toast').textContent,/pointage enregistré|soldes enregistrés/i);
+});
+
+test('another tab changing storage blocks checkpoint edits without overwriting it',async()=>{
+  const h=boot();checkpointFixture(h);
+  await h.api.action('checkpoint',{});checkpointFields(h,100,20);
+  const incoming=JSON.stringify({otherTab:'new financial data'});h.storage.set(KEY,incoming);h.events.storage({key:KEY});
+  const before=JSON.stringify(h.api.getState());
+  await h.api.action('save-checkpoint',{});
+  assert.equal(h.storage.get(KEY),incoming);
+  assert.equal(JSON.stringify(h.api.getState()),before);
+  assert.equal(h.control.writeCount,0);
+  assert.equal(h.control.pwaBusy,true);
+});
+
+test('a new month starts with an empty checkpoint history and never inherits prior observations',async()=>{
+  const h=boot(),m=checkpointFixture(h);
+  await h.api.action('checkpoint',{});checkpointFields(h,1000,300);
+  await h.api.action('save-checkpoint',{});
+  const nextDate=new Date(Number(m.key.slice(0,4)),Number(m.key.slice(5)),1);
+  const next=h.api.getMonth(localDateKey(nextDate).slice(0,7));
+  assert.deepEqual(copy(next.checkpoints),[]);
+  assert.equal(Object.keys(next.checkpointTransfers||{}).length,0);
+  assert.equal(h.api.getMonth(m.key).checkpoints.length,1);
+});
+
+test('reading a closed historical month preserves its checkpoint metadata unchanged',()=>{
+  const h=boot(),m=checkpointFixture(h,-1),date=m.key+'-15';
+  m.checkpoints=[{date,balanceCA:1100.12,balanceR:340.56}];
+  m.checkpointTransfers={[date]:{r:662,savings:640}};
+  m.closed=true;m.closing={closingCA:500,closingR:20,savingsActual:5440};
+  const raw=JSON.stringify(h.api.getState()),restored=boot(raw);
+  assert.equal(restored.api.flags().loadError,false);
+  const original=JSON.stringify(restored.api.getState().months[m.key]);
+  restored.api.render();restored.api.getMonth(m.key);restored.api.navigate('budget');
+  assert.equal(JSON.stringify(restored.api.getState().months[m.key]),original);
+  assert.equal(restored.control.writeCount,0);
+  assert.equal(restored.storage.get(KEY),raw);
+  assert.deepEqual(copy(restored.api.getMonth().checkpointTransfers),{[date]:{r:662,savings:640}});
 });

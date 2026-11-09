@@ -58,3 +58,90 @@ body[data-theme=dark]{color-scheme:dark;--paper:#202421;--ink:#ecece3;--muted:#a
 @media(max-width:700px){.forecast-intro{align-items:stretch;flex-direction:column;gap:18px}.forecast-intro p{font-size:12px}.forecast-head,.forecast-row{grid-template-columns:1.25fr 1fr 1fr;gap:8px;padding:16px 12px}.forecast-income,.forecast-budget{display:none}.mobile-income{display:inline}.forecast-row{font-size:12px}.forecast-row strong{font-size:11px}.forecast-row small{font-size:9px}.forecast-head{font-size:10px}.forecast-assumption{font-size:11px}}
 
 .main-forecast .month-arrows{display:none}
+
+/* Account checkpoints remain part of the ledger, with one reading per row. */
+.spending-focus > .section-label:has(.btn){align-items:center;flex-wrap:wrap;gap:12px}
+.spending-focus > .section-label:has(.btn) h2{flex:1;min-width:150px}
+.spending-focus > .section-label > .btn.small{min-height:44px;flex-shrink:0;padding:10px 13px;white-space:nowrap}
+.checkpoint-heading + .section-kicker{margin:19px 0 0;font-size:9px;letter-spacing:1.25px}
+.checkpoint-heading ~ .hero-amount{margin-top:12px;margin-bottom:24px}
+.account-ledger:has(.account-card){display:grid;grid-template-columns:minmax(0,1fr);margin-top:21px;border-top:1px solid var(--line)}
+.account-card{--account-color:var(--ca);min-width:0;padding:22px 0;border-bottom:1px solid var(--line);background:transparent}
+.account-card.ca,.account-card[data-account="ca"]{--account-color:var(--ca)}
+.account-card.r,.account-card.revolut,.account-card[data-account="r"]{--account-color:var(--accent)}
+.account-card-head{display:flex;align-items:baseline;justify-content:space-between;flex-wrap:wrap;gap:8px 18px;min-width:0}
+.account-card-head > div{display:grid;grid-template-columns:6px minmax(0,1fr);align-items:center;column-gap:8px;min-width:0}
+.account-card-head > div > span{grid-column:2;font-size:14px;font-weight:550;line-height:1.5}
+.account-card-head > div > small{grid-column:2}
+.account-card-head h3,.account-card .account-name{display:flex;align-items:center;gap:9px;font-size:14px;font-weight:550;line-height:1.5}
+.account-card-head small,.account-card .account-subtext{display:block;margin-top:4px;color:var(--muted);font-size:10px;line-height:1.6}
+.account-card .account-dot{width:6px;height:6px;flex-shrink:0;background:var(--account-color)}
+.account-balance,.account-card-head > strong{display:block;font-size:27px;font-weight:500;letter-spacing:-.8px;font-variant-numeric:tabular-nums;line-height:1.2;white-space:nowrap}
+.account-balance small{margin-top:5px;font-size:10px;font-weight:400;letter-spacing:0;color:var(--muted);text-align:right}
+.account-card > .account-line{padding:0;border:0;align-items:baseline;flex-wrap:wrap;gap:8px 18px}
+.account-card > .account-line > strong{font-size:27px;letter-spacing:-.8px}
+.account-card > .account-line > div > span{font-size:14px;font-weight:550}
+.checkpoint-tracking{min-width:0;margin-top:21px}
+.pacing-meta{display:flex;align-items:baseline;justify-content:space-between;flex-wrap:wrap;gap:6px 14px;color:var(--muted);font-size:11px;line-height:1.6;font-variant-numeric:tabular-nums}
+.pacing-meta strong{color:var(--ink);font-weight:550;white-space:nowrap}
+.pacing-meta > :last-child{flex-shrink:0}
+.pacing-track{position:relative;height:7px;margin:14px 5px 12px;background:var(--line);border-radius:1px;isolation:isolate}
+.pacing-fill{display:block;position:relative;z-index:1;width:0;min-width:0;max-width:100%;height:100%;background:var(--account-color);border-radius:inherit;transition:width .24s ease-out}
+.pacing-marker{position:absolute;z-index:2;top:-5px;bottom:-5px;left:0;width:2px;max-width:2px;background:var(--ink);transform:translateX(-50%);pointer-events:none;box-shadow:0 0 0 1px var(--panel)}
+.pacing-marker::before{content:"";position:absolute;top:-2px;left:50%;width:6px;height:6px;background:var(--ink);transform:translateX(-50%) rotate(45deg);border:1px solid var(--panel)}
+.pacing-caption{display:flex;align-items:baseline;justify-content:space-between;flex-wrap:wrap;gap:5px 14px;margin:0;color:var(--muted);font-size:10px;line-height:1.7;font-variant-numeric:tabular-nums}
+.pacing-caption strong{font-size:inherit;color:var(--ink);font-weight:500}
+.pacing-caption > span{min-width:0}
+.pacing-time-label{display:inline-flex;align-items:center;gap:7px}
+.pacing-time-label::before{content:"";display:inline-block;width:2px;height:10px;background:var(--ink);flex-shrink:0}
+.pacing-warning{display:flex;align-items:flex-start;gap:7px;margin:13px 0 0;padding:9px 11px;border-left:2px solid var(--warning);background:var(--accent-soft);color:var(--warning);font-size:11px;line-height:1.65}
+.pacing-warning > svg{width:14px;height:14px;margin-top:2px;flex-shrink:0}
+.pacing-warning p{margin:0}
+.checkpoint-tracking.is-ahead .pacing-fill{background:var(--danger)}
+.checkpoint-tracking.is-ahead .pacing-warning{border-left-color:var(--danger);color:var(--danger)}
+.checkpoint-empty{margin:15px 0 0;color:var(--muted);font-size:11px;line-height:1.75}
+.checkpoint-empty p{margin:0}
+.checkpoint-empty .btn,.checkpoint-tracking .btn,.account-card-head .btn{min-height:44px;margin-top:10px;font-size:11px}
+.checkpoint-empty .inline-link,.checkpoint-tracking .inline-link{min-height:44px;padding-block:10px;font-size:11px}
+.checkpoint-date{display:block;margin:8px 0 0;color:var(--muted);font-size:10px;line-height:1.6}
+.checkpoint-note{margin:16px 0 0;color:var(--muted);font-size:11px;line-height:1.75}
+.dialog-body .money-input{width:100%;min-width:0;min-height:46px;gap:5px;border:1px solid var(--line);border-radius:4px;background:transparent}
+.dialog-body .money-input input{min-width:0;min-height:46px;padding:11px 13px;border:0;text-align:left;font-size:18px;letter-spacing:0;outline-offset:1px}
+.dialog-body .money-input > span{padding-right:13px;font-size:12px}
+.dialog-body .money-input:focus-within{border-color:var(--accent)}
+.dialog-body .money-input input:focus-visible{outline:0}
+.dialog-body .money-input:has(input:disabled){background:var(--soft)}
+.dialog-body .money-input input:disabled{opacity:1;color:var(--muted);-webkit-text-fill-color:var(--muted)}
+#checkpoint-form .field > input,#checkpoint-form .btn{min-height:44px}
+#checkpoint-form > .fields-grid + .help{margin-top:20px}
+#checkpoint-form > .help + .help{margin-top:10px}
+body[data-theme=dark] .pacing-marker{box-shadow:0 0 0 1px var(--panel)}
+@media(min-width:701px) and (max-width:1000px){
+  .account-card-head{gap:8px 11px}
+  .account-balance,.account-card-head > strong,.account-card > .account-line > strong{font-size:24px}
+  .account-card-head h3,.account-card .account-name,.account-card-head > div > span,.account-card > .account-line > div > span{font-size:13px}
+}
+@media(max-width:700px){
+  .account-ledger:has(.account-card){margin-top:18px}
+  .account-card{padding:20px 0}
+  .account-card-head{gap:7px 12px}
+  .account-card-head h3,.account-card .account-name,.account-card-head > div > span,.account-card > .account-line > div > span{font-size:13px}
+  .account-balance,.account-card-head > strong,.account-card > .account-line > strong{font-size:25px;letter-spacing:-.6px}
+  .checkpoint-tracking{margin-top:19px}
+  .pacing-meta{font-size:11px;gap:5px 9px}
+  .pacing-track{margin-top:13px;margin-bottom:12px}
+  .pacing-caption{font-size:10px;gap:4px 10px}
+  .pacing-warning{padding:9px 10px;font-size:11px}
+  .checkpoint-empty{font-size:11px}
+  .spending-focus > .section-label:has(.btn) h2{font-size:14px}
+  .spending-focus > .section-label > .btn.small{font-size:11px;padding-inline:10px}
+}
+@media(max-width:370px){
+  .account-card-head{align-items:flex-start}
+  .account-balance,.account-card-head > strong,.account-card > .account-line > strong{font-size:23px}
+  .pacing-meta{font-size:10px}
+  .pacing-caption{font-size:10px;line-height:1.8}
+  .spending-focus > .section-label:has(.btn){gap:9px}
+}
+@media(prefers-reduced-motion:reduce){.pacing-fill{transition:none}}
+@media print{.account-card{break-inside:avoid}.pacing-track,.pacing-fill,.pacing-marker{-webkit-print-color-adjust:exact;print-color-adjust:exact}}

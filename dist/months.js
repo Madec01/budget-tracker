@@ -199,7 +199,7 @@
         savingsOpening: report ? report.savingsOpening : 0,
         budget: plan.budget.map(function (row) { return Object.assign({}, row); }),
         rules: Object.assign({}, plan.rules), budgetConfirmed: plan.confirmed === true,
-        useBuffer: false, done: { r: false, savings: false },
+        useBuffer: false, done: { r: false, savings: false }, checkpoints: [],
         carry: { buffer: !!report, savings: !!report }
       };
     }

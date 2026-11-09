@@ -2,7 +2,7 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#f6f4ef"><meta name="description" content="Marge, votre budget CA et Revolut en clair. Préparez le mois, constituez votre tampon et suivez votre Livret A."><title>Marge — Mon budget, en clair</title>
-<meta name="marge-version" content="1c48a9e250ee34bd"><meta name="application-name" content="Marge"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="default"><meta name="apple-mobile-web-app-title" content="Marge">
+<meta name="marge-version" content="8a14ee6a10515d2b"><meta name="application-name" content="Marge"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="default"><meta name="apple-mobile-web-app-title" content="Marge">
 <link rel="manifest" href="./manifest.webmanifest"><link rel="icon" type="image/svg+xml" href="./icons/icon.svg"><link rel="apple-touch-icon" sizes="180x180" href="./icons/apple-touch-icon.png">
 <style>/* Marge 2 — a quiet monthly ledger. */
 :root{color-scheme:light;--paper:#f6f4ef;--ink:#252b29;--muted:#686f68;--line:#dcded6;--soft:#eeeee6;--accent:#bd4f2b;--accent-soft:#f3e5dc;--ca:#47715b;--r:#6f6c78;--danger:#ad3f34;--warning:#805628;--surface:var(--paper);--surface-soft:var(--soft);--bg:var(--paper);--blue:#657d85;--gold:#b17d42;--panel:#fffdfa;--panel-line:#c8cdc3;--panel-action:#edf0e9;--panel-buffer:#f4e7db;--panel-savings:#e7eee4}
@@ -64,6 +64,93 @@ body[data-theme=dark]{color-scheme:dark;--paper:#202421;--ink:#ecece3;--muted:#a
 @media(max-width:700px){.forecast-intro{align-items:stretch;flex-direction:column;gap:18px}.forecast-intro p{font-size:12px}.forecast-head,.forecast-row{grid-template-columns:1.25fr 1fr 1fr;gap:8px;padding:16px 12px}.forecast-income,.forecast-budget{display:none}.mobile-income{display:inline}.forecast-row{font-size:12px}.forecast-row strong{font-size:11px}.forecast-row small{font-size:9px}.forecast-head{font-size:10px}.forecast-assumption{font-size:11px}}
 
 .main-forecast .month-arrows{display:none}
+
+/* Account checkpoints remain part of the ledger, with one reading per row. */
+.spending-focus > .section-label:has(.btn){align-items:center;flex-wrap:wrap;gap:12px}
+.spending-focus > .section-label:has(.btn) h2{flex:1;min-width:150px}
+.spending-focus > .section-label > .btn.small{min-height:44px;flex-shrink:0;padding:10px 13px;white-space:nowrap}
+.checkpoint-heading + .section-kicker{margin:19px 0 0;font-size:9px;letter-spacing:1.25px}
+.checkpoint-heading ~ .hero-amount{margin-top:12px;margin-bottom:24px}
+.account-ledger:has(.account-card){display:grid;grid-template-columns:minmax(0,1fr);margin-top:21px;border-top:1px solid var(--line)}
+.account-card{--account-color:var(--ca);min-width:0;padding:22px 0;border-bottom:1px solid var(--line);background:transparent}
+.account-card.ca,.account-card[data-account="ca"]{--account-color:var(--ca)}
+.account-card.r,.account-card.revolut,.account-card[data-account="r"]{--account-color:var(--accent)}
+.account-card-head{display:flex;align-items:baseline;justify-content:space-between;flex-wrap:wrap;gap:8px 18px;min-width:0}
+.account-card-head > div{display:grid;grid-template-columns:6px minmax(0,1fr);align-items:center;column-gap:8px;min-width:0}
+.account-card-head > div > span{grid-column:2;font-size:14px;font-weight:550;line-height:1.5}
+.account-card-head > div > small{grid-column:2}
+.account-card-head h3,.account-card .account-name{display:flex;align-items:center;gap:9px;font-size:14px;font-weight:550;line-height:1.5}
+.account-card-head small,.account-card .account-subtext{display:block;margin-top:4px;color:var(--muted);font-size:10px;line-height:1.6}
+.account-card .account-dot{width:6px;height:6px;flex-shrink:0;background:var(--account-color)}
+.account-balance,.account-card-head > strong{display:block;font-size:27px;font-weight:500;letter-spacing:-.8px;font-variant-numeric:tabular-nums;line-height:1.2;white-space:nowrap}
+.account-balance small{margin-top:5px;font-size:10px;font-weight:400;letter-spacing:0;color:var(--muted);text-align:right}
+.account-card > .account-line{padding:0;border:0;align-items:baseline;flex-wrap:wrap;gap:8px 18px}
+.account-card > .account-line > strong{font-size:27px;letter-spacing:-.8px}
+.account-card > .account-line > div > span{font-size:14px;font-weight:550}
+.checkpoint-tracking{min-width:0;margin-top:21px}
+.pacing-meta{display:flex;align-items:baseline;justify-content:space-between;flex-wrap:wrap;gap:6px 14px;color:var(--muted);font-size:11px;line-height:1.6;font-variant-numeric:tabular-nums}
+.pacing-meta strong{color:var(--ink);font-weight:550;white-space:nowrap}
+.pacing-meta > :last-child{flex-shrink:0}
+.pacing-track{position:relative;height:7px;margin:14px 5px 12px;background:var(--line);border-radius:1px;isolation:isolate}
+.pacing-fill{display:block;position:relative;z-index:1;width:0;min-width:0;max-width:100%;height:100%;background:var(--account-color);border-radius:inherit;transition:width .24s ease-out}
+.pacing-marker{position:absolute;z-index:2;top:-5px;bottom:-5px;left:0;width:2px;max-width:2px;background:var(--ink);transform:translateX(-50%);pointer-events:none;box-shadow:0 0 0 1px var(--panel)}
+.pacing-marker::before{content:"";position:absolute;top:-2px;left:50%;width:6px;height:6px;background:var(--ink);transform:translateX(-50%) rotate(45deg);border:1px solid var(--panel)}
+.pacing-caption{display:flex;align-items:baseline;justify-content:space-between;flex-wrap:wrap;gap:5px 14px;margin:0;color:var(--muted);font-size:10px;line-height:1.7;font-variant-numeric:tabular-nums}
+.pacing-caption strong{font-size:inherit;color:var(--ink);font-weight:500}
+.pacing-caption > span{min-width:0}
+.pacing-time-label{display:inline-flex;align-items:center;gap:7px}
+.pacing-time-label::before{content:"";display:inline-block;width:2px;height:10px;background:var(--ink);flex-shrink:0}
+.pacing-warning{display:flex;align-items:flex-start;gap:7px;margin:13px 0 0;padding:9px 11px;border-left:2px solid var(--warning);background:var(--accent-soft);color:var(--warning);font-size:11px;line-height:1.65}
+.pacing-warning > svg{width:14px;height:14px;margin-top:2px;flex-shrink:0}
+.pacing-warning p{margin:0}
+.checkpoint-tracking.is-ahead .pacing-fill{background:var(--danger)}
+.checkpoint-tracking.is-ahead .pacing-warning{border-left-color:var(--danger);color:var(--danger)}
+.checkpoint-empty{margin:15px 0 0;color:var(--muted);font-size:11px;line-height:1.75}
+.checkpoint-empty p{margin:0}
+.checkpoint-empty .btn,.checkpoint-tracking .btn,.account-card-head .btn{min-height:44px;margin-top:10px;font-size:11px}
+.checkpoint-empty .inline-link,.checkpoint-tracking .inline-link{min-height:44px;padding-block:10px;font-size:11px}
+.checkpoint-date{display:block;margin:8px 0 0;color:var(--muted);font-size:10px;line-height:1.6}
+.checkpoint-note{margin:16px 0 0;color:var(--muted);font-size:11px;line-height:1.75}
+.dialog-body .money-input{width:100%;min-width:0;min-height:46px;gap:5px;border:1px solid var(--line);border-radius:4px;background:transparent}
+.dialog-body .money-input input{min-width:0;min-height:46px;padding:11px 13px;border:0;text-align:left;font-size:18px;letter-spacing:0;outline-offset:1px}
+.dialog-body .money-input > span{padding-right:13px;font-size:12px}
+.dialog-body .money-input:focus-within{border-color:var(--accent)}
+.dialog-body .money-input input:focus-visible{outline:0}
+.dialog-body .money-input:has(input:disabled){background:var(--soft)}
+.dialog-body .money-input input:disabled{opacity:1;color:var(--muted);-webkit-text-fill-color:var(--muted)}
+#checkpoint-form .field > input,#checkpoint-form .btn{min-height:44px}
+#checkpoint-form > .fields-grid + .help{margin-top:20px}
+#checkpoint-form > .help + .help{margin-top:10px}
+body[data-theme=dark] .pacing-marker{box-shadow:0 0 0 1px var(--panel)}
+@media(min-width:701px) and (max-width:1000px){
+  .account-card-head{gap:8px 11px}
+  .account-balance,.account-card-head > strong,.account-card > .account-line > strong{font-size:24px}
+  .account-card-head h3,.account-card .account-name,.account-card-head > div > span,.account-card > .account-line > div > span{font-size:13px}
+}
+@media(max-width:700px){
+  .account-ledger:has(.account-card){margin-top:18px}
+  .account-card{padding:20px 0}
+  .account-card-head{gap:7px 12px}
+  .account-card-head h3,.account-card .account-name,.account-card-head > div > span,.account-card > .account-line > div > span{font-size:13px}
+  .account-balance,.account-card-head > strong,.account-card > .account-line > strong{font-size:25px;letter-spacing:-.6px}
+  .checkpoint-tracking{margin-top:19px}
+  .pacing-meta{font-size:11px;gap:5px 9px}
+  .pacing-track{margin-top:13px;margin-bottom:12px}
+  .pacing-caption{font-size:10px;gap:4px 10px}
+  .pacing-warning{padding:9px 10px;font-size:11px}
+  .checkpoint-empty{font-size:11px}
+  .spending-focus > .section-label:has(.btn) h2{font-size:14px}
+  .spending-focus > .section-label > .btn.small{font-size:11px;padding-inline:10px}
+}
+@media(max-width:370px){
+  .account-card-head{align-items:flex-start}
+  .account-balance,.account-card-head > strong,.account-card > .account-line > strong{font-size:23px}
+  .pacing-meta{font-size:10px}
+  .pacing-caption{font-size:10px;line-height:1.8}
+  .spending-focus > .section-label:has(.btn){gap:9px}
+}
+@media(prefers-reduced-motion:reduce){.pacing-fill{transition:none}}
+@media print{.account-card{break-inside:avoid}.pacing-track,.pacing-fill,.pacing-marker{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
 </style>
 </head>
 <body><div id="app"></div><dialog id="dialog" aria-label="Modifier les informations"></dialog><div id="toast" class="toast hidden" role="status" aria-live="polite"></div><input type="file" id="import-file" accept="application/json,.json" hidden>
@@ -300,7 +387,187 @@ body[data-theme=dark]{color-scheme:dark;--paper:#202421;--ink:#ecece3;--muted:#a
     return result;
   }
 
-  return Object.freeze({ calculate: calculate, closeMonth: closeMonth });
+  function daysInMonth(year, month) {
+    if (month === 2) return year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0) ? 29 : 28;
+    return [4, 6, 9, 11].indexOf(month) !== -1 ? 30 : 31;
+  }
+
+  // Preserve the local calendar printed in an ISO string; do not round-trip its
+  // month through UTC. The timestamp is used only to order actual observations.
+  function parseCheckpointDate(value) {
+    if (typeof value !== 'string') return null;
+    var match = /^(\d{4})-(\d{2})-(\d{2})(?:T(\d{2}):(\d{2})(?::(\d{2})(?:\.(\d{1,3}))?)?(Z|[+-]\d{2}:\d{2}))?$/.exec(value);
+    if (!match) return null;
+    var year = Number(match[1]), month = Number(match[2]), day = Number(match[3]);
+    if (month < 1 || month > 12 || day < 1 || day > daysInMonth(year, month)) return null;
+    var timestamp;
+    if (match[4] === undefined) {
+      var local = new Date(0);
+      local.setFullYear(year, month - 1, day);
+      local.setHours(0, 0, 0, 0);
+      timestamp = local.getTime();
+    } else {
+      var hours = Number(match[4]), minutes = Number(match[5]), seconds = Number(match[6] || 0);
+      var milliseconds = Number((match[7] || '').padEnd(3, '0'));
+      if (hours > 23 || minutes > 59 || seconds > 59) return null;
+      var offset = 0, zone = match[8];
+      if (zone !== 'Z') {
+        var offsetHours = Number(zone.slice(1, 3)), offsetMinutes = Number(zone.slice(4, 6));
+        if (offsetHours > 23 || offsetMinutes > 59) return null;
+        offset = (offsetHours * 60 + offsetMinutes) * (zone[0] === '-' ? -1 : 1);
+      }
+      var utc = new Date(0);
+      utc.setUTCFullYear(year, month - 1, day);
+      utc.setUTCHours(hours, minutes, seconds, milliseconds);
+      timestamp = utc.getTime() - offset * 60000;
+    }
+    return { year: year, month: month, day: day, key: value.slice(0, 7), timestamp: timestamp };
+  }
+
+  /**
+   * validateCheckpoints(month) -> French error strings; never mutates the month.
+   * checkpoints is optional (legacy), otherwise at most 93 observations:
+   * {date:'YYYY-MM-DD' or ISO datetime with Z/offset,balanceCA,balanceR}.
+   * Dates must be real, unique (also by instant), and in month.key according to
+   * the calendar written in the date. Date-only values mean local midnight.
+   * Optional checkpointTransfers maps exact checkpoint date strings to signed
+   * cumulative {r,savings} transfers. Orphan snapshot keys are rejected.
+   * This validation is intentionally separate from calculate(), which also
+   * accepts standalone plans with no month key or observation history.
+   */
+  function validateCheckpoints(month) {
+    var errors = [];
+    if (!object(month)) return ['Le mois doit être un objet.'];
+    var points = month.checkpoints === undefined ? [] : month.checkpoints;
+    var dateKeys = Object.create(null), instants = Object.create(null);
+    if (!Array.isArray(points) || points.length > 93) {
+      errors.push('Les relevés doivent être une liste de 93 points au maximum.');
+    } else {
+      var validMonth = typeof month.key === 'string' && /^\d{4}-(0[1-9]|1[0-2])$/.test(month.key);
+      if (points.length && !validMonth) errors.push('Le mois des relevés doit respecter le format AAAA-MM.');
+      points.forEach(function (point, index) {
+        var label = 'Le relevé ' + (index + 1);
+        if (!object(point)) { errors.push(label + ' doit être un objet.'); return; }
+        var parsed = parseCheckpointDate(point.date);
+        if (!parsed) errors.push(label + ' doit porter une date réelle au format ISO (date seule ou heure avec fuseau).');
+        else {
+          if (validMonth && parsed.key !== month.key) errors.push(label + ' doit appartenir au mois ' + month.key + '.');
+          if (dateKeys[point.date] || instants[parsed.timestamp]) errors.push(label + ' possède une date déjà utilisée.');
+          dateKeys[point.date] = true;
+          instants[parsed.timestamp] = true;
+        }
+        money(point.balanceCA, 'Le solde CA du relevé ' + (index + 1), errors, true);
+        money(point.balanceR, 'Le solde Revolut du relevé ' + (index + 1), errors, true);
+      });
+    }
+    if (month.checkpointTransfers !== undefined) {
+      var snapshots = month.checkpointTransfers;
+      if (!object(snapshots) || Object.keys(snapshots).length > 93) {
+        errors.push('Les virements des relevés doivent former une liste de 93 instantanés au maximum.');
+      } else Object.keys(snapshots).forEach(function (date) {
+        if (!dateKeys[date]) errors.push('Les virements du ' + date + ' ne correspondent à aucun relevé.');
+        var snapshot = snapshots[date];
+        if (!object(snapshot)) { errors.push('Les virements du ' + date + ' doivent préciser Revolut et le Livret A.'); return; }
+        money(snapshot.r, 'Le virement cumulé Revolut du ' + date, errors, true);
+        money(snapshot.savings, 'Le virement cumulé Livret A du ' + date, errors, true);
+      });
+    }
+    return errors;
+  }
+
+  /**
+   * elapsedMonthPct('YYYY-MM', now = new Date()) -> number in [0,100], or null.
+   * Includes the current day: day / daysInMonth * 100. Past months are 100,
+   * future months 0. Date objects use the runtime's local calendar. ISO strings
+   * retain their written local date (including when an explicit offset is used).
+   * Invalid keys, rolled-over dates and invalid Date objects return null.
+   */
+  function elapsedMonthPct(key, now) {
+    if (typeof key !== 'string' || !/^\d{4}-(0[1-9]|1[0-2])$/.test(key)) return null;
+    if (now === undefined) now = new Date();
+    var current;
+    if (typeof now === 'string') current = parseCheckpointDate(now);
+    else {
+      try {
+        var time = Date.prototype.getTime.call(now);
+        if (!Number.isFinite(time)) return null;
+        var date = new Date(time);
+        current = { year: date.getFullYear(), month: date.getMonth() + 1, day: date.getDate() };
+      } catch (_) { return null; }
+    }
+    if (!current) return null;
+    var targetIndex = Number(key.slice(0, 4)) * 12 + Number(key.slice(5, 7)) - 1;
+    var currentIndex = current.year * 12 + current.month - 1;
+    if (targetIndex < currentIndex) return 100;
+    if (targetIndex > currentIndex) return 0;
+    return current.day / daysInMonth(current.year, current.month) * 100;
+  }
+
+  function accountTracking(budgetCents, spentCents, elapsedPct) {
+    var spentPct = budgetCents > 0 ? spentCents / budgetCents * 100 : null;
+    return {
+      budget: euros(budgetCents), spent: euros(spentCents),
+      spentPct: spentPct, barPct: spentPct === null ? 0 : Math.min(100, Math.max(0, spentPct)),
+      remaining: euros(budgetCents - spentCents),
+      paceDifferencePct: spentPct === null ? null : spentPct - elapsedPct,
+      netInflow: spentCents < 0,
+      ahead: spentPct !== null && spentPct > elapsedPct
+    };
+  }
+
+  /**
+   * checkpointTracking(month, now = new Date()) ->
+   * {valid,errors,latest,elapsedPct,transferSnapshotSource,transferSnapshot,accounts}.
+   * latest is a shallow copy of the most recent checkpoint by instant, not array
+   * order. With no checkpoint latest/accounts/snapshot/source are null.
+   * transferSnapshotSource is 'checkpoint' or 'executed-fallback'. Missing
+   * snapshots explicitly fall back to month.executed (absent amounts -> zero).
+   * Transfers are cumulative actual movements: r > 0 CA->R; savings > 0 CA->livret.
+   * Negative values represent the reverse movement. Future pointages do not
+   * change a checkpoint that already has its own snapshot.
+   * accounts.ca/r = {budget,spent,spentPct,barPct,remaining,paceDifferencePct,
+   * netInflow:boolean,ahead:boolean}. Budgets include monthly surplus bonuses.
+   * spent is net consumption, not a transaction ledger: negative values indicate
+   * net outside inflows. Percentages remain signed/unbounded; only bars clamp.
+   * Invalid inputs return valid:false and null tracking fields, never throw.
+   */
+  function checkpointTracking(month, now) {
+    var plan = calculate(month);
+    var errors = plan.errors.concat(validateCheckpoints(month));
+    var elapsed = elapsedMonthPct(object(month) ? month.key : undefined, now);
+    if (elapsed === null) errors.push('Le mois ou la date de suivi est invalide.');
+    var result = { valid: false, errors: errors, latest: null, elapsedPct: elapsed,
+      transferSnapshotSource: null, transferSnapshot: null, accounts: null };
+    if (errors.length) return result;
+    var points = month.checkpoints || [];
+    if (!points.length) { result.valid = true; return result; }
+    var latest = points.reduce(function (last, point) {
+      return !last || parseCheckpointDate(point.date).timestamp > parseCheckpointDate(last.date).timestamp ? point : last;
+    }, null);
+    var snapshots = month.checkpointTransfers;
+    var hasSnapshot = snapshots && Object.prototype.hasOwnProperty.call(snapshots, latest.date);
+    var snapshot = hasSnapshot ? snapshots[latest.date] : month.executed;
+    if (snapshot !== undefined && !object(snapshot)) errors.push('Les virements effectués doivent préciser Revolut et le Livret A.');
+    if (errors.length) return result;
+    var transferR = money(snapshot && snapshot.r !== undefined ? snapshot.r : 0, 'Le virement Revolut effectué', errors, true);
+    var transferSavings = money(snapshot && snapshot.savings !== undefined ? snapshot.savings : 0, 'Le virement Livret A effectué', errors, true);
+    if (errors.length) return result;
+    var spentCA = Math.round(plan.openingCANormalized * 100) + Math.round(month.salary * 100)
+      - transferR - transferSavings - Math.round(latest.balanceCA * 100);
+    var spentR = Math.round(month.openingR * 100) + transferR - Math.round(latest.balanceR * 100);
+    result.valid = true;
+    result.latest = Object.assign({}, latest);
+    result.transferSnapshotSource = hasSnapshot ? 'checkpoint' : 'executed-fallback';
+    result.transferSnapshot = { r: euros(transferR), savings: euros(transferSavings) };
+    result.accounts = {
+      ca: accountTracking(Math.round(plan.availableCA * 100), spentCA, elapsed),
+      r: accountTracking(Math.round(plan.availableR * 100), spentR, elapsed)
+    };
+    return result;
+  }
+
+  return Object.freeze({ calculate: calculate, closeMonth: closeMonth,
+    validateCheckpoints: validateCheckpoints, elapsedMonthPct: elapsedMonthPct, checkpointTracking: checkpointTracking });
 });
 </script>
 <script>/* Marge — immutable, chronological monthly carry-forward. */
@@ -504,7 +771,7 @@ body[data-theme=dark]{color-scheme:dark;--paper:#202421;--ink:#ecece3;--muted:#a
         savingsOpening: report ? report.savingsOpening : 0,
         budget: plan.budget.map(function (row) { return Object.assign({}, row); }),
         rules: Object.assign({}, plan.rules), budgetConfirmed: plan.confirmed === true,
-        useBuffer: false, done: { r: false, savings: false },
+        useBuffer: false, done: { r: false, savings: false }, checkpoints: [],
         carry: { buffer: !!report, savings: !!report }
       };
     }
@@ -587,7 +854,7 @@ body[data-theme=dark]{color-scheme:dark;--paper:#202421;--ink:#ecece3;--muted:#a
 <script>/* Marge PWA integration. Load before app.js; the app owns the explicit busy flag. */
 (function () {
   'use strict';
-  const VERSION = '1c48a9e250ee34bd';
+  const VERSION = '8a14ee6a10515d2b';
   const BASE = new URL('./', document.baseURI);
   const supported = 'serviceWorker' in navigator && window.isSecureContext && /^https?:$/.test(location.protocol);
   let busy = true, registration = null, installPrompt = null, installed = false;
@@ -769,7 +1036,7 @@ function operationRow(m,id,c){const o=operation(m,id,c),direction=o.complete?o.p
 
 function openDialog(title,body,footer='',form=null){dialog.innerHTML=`<div class="dialog-header"><div><span class="eyebrow">MARGE · MON BUDGET</span><h2>${title}</h2></div><button class="icon-btn close-btn" data-action="close-dialog" aria-label="Fermer">${icon('close')}</button></div><div class="dialog-body">${body}</div>${footer?`<div class="dialog-footer">${footer}</div>`:''}`;activeForm=form;if(!dialog.open)dialog.showModal();syncPWA();}
 function errorBox(text){const el=dialog.querySelector('.form-error');if(el){el.textContent=text;el.classList.remove('hidden');el.scrollIntoView({block:'nearest'});}else toast(text,true);}
-function numberField(name,label,value,help='',options={}){return `<label class="field" for="${name}"><span>${label}</span><div class="input-unit"><input id="${name}" name="${name}" type="text" inputmode="decimal" autocomplete="off" value="${esc(value)}" ${options.required===false?'':'required'} ${options.disabled?'disabled':''} aria-describedby="${name}-help"><span>${options.unit||'€'}</span></div><small class="help" id="${name}-help">${help}</small></label>`;}
+function numberField(name,label,value,help='',options={}){return `<label class="field" for="${name}"><span>${label}</span><div class="input-unit ${options.moneyClass?'money-input':''}"><input id="${name}" name="${name}" type="text" inputmode="decimal" autocomplete="off" value="${esc(value)}" ${options.required===false?'':'required'} ${options.disabled?'disabled':''} aria-describedby="${name}-help"><span>${options.unit||'€'}</span></div><small class="help" id="${name}-help">${help}</small></label>`;}
 function fieldValue(name){return num(dialog.querySelector(`[name="${name}"]`)?.value);}
 function banner(){if(demo)return `<div class="banner demo"><span>${icon('spark')} Mode démonstration · données fictives</span><button class="btn small secondary" data-action="exit-demo">Utiliser mes données</button></div>`;if(loadError)return `<div class="banner warning">La sauvegarde précédente n’a pas pu être lue. Elle n’a pas été écrasée. Exporte-la depuis les paramètres avant de recommencer.</div>`;if(storageConflict)return `<div class="banner warning" role="alert">Les données ont changé dans un autre onglet. Cette page est en lecture seule : recharge-la avant de continuer. Tu peux exporter les montants actuellement affichés.</div>`;if(saveFailed)return `<div class="banner warning" role="alert">Tes dernières modifications ne sont pas sauvegardées. Elles restent dans cette page : exporte une sauvegarde avant de la fermer.</div>`;return '';}
 function render(){
@@ -780,7 +1047,42 @@ function render(){
   syncPWA();
 }
 function heroMoney(value){return new Intl.NumberFormat('fr-FR',{maximumFractionDigits:2}).format(value);}
+// Checkpoints: balances only; movements are frozen separately to preserve past readings.
+function checkpointDate(){const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;}
+function checkpointEligible(m){const c=calc(m);return m.prepared&&!m.closed&&!m.forecast&&m.key===today()&&c.valid&&(c.budgetTotal>0||m.budgetConfirmed===true);}
+function checkpointReason(m){return m.closed?'Le mois est clôturé.':m.key!==today()?'Les relevés se font pendant le mois en cours.':m.forecast?'Confirme le salaire reçu avant de faire le point.':'Prépare le mois et valide le budget avant de faire le point.';}
+function checkpointDialog(){
+  const m=current();if(!checkpointEligible(m))return toast(checkpointReason(m),true);
+  if(writesBlocked())return;
+  const tracking=E.checkpointTracking(m,new Date()),last=tracking.latest;
+  openDialog('Faire le point',`<p class="dialog-intro">${esc(monthName(m.key))} · Saisis les soldes affichés par tes banques, tampon compris.</p><form id="checkpoint-form"><div class="fields-grid">${numberField('checkpointCA','Solde actuel du CA',last?last.balanceCA:m.openingCA,last?'Dernier relevé : à actualiser.':'Solde d’ouverture : à actualiser.',{moneyClass:true})}${numberField('checkpointR','Solde actuel de Revolut',last?last.balanceR:m.openingR,last?'Dernier relevé : à actualiser.':'Solde d’ouverture : à actualiser.',{moneyClass:true})}</div><p class="help">Pointe d’abord les virements réellement effectués dans « À faire ». Ils seront exclus des dépenses. Le salaire renseigné doit avoir été reçu.</p><p class="help">Un nouveau point aujourd’hui remplace celui du même jour. Les autres relevés sont conservés.</p><div class="form-error banner warning hidden" role="alert"></div></form>`,`<button class="btn secondary" data-action="close-dialog">Annuler</button><button class="btn primary" data-action="save-checkpoint">Enregistrer le point ${icon('check')}</button>`,'checkpoint');
+}
+function saveCheckpoint(){
+  if(writesBlocked())return;
+  const m=current();if(!checkpointEligible(m))return errorBox(checkpointReason(m));
+  const date=checkpointDate(),point={date,balanceCA:fieldValue('checkpointCA'),balanceR:fieldValue('checkpointR')};
+  const checkpoints=[...(m.checkpoints||[]).filter(p=>p.date.slice(0,10)!==date),point].sort((a,b)=>a.date.localeCompare(b.date));
+  const checkpointTransfers={...m.checkpointTransfers};
+  for(const old of m.checkpoints||[])if(old.date.slice(0,10)===date)delete checkpointTransfers[old.date];
+  checkpointTransfers[date]={r:m.executed?.r||0,savings:m.executed?.savings||0};
+  const candidate={...m,checkpoints,checkpointTransfers};
+  const errors=E.validateCheckpoints(candidate);if(errors.length)return errorBox(errors.join(' '));
+  if(!commitMonth(candidate)){render();return errorBox('Ce point n’est pas sauvegardé. Exporte les données avant de fermer la page.');}
+  dialog.close();render();toast('Point enregistré. Tes jauges sont à jour.');
+}
+function checkpointGauge(id,name,m,tracking){
+  const a=tracking.accounts?.[id],time=tracking.elapsedPct,pct=n=>new Intl.NumberFormat('fr-FR',{maximumFractionDigits:1}).format(n),hasPoint=!!tracking.latest;
+  if(!tracking.valid)return `<p class="checkpoint-empty">${esc(tracking.errors.join(' '))}</p>`;
+  const ahead=hasPoint&&a.spentPct!==null&&a.spentPct>time;
+  const consumed=hasPoint?(a.spent<0?`Entrées nettes : ${eur(-a.spent)}`:`Consommé : ${eur(a.spent)}`):'Aucun relevé pour le moment';
+  const amount=hasPoint?(a.spentPct===null?'Sans budget':`${pct(Math.max(0,a.spentPct))} %`):'—';
+  const valueText=hasPoint?`${consumed}. ${a.spentPct===null?'Aucun budget alloué.':`${pct(Math.max(0,a.spentPct))} % du budget consommé.`} ${pct(time)} % du mois écoulé.`:'';
+  const date=hasPoint?new Date(`${tracking.latest.date.slice(0,10)}T12:00:00`).toLocaleDateString('fr-FR',{day:'numeric',month:'long'}):'';
+  return `<div class="checkpoint-tracking ${ahead?'is-ahead':''}"><div class="pacing-meta"><span>${consumed}</span><strong>${amount}</strong></div><div class="pacing-track" ${hasPoint?`role="progressbar" aria-label="Budget consommé ${name}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${a.barPct}" aria-valuetext="${esc(valueText)}"`:''}><span class="pacing-fill" style="width:${hasPoint?a.barPct:0}%"></span><span class="pacing-marker" style="left:${time}%" aria-hidden="true"></span></div><p class="pacing-caption"><span>${hasPoint?`Relevé du ${esc(date)}`:'Fais le point pour voir ta consommation.'}</span><span>Trait : ${pct(time)} % du mois écoulé</span></p>${hasPoint&&a.spent<0?'<p class="pacing-warning">Des entrées ou remboursements dépassent les dépenses. Vérifie aussi le pointage des virements.</p>':hasPoint&&a.spentPct===null&&a.spent>0?'<p class="pacing-warning">Dépenses constatées sans budget alloué à ce compte.</p>':ahead?`<p class="pacing-warning">${a.spentPct>100?'Budget dépassé.':'Consommation en avance sur le mois.'}</p>`:''}</div>`;
+}
+
 function overview(m,s){
+  const tracking=E.checkpointTracking(m,new Date());
   const c=calc(m),ready=m.prepared&&c.valid&&(c.budgetTotal>0||m.budgetConfirmed===true);
   const buffer=m.closed?m.closing.closingCA+m.closing.closingR:(ready?c.bufferEndPlan:0);
   const savings=m.closed?m.closing.savingsActual:(ready?c.savingsProjected:m.savingsOpening);
@@ -794,7 +1096,7 @@ function overview(m,s){
   ${ready&&c.bufferUsed>0&&!m.closed?`<div class="inline-notice"><span>${eur(c.bufferUsed)} du tampon financent ce mois.</span><button data-action="cancel-buffer">Annuler ce choix</button></div>`:''}
   ${m.salaryReference?`<p class="salary-reference">${m.forecast?'Estimation':'Référence'} : paie de ${esc(monthName(m.salaryReference.sourcePayroll))} · ${eur(m.salaryReference.salary)} net payé.</p>`:''}
   ${carryDescription(m)}
-  <section class="month-body"><div class="spending-focus"><div class="section-label"><h2>Pour le mois</h2><span>${m.closed?'Budget prévu':ready&&c.funded?'Budget utilisable':'Budget à finaliser'}</span></div><div class="hero-amount">${ready?heroMoney(c.availableCA+c.availableR):'—'}<span>€</span></div><div class="account-ledger">${[['ca','Crédit Agricole',c.availableCA,c.caBonus],['r','Revolut',c.availableR,c.rBonus]].map(([id,name,total,bonus])=>`<div class="account-line"><div><i class="account-dot ${id}"></i><span>${name}</span>${ready&&bonus>0?`<small>dont ${eur(bonus)} de surplus</small>`:''}</div><strong>${ready?eur(total):'—'}</strong></div>`).join('')}</div><button class="inline-link" data-action="budget">Ajuster les enveloppes ${icon('arrow')}</button></div>
+  <section class="month-body"><div class="spending-focus"><div class="section-label checkpoint-heading"><h2>Mes comptes ce mois-ci</h2><button class="btn small secondary" data-action="checkpoint" ${checkpointEligible(m)?'':`disabled title="${esc(checkpointReason(m))}"`}>Faire le point ${icon('plus')}</button></div><p class="section-kicker">${m.closed?'Budget prévu':ready&&c.funded?'Budget utilisable':'Budget à finaliser'}</p><div class="hero-amount">${ready?heroMoney(c.availableCA+c.availableR):'—'}<span>€</span></div><div class="account-ledger">${[['ca','Crédit Agricole',c.availableCA,c.caBonus],['r','Revolut',c.availableR,c.rBonus]].map(([id,name,total,bonus])=>`<article class="account-card ${id}"><div class="account-card-head"><div><i class="account-dot ${id}"></i><span>${name}</span>${ready&&bonus>0?`<small>dont ${eur(bonus)} de surplus</small>`:''}</div><strong class="account-balance">${ready?eur(total):'—'}</strong></div>${checkpointGauge(id,name,m,tracking)}</article>`).join('')}</div><p class="checkpoint-note">${tracking.transferSnapshotSource==='executed-fallback'?'Ce relevé importé utilise les virements actuellement pointés. Refais le point pour figer cette référence. ':''}${m.key!==today()?'Les points se saisissent pendant le mois en cours. ':''}Le rythme est indicatif : les charges fixes peuvent tomber en début de mois. Les remboursements réduisent le consommé.</p><button class="inline-link" data-action="budget">Ajuster les enveloppes ${icon('arrow')}</button></div>
   <div class="next-actions"><div class="section-label"><h2>${m.closed?'Les virements':'À faire'}</h2><span>${ready&&c.funded?`${Number(operation(m,'r',c).complete)+Number(operation(m,'savings',c).complete)} / 2 effectués`:'Après répartition'}</span></div>${ready&&c.funded?`<div class="action-list">${operationRow(m,'r',c)}${operationRow(m,'savings',c)}</div><p class="action-footnote">${c.tamponBonus>0?`${eur(c.tamponBonus)} sont réservés au tampon sur CA.`:'Le tampon reste réservé sur CA.'}</p>`:`<div class="actions-unavailable"><p>${ready?'Équilibre le budget pour connaître les montants à virer.':'Renseigne les dépenses prévues pour calculer tes virements.'}</p><button class="inline-link" data-action="budget">Ouvrir le budget ${icon('arrow')}</button></div>`}</div></section>
   <section class="reserves" aria-label="Mes réserves"><div class="reserve-block buffer-block"><div class="section-label"><h2>Le tampon</h2><button class="goal-edit" data-action="goal" aria-label="Modifier l’objectif tampon">Objectif ${eur(state.settings.goal)} ${icon('edit')}</button></div><div class="reserve-amount">${heroMoney(buffer)}<span>€</span></div><div class="reserve-meta"><span>${m.closed?'Solde réel en fin de mois':'Après répartition'}</span><strong>${Math.round(pct)} % de l’objectif</strong></div><div class="progress" role="progressbar" aria-label="Objectif tampon" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${Math.round(pct)}"><div class="progress-fill" style="width:${pct}%"></div></div><p class="reserve-note">${m.closed?`${eur(buffer-c.openingTotal)} d’évolution sur le mois.`:c.bufferUsed>0?`${eur(c.bufferUsed)} utilisés pour compléter le budget.`:`+ ${eur(ready?c.tamponBonus:0)} réservés ce mois-ci.`}</p></div><div class="reserve-block savings-block"><div class="section-label"><h2>Le Livret A</h2><span>Crédit Agricole</span></div><div class="reserve-amount">${heroMoney(savings)}<span>€</span></div><div class="reserve-meta"><span>${m.closed?'Solde réel en fin de mois':'Après versement prévu'}</span><strong>+ ${eur(ready?c.savingsAdd:0)}</strong></div><div class="savings-caption">${m.closed?'L’épargne réellement mise de côté.':'Ton épargne, séparée de l’argent du mois.'}</div></div></section>
   <details class="calculation-details"><summary><span>Le détail de la répartition</span>${icon('plus')}</summary><div class="calculation-body"><div class="details-table">${detailRow('Soldes de départ CA + Revolut, avant salaire',c.openingTotal)}${detailRow('Salaire net',m.salary)}${detailRow('Budget Crédit Agricole',c.budgetCA)}${detailRow('Budget Revolut',c.budgetR)}${detailRow('Reste hors budget',c.remainder)}${c.openingTotal<0?detailRow('Découvert de départ à couvrir',-c.openingTotal):''}${detailRow('Livret A reporté au début du mois',m.savingsOpening)}${detailRow('Vers le Livret A',c.savingsAdd)}${detailRow('Surplus à répartir',c.surplus)}${detailRow('Supplément Revolut',c.rBonus)}${detailRow('Supplément CA',c.caBonus)}${detailRow('Ajout au tampon',c.tamponBonus)}</div><p class="help">À partir de ${eur(m.rules.threshold)} de reste finançable : ${m.rules.savingPct} % vers le Livret A, ${round(100-m.rules.savingPct)} % de surplus. En dessous : tout vers le Livret A. Le tampon précédent est déjà inclus dans les soldes de départ.</p></div></details>
@@ -839,10 +1141,10 @@ function showClosing(){const m=current();if(!m.closed)return;const c=calc(m),t=m
 function history(){const ms=Object.values(state.months).filter(m=>m.prepared).sort((a,b)=>b.key.localeCompare(a.key));openDialog('Mon historique',ms.length?`<p class="dialog-intro">Les budgets et les règles de chaque mois sont conservés.</p>${ms.map(m=>{const c=calc(getMonth(m.key));return `<button class="history-row" data-action="open-history" data-key="${m.key}"><div><strong>${esc(monthName(m.key))}</strong><span>${m.closed?'Clôturé':'En cours'} · Salaire ${eur(m.salary)}</span></div><div><strong>${eur(m.closed?m.closing.closingCA+m.closing.closingR:c.bufferEndPlan)}</strong><span>Tampon ${m.closed?'réel':'prévu'}</span></div>${icon('chevron')}</button>`;}).join('')}`:`<div class="empty-state">${icon('history')}<h3>Ton histoire commence ici.</h3><p>Prépare ton premier mois pour le retrouver dans cet espace.</p></div>`);}
 function trophies(){const s=stats(),awards=[['first','Premier cap','Préparer son premier mois.','spark'],['closed','Mois bouclé','Clôturer son premier mois.','check'],['regular','Bonne habitude','Clôturer trois mois.','history'],['goal','Une belle marge','Atteindre son objectif tampon à la clôture.','shield']];openDialog('Chaque petit pas compte',`<div class="progress-header"><div class="level-badge">${icon('trophy')}</div><div><span class="mini-label">NIVEAU ${s.level}</span><h3>${levelName(s.level)}</h3><p class="muted">${s.xp} points gagnés</p></div></div><div class="progress"><div class="progress-fill" style="width:${s.progress/150*100}%"></div></div><p class="help">Encore ${150-s.progress} points jusqu’au niveau suivant.</p><div class="trophy-grid">${awards.map(([id,title,desc,ic])=>`<div class="trophy ${state.achievements[id]?'unlocked':''}"><div>${icon(ic)}</div><strong>${title}</strong><p>${desc}</p><span>${state.achievements[id]?'Débloqué':'À découvrir'}</span></div>`).join('')}</div><div class="info-note">${icon('leaf')} +30 points par mois préparé, +70 par clôture, +100 pour ton objectif atteint. Les modifications ne rapportent pas de points supplémentaires. Utiliser ton tampon ne te pénalise pas.</div>`);}
 function moreMenu(){openDialog('À portée de main',`<div class="utility-menu"><button data-action="forecast">${icon('up')}<span>Prévisions sur les prochains mois</span>${icon('arrow')}</button><button data-action="history">${icon('history')}<span>Historique des mois</span>${icon('arrow')}</button><button data-action="trophies">${icon('trophy')}<span>Mes progrès</span><small>Niveau ${stats().level}</small></button><button data-action="settings">${icon('settings')}<span>Préférences & sauvegardes</span>${icon('arrow')}</button>${!demo?'<button data-action="demo">'+icon('spark')+'<span>Voir un exemple</span>'+icon('arrow')+'</button>':''}</div>`);}
-function settings(){openDialog('Mes préférences',`<div class="form-section"><h3>Marge sur cet appareil</h3><p class="help" data-pwa-status>${esc(pwaStatusText())}</p><div class="settings-buttons"><button class="btn secondary" data-action="install-app">${icon('download')} Installer Marge</button><button class="btn text-btn" data-action="check-update">Vérifier les mises à jour</button></div></div><div class="form-section"><h3>Affichage</h3><div class="settings-row"><div><strong>Mode sombre</strong><p class="help">Un affichage plus doux en soirée.</p></div><button class="btn secondary" data-action="theme">${icon('moon')} ${state.settings.theme==='dark'?'Activé':'Désactivé'}</button></div></div><div class="form-section"><h3>Mes données</h3><p class="help">La sauvegarde est automatique sur cet appareil. Téléphone et ordinateur ont chacun leurs données : utilise l’export et l’import pour les transférer. Aucune connexion bancaire n’est effectuée.</p><div class="settings-buttons"><button class="btn secondary" data-action="export">${icon('download')} Exporter une sauvegarde</button><button class="btn secondary" data-action="import">Importer une sauvegarde</button></div><p class="help">${state.lastExport?'Dernier export : '+new Date(state.lastExport).toLocaleString('fr-FR'):'Pense à exporter après une clôture mensuelle.'}</p>${loadError?'<button class="btn secondary" data-action="export-raw">Exporter la sauvegarde illisible</button>':''}</div><div class="form-section"><h3>Découvrir l’application</h3><button class="btn secondary" data-action="${demo?'exit-demo':'demo'}">${icon('spark')} ${demo?'Quitter la démonstration':'Ouvrir une démonstration'}</button></div><div class="form-section"><h3>Repartir de zéro</h3><p class="help">Efface les mois et les réglages de cet appareil. Exporte tes données avant de continuer.</p><button class="btn danger" data-action="reset-confirm">Réinitialiser mes données</button></div><p class="help version-line">Marge · Version 2.2 · Application installable</p>`);}
+function settings(){openDialog('Mes préférences',`<div class="form-section"><h3>Marge sur cet appareil</h3><p class="help" data-pwa-status>${esc(pwaStatusText())}</p><div class="settings-buttons"><button class="btn secondary" data-action="install-app">${icon('download')} Installer Marge</button><button class="btn text-btn" data-action="check-update">Vérifier les mises à jour</button></div></div><div class="form-section"><h3>Affichage</h3><div class="settings-row"><div><strong>Mode sombre</strong><p class="help">Un affichage plus doux en soirée.</p></div><button class="btn secondary" data-action="theme">${icon('moon')} ${state.settings.theme==='dark'?'Activé':'Désactivé'}</button></div></div><div class="form-section"><h3>Mes données</h3><p class="help">La sauvegarde est automatique sur cet appareil. Téléphone et ordinateur ont chacun leurs données : utilise l’export et l’import pour les transférer. Aucune connexion bancaire n’est effectuée.</p><div class="settings-buttons"><button class="btn secondary" data-action="export">${icon('download')} Exporter une sauvegarde</button><button class="btn secondary" data-action="import">Importer une sauvegarde</button></div><p class="help">${state.lastExport?'Dernier export : '+new Date(state.lastExport).toLocaleString('fr-FR'):'Pense à exporter après une clôture mensuelle.'}</p>${loadError?'<button class="btn secondary" data-action="export-raw">Exporter la sauvegarde illisible</button>':''}</div><div class="form-section"><h3>Découvrir l’application</h3><button class="btn secondary" data-action="${demo?'exit-demo':'demo'}">${icon('spark')} ${demo?'Quitter la démonstration':'Ouvrir une démonstration'}</button></div><div class="form-section"><h3>Repartir de zéro</h3><p class="help">Efface les mois et les réglages de cet appareil. Exporte tes données avant de continuer.</p><button class="btn danger" data-action="reset-confirm">Réinitialiser mes données</button></div><p class="help version-line">Marge · Version 2.3 · Points d’étape</p>`);}
 function exportData(raw=false){if(loadError&&!demo&&!raw)return exportData(true);const content=raw?localStorage.getItem(KEY)||'':JSON.stringify({...state,lastExport:new Date().toISOString()},null,2);download(content,`Marge_${raw?'recuperation':today()}_${new Date().toISOString().slice(0,10)}.json`,'application/json');if(!raw){state.lastExport=new Date().toISOString();if(!storageConflict)persist();toast('Sauvegarde exportée. Garde ce fichier en lieu sûr.');}}
 function download(content,name,type){const url=URL.createObjectURL(new Blob([content],{type})),a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
-function validateState(x){if(!x||x.version!==1||!x.settings||!Number.isFinite(x.settings.goal)||x.settings.goal<=0||x.settings.goal>1e9||!['light','dark'].includes(x.settings.theme)||!/^\d{4}-(0[1-9]|1[0-2])$/.test(x.selectedMonth)||!Array.isArray(x.plans)||!x.plans.length||!x.months||typeof x.months!=='object'||Array.isArray(x.months)||!x.achievements||typeof x.achievements!=='object')throw Error('Format de sauvegarde non reconnu.');if(x.incomePlan!==undefined)validateIncomePlan(x.incomePlan);if(x.plans.length>1200||Object.keys(x.months).length>1200)throw Error('Sauvegarde trop volumineuse.');for(const p of x.plans){if(!/^\d{4}-(0[1-9]|1[0-2])$/.test(p.from))throw Error('Date de budget invalide.');checkBudget(p.budget);const c=E.calculate({salary:0,openingCA:0,openingR:0,salaryIncluded:false,savingsOpening:0,budget:p.budget,rules:p.rules,useBuffer:false});if(c.errors.length)throw Error(c.errors.join(' '));}for(const [key,m] of Object.entries(x.months)){if(!/^\d{4}-(0[1-9]|1[0-2])$/.test(key)||m.key!==key||typeof m.prepared!=='boolean'||typeof m.closed!=='boolean'||!m.done||typeof m.done.r!=='boolean'||typeof m.done.savings!=='boolean')throw Error('Mois invalide dans la sauvegarde.');if(m.forecast!==undefined&&typeof m.forecast!=='boolean')throw Error('Prévision mensuelle invalide.');if(m.salaryReference!==undefined)validateIncomeEntry(m.salaryReference);if(m.carry!==undefined&&(!m.carry||typeof m.carry!=='object'||Array.isArray(m.carry)||typeof m.carry.buffer!=='boolean'||typeof m.carry.savings!=='boolean'))throw Error('Reports mensuels invalides.');if(m.executed!==undefined){if(!m.executed||typeof m.executed!=='object'||Array.isArray(m.executed)||!['r','savings'].every(id=>typeof m.executed[id]==='number'&&Number.isFinite(m.executed[id])&&Math.abs(m.executed[id])<=1e9&&Math.abs(m.executed[id]*100-Math.round(m.executed[id]*100))<1e-6)||m.executed.savings<0)throw Error('Historique des virements invalide.');}checkBudget(m.budget);const c=E.calculate(m);if(c.errors.length)throw Error(c.errors.join(' '));if(m.closed){if(!m.prepared||!m.closing)throw Error('Clôture invalide.');const r=E.closeMonth(m,m.closing);if(r.errors.length)throw Error(r.errors.join(' '));}}M.validateReports(x);}
+function validateState(x){if(!x||x.version!==1||!x.settings||!Number.isFinite(x.settings.goal)||x.settings.goal<=0||x.settings.goal>1e9||!['light','dark'].includes(x.settings.theme)||!/^\d{4}-(0[1-9]|1[0-2])$/.test(x.selectedMonth)||!Array.isArray(x.plans)||!x.plans.length||!x.months||typeof x.months!=='object'||Array.isArray(x.months)||!x.achievements||typeof x.achievements!=='object')throw Error('Format de sauvegarde non reconnu.');if(x.incomePlan!==undefined)validateIncomePlan(x.incomePlan);if(x.plans.length>1200||Object.keys(x.months).length>1200)throw Error('Sauvegarde trop volumineuse.');for(const p of x.plans){if(!/^\d{4}-(0[1-9]|1[0-2])$/.test(p.from))throw Error('Date de budget invalide.');checkBudget(p.budget);const c=E.calculate({salary:0,openingCA:0,openingR:0,salaryIncluded:false,savingsOpening:0,budget:p.budget,rules:p.rules,useBuffer:false});if(c.errors.length)throw Error(c.errors.join(' '));}for(const [key,m] of Object.entries(x.months)){if(!/^\d{4}-(0[1-9]|1[0-2])$/.test(key)||m.key!==key||typeof m.prepared!=='boolean'||typeof m.closed!=='boolean'||!m.done||typeof m.done.r!=='boolean'||typeof m.done.savings!=='boolean')throw Error('Mois invalide dans la sauvegarde.');if(m.forecast!==undefined&&typeof m.forecast!=='boolean')throw Error('Prévision mensuelle invalide.');if(m.salaryReference!==undefined)validateIncomeEntry(m.salaryReference);if(m.carry!==undefined&&(!m.carry||typeof m.carry!=='object'||Array.isArray(m.carry)||typeof m.carry.buffer!=='boolean'||typeof m.carry.savings!=='boolean'))throw Error('Reports mensuels invalides.');if(m.executed!==undefined){if(!m.executed||typeof m.executed!=='object'||Array.isArray(m.executed)||!['r','savings'].every(id=>typeof m.executed[id]==='number'&&Number.isFinite(m.executed[id])&&Math.abs(m.executed[id])<=1e9&&Math.abs(m.executed[id]*100-Math.round(m.executed[id]*100))<1e-6)||m.executed.savings<0)throw Error('Historique des virements invalide.');}const checkpointErrors=E.validateCheckpoints(m);if(checkpointErrors.length)throw Error(checkpointErrors.join(' '));checkBudget(m.budget);const c=E.calculate(m);if(c.errors.length)throw Error(c.errors.join(' '));if(m.closed){if(!m.prepared||!m.closing)throw Error('Clôture invalide.');const r=E.closeMonth(m,m.closing);if(r.errors.length)throw Error(r.errors.join(' '));}}M.validateReports(x);}
 
 function validateIncomeEntry(e){
   if(!e||typeof e!=='object'||Array.isArray(e)||!Number.isFinite(e.salary)||e.salary<0||e.salary>1e9||Math.abs(e.salary*100-Math.round(e.salary*100))>1e-6||!/^\d{4}-(0[1-9]|1[0-2])$/.test(e.sourcePayroll)||typeof e.estimated!=='boolean')throw Error('Salaire prévisionnel invalide.');
@@ -882,12 +1184,12 @@ function startDemo(){if(dirty)return toast('Enregistre ton budget avant d’ouvr
 function leaveDemo(){state=persistent;demo=false;draft=null;dirty=false;page='overview';dialog.close();render();}
 function navigate(p){if(dirty&&p!==page)return toast('Enregistre les modifications du budget avant de changer de vue.',true);page=p;render();window.scrollTo({top:0,behavior:'instant'});}
 function changeMonth(key){if(dirty)return toast('Enregistre le budget avant de changer de mois.',true);if(!/^\d{4}-(0[1-9]|1[0-2])$/.test(key))return;state.selectedMonth=key;draft=null;if(!loadError&&!storageConflict)persist();dialog.close();render();}
-const writeActions=new Set(['save-month','save-budget','save-closing','reopen','confirm-buffer','cancel-buffer','toggle-done','save-goal','theme','confirm-import','confirm-income-import','reset']);
-async function action(name,el){if(writeActions.has(name)&&writesBlocked(name==='reset'||name==='confirm-import'))return;const m=current();switch(name){case'more':moreMenu();break;case'forecast':dialog.close();navigate('forecast');break;case'confirm-income-import':importIncomePlan();break;case'forecast-start':changeMonth(today());navigate('overview');prepare();break;case'overview':navigate('overview');break;case'budget':navigate('budget');break;case'prev-month':changeMonth(moveMonth(state.selectedMonth,-1));break;case'next-month':changeMonth(moveMonth(state.selectedMonth,1));break;case'choose-month':openDialog('Choisir un mois',`<label class="field"><span>Mois à consulter</span><input id="month-choice" type="month" value="${state.selectedMonth}"></label>`,`<button class="btn primary" data-action="select-month">Afficher ce mois</button>`);break;case'select-month':changeMonth($('#month-choice').value);break;case'prepare':prepare();break;case'save-month':saveMonth();break;case'close-dialog':dialog.close();break;case'close-month':closeMonthDialog();break;case'save-closing':saveClosing();break;case'show-closing':showClosing();break;case'reopen':if(!Object.values(state.months).some(o=>o.key>m.key&&o.prepared&&(!o.forecast||o.closed))){m.closed=false;delete m.closing;commitMonth(m);dialog.close();render();toast('Mois rouvert. Tu peux corriger puis clôturer à nouveau.');}break;case'use-buffer':if(m.closed)return;openDialog('Utiliser une partie du tampon',`<p>Pour maintenir tes budgets, <strong>${eur(Math.min(calc(m).deficit,calc(m).bufferAvailable))}</strong> seront pris sur ta réserve.</p><p class="help">Le reste disponible sera affiché séparément. Aucun versement d’épargne ni bonus ne sera prévu pendant ce déficit.</p>`,`<button class="btn secondary" data-action="close-dialog">Annuler</button><button class="btn primary" data-action="confirm-buffer">Utiliser le tampon</button>`);break;case'confirm-buffer':m.useBuffer=true;m.done={r:false,savings:false};commitMonth(m);dialog.close();render();break;case'cancel-buffer':m.useBuffer=false;m.done={r:false,savings:false};commitMonth(m);render();break;case'toggle-done':if(!m.closed&&['r','savings'].includes(el.dataset.id)){const id=el.dataset.id,o=operation(m,id);m.executed={r:0,savings:0,...m.executed};m.executed[id]=o.complete?0:o.target;m.done[id]=!o.complete;commitMonth(m);render();}break;case'budget-ca':budgetAccount='ca';render();break;case'budget-r':budgetAccount='r';render();break;case'add-line':if(!m.closed){if(draft.budget.length>=300)return toast('Le budget contient déjà 300 postes.',true);draft.budget.push({id:uid(),account:el.dataset.account,name:'',category:'Autres',amount:0,enabled:true});dirty=true;render();const rows=app.querySelectorAll(`.budget-panel.${el.dataset.account} .name-input`);rows[rows.length-1]?.focus();}break;case'remove-line':if(!m.closed){draft.budget=draft.budget.filter(b=>b.id!==el.dataset.id);dirty=true;render();}break;case'preset':if(!m.closed){const sets={buffer:[70,0,30],balance:[60,20,20],available:[90,10,0]},[r,ca,t]=sets[el.dataset.id];Object.assign(draft.rules,{rPct:r,caPct:ca,tPct:t});dirty=true;render();const fold=app.querySelector('.rules-fold');if(fold)fold.open=true;}break;case'save-budget':saveBudget();break;case'goal':openDialog('Mon objectif tampon',`<p class="dialog-intro">Choisis la réserve avec laquelle tu te sentiras à l’aise. Tu peux la faire évoluer à tout moment.</p>${numberField('goal','Objectif à atteindre',state.settings.goal)}<div class="form-error banner warning hidden"></div>`,`<button class="btn primary" data-action="save-goal">Enregistrer mon objectif</button>`);break;case'save-goal':{const value=fieldValue('goal');if(!Number.isFinite(value)||value<=0||value>1e9||round(value)!==value)return errorBox('Indique un montant positif, avec deux décimales maximum.');state.settings.goal=value;award();persist();dialog.close();render();break;}case'history':history();break;case'open-history':changeMonth(el.dataset.key);navigate('overview');break;case'trophies':trophies();break;case'settings':settings();break;case'install-app':await installApp();break;case'check-update':await window.MargePWA?.checkForUpdates(true);refreshPWAStatus();break;case'theme':state.settings.theme=state.settings.theme==='dark'?'light':'dark';persist();render();settings();break;case'export':exportData();break;case'export-raw':exportData(true);break;case'import':$('#import-file').click();break;case'confirm-import':if(pendingImport){const previous={state,persistent,demo,loadError};state=pendingImport;demo=false;loadError=false;if(!persist()){state=previous.state;persistent=previous.persistent;demo=previous.demo;loadError=previous.loadError;render();return;}pendingImport=null;dirty=false;draft=null;page='overview';dialog.close();render();toast('Sauvegarde importée. Tes mois sont restaurés.');}break;case'demo':startDemo();break;case'exit-demo':leaveDemo();break;case'reset-confirm':openDialog('Réinitialiser cet appareil ?',`<p>Tous les mois, budgets et réglages seront supprimés de cet appareil.</p><label class="field"><span>Écris EFFACER pour confirmer</span><input id="reset-word" autocomplete="off" placeholder="EFFACER"></label>`,`<button class="btn secondary" data-action="close-dialog">Annuler</button><button class="btn danger" data-action="reset">Effacer les données</button>`);break;case'reset':if($('#reset-word').value!=='EFFACER')return toast('Écris EFFACER pour confirmer.',true);{const previous={state,persistent,loadError};state=fresh();loadError=false;if(!persist()){state=previous.state;persistent=previous.persistent;loadError=previous.loadError;render();return;}dirty=false;draft=null;page='overview';dialog.close();render();toast('Tu peux préparer ton premier mois.');}break;}}
+const writeActions=new Set(['save-checkpoint','save-month','save-budget','save-closing','reopen','confirm-buffer','cancel-buffer','toggle-done','save-goal','theme','confirm-import','confirm-income-import','reset']);
+async function action(name,el){if(writeActions.has(name)&&writesBlocked(name==='reset'||name==='confirm-import'))return;const m=current();switch(name){case'checkpoint':checkpointDialog();break;case'save-checkpoint':saveCheckpoint();break;case'more':moreMenu();break;case'forecast':dialog.close();navigate('forecast');break;case'confirm-income-import':importIncomePlan();break;case'forecast-start':changeMonth(today());navigate('overview');prepare();break;case'overview':navigate('overview');break;case'budget':navigate('budget');break;case'prev-month':changeMonth(moveMonth(state.selectedMonth,-1));break;case'next-month':changeMonth(moveMonth(state.selectedMonth,1));break;case'choose-month':openDialog('Choisir un mois',`<label class="field"><span>Mois à consulter</span><input id="month-choice" type="month" value="${state.selectedMonth}"></label>`,`<button class="btn primary" data-action="select-month">Afficher ce mois</button>`);break;case'select-month':changeMonth($('#month-choice').value);break;case'prepare':prepare();break;case'save-month':saveMonth();break;case'close-dialog':dialog.close();break;case'close-month':closeMonthDialog();break;case'save-closing':saveClosing();break;case'show-closing':showClosing();break;case'reopen':if(!Object.values(state.months).some(o=>o.key>m.key&&o.prepared&&(!o.forecast||o.closed))){m.closed=false;delete m.closing;commitMonth(m);dialog.close();render();toast('Mois rouvert. Tu peux corriger puis clôturer à nouveau.');}break;case'use-buffer':if(m.closed)return;openDialog('Utiliser une partie du tampon',`<p>Pour maintenir tes budgets, <strong>${eur(Math.min(calc(m).deficit,calc(m).bufferAvailable))}</strong> seront pris sur ta réserve.</p><p class="help">Le reste disponible sera affiché séparément. Aucun versement d’épargne ni bonus ne sera prévu pendant ce déficit.</p>`,`<button class="btn secondary" data-action="close-dialog">Annuler</button><button class="btn primary" data-action="confirm-buffer">Utiliser le tampon</button>`);break;case'confirm-buffer':m.useBuffer=true;m.done={r:false,savings:false};commitMonth(m);dialog.close();render();break;case'cancel-buffer':m.useBuffer=false;m.done={r:false,savings:false};commitMonth(m);render();break;case'toggle-done':if(!m.closed&&['r','savings'].includes(el.dataset.id)){const id=el.dataset.id,o=operation(m,id);m.executed={r:0,savings:0,...m.executed};m.executed[id]=o.complete?0:o.target;m.done[id]=!o.complete;commitMonth(m);render();}break;case'budget-ca':budgetAccount='ca';render();break;case'budget-r':budgetAccount='r';render();break;case'add-line':if(!m.closed){if(draft.budget.length>=300)return toast('Le budget contient déjà 300 postes.',true);draft.budget.push({id:uid(),account:el.dataset.account,name:'',category:'Autres',amount:0,enabled:true});dirty=true;render();const rows=app.querySelectorAll(`.budget-panel.${el.dataset.account} .name-input`);rows[rows.length-1]?.focus();}break;case'remove-line':if(!m.closed){draft.budget=draft.budget.filter(b=>b.id!==el.dataset.id);dirty=true;render();}break;case'preset':if(!m.closed){const sets={buffer:[70,0,30],balance:[60,20,20],available:[90,10,0]},[r,ca,t]=sets[el.dataset.id];Object.assign(draft.rules,{rPct:r,caPct:ca,tPct:t});dirty=true;render();const fold=app.querySelector('.rules-fold');if(fold)fold.open=true;}break;case'save-budget':saveBudget();break;case'goal':openDialog('Mon objectif tampon',`<p class="dialog-intro">Choisis la réserve avec laquelle tu te sentiras à l’aise. Tu peux la faire évoluer à tout moment.</p>${numberField('goal','Objectif à atteindre',state.settings.goal)}<div class="form-error banner warning hidden"></div>`,`<button class="btn primary" data-action="save-goal">Enregistrer mon objectif</button>`);break;case'save-goal':{const value=fieldValue('goal');if(!Number.isFinite(value)||value<=0||value>1e9||round(value)!==value)return errorBox('Indique un montant positif, avec deux décimales maximum.');state.settings.goal=value;award();persist();dialog.close();render();break;}case'history':history();break;case'open-history':changeMonth(el.dataset.key);navigate('overview');break;case'trophies':trophies();break;case'settings':settings();break;case'install-app':await installApp();break;case'check-update':await window.MargePWA?.checkForUpdates(true);refreshPWAStatus();break;case'theme':state.settings.theme=state.settings.theme==='dark'?'light':'dark';persist();render();settings();break;case'export':exportData();break;case'export-raw':exportData(true);break;case'import':$('#import-file').click();break;case'confirm-import':if(pendingImport){const previous={state,persistent,demo,loadError};state=pendingImport;demo=false;loadError=false;if(!persist()){state=previous.state;persistent=previous.persistent;demo=previous.demo;loadError=previous.loadError;render();return;}pendingImport=null;dirty=false;draft=null;page='overview';dialog.close();render();toast('Sauvegarde importée. Tes mois sont restaurés.');}break;case'demo':startDemo();break;case'exit-demo':leaveDemo();break;case'reset-confirm':openDialog('Réinitialiser cet appareil ?',`<p>Tous les mois, budgets et réglages seront supprimés de cet appareil.</p><label class="field"><span>Écris EFFACER pour confirmer</span><input id="reset-word" autocomplete="off" placeholder="EFFACER"></label>`,`<button class="btn secondary" data-action="close-dialog">Annuler</button><button class="btn danger" data-action="reset">Effacer les données</button>`);break;case'reset':if($('#reset-word').value!=='EFFACER')return toast('Écris EFFACER pour confirmer.',true);{const previous={state,persistent,loadError};state=fresh();loadError=false;if(!persist()){state=previous.state;persistent=previous.persistent;loadError=previous.loadError;render();return;}dirty=false;draft=null;page='overview';dialog.close();render();toast('Tu peux préparer ton premier mois.');}break;}}
 for(const root of [app,dialog])root.addEventListener('click',ev=>{const el=ev.target.closest('[data-action]');if(!el)return;ev.preventDefault();action(el.dataset.action,el);});
 app.addEventListener('input',ev=>{const el=ev.target;if(current().closed)return;if(el.dataset.budgetId){const b=draft.budget.find(b=>b.id===el.dataset.budgetId),p=el.dataset.prop;if(b){b[p]=p==='enabled'?el.checked:p==='amount'?num(el.value):el.value;refreshDraft();}}if(el.dataset.rule){draft.rules[el.dataset.rule]=num(el.value);app.querySelectorAll('.preset').forEach(p=>p.classList.remove('active'));refreshDraft();}});
 dialog.addEventListener('input',ev=>{if(activeForm==='month')syncCarryFields(ev.target.name);if(activeForm==='closing'){const a=fieldValue('closingCA'),b=fieldValue('closingR');const el=$('#close-preview');if(el)el.textContent=`Nouveau tampon : ${Number.isFinite(a+b)?eur(a+b):'—'}`;}});
-dialog.addEventListener('submit',e=>{e.preventDefault();if(activeForm==='month')saveMonth();});
+dialog.addEventListener('submit',e=>{e.preventDefault();if(activeForm==='month')saveMonth();if(activeForm==='checkpoint')saveCheckpoint();});
 dialog.addEventListener('close',syncPWA);
 window.addEventListener('marge:pwa-status',refreshPWAStatus);
 window.addEventListener('beforeunload',e=>{if(dirty){e.preventDefault();e.returnValue='';}});
