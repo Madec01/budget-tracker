@@ -1,0 +1,36 @@
+# Personal financial documents, browser exports and salary-calendar imports.
+/private/
+/personal/
+/data/
+/exports/
+/backups/
+Marge_*.json
+*salaires*.json
+*paies*.json
+*revenus*.json
+*income-plan*.json
+*payroll*.json
+*.pdf
+*.xlsx
+*.xls
+*.csv
+*.tsv
+
+# Preview metadata, screenshots and temporary quality-assurance outputs.
+.openai/
+/qa/
+/screenshots/
+/test-results/
+/playwright-report/
+
+# Local environment and caches.
+.env
+.env.*
+!.env.example
+__pycache__/
+*.py[cod]
+.venv/
+node_modules/
+.DS_Store
+Thumbs.db
+*.log
