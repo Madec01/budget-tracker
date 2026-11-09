@@ -2,7 +2,7 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#f6f4ef"><meta name="description" content="Marge, votre budget CA et Revolut en clair. Préparez le mois, constituez votre tampon et suivez votre Livret A."><title>Marge — Mon budget, en clair</title>
-<meta name="marge-version" content="8a14ee6a10515d2b"><meta name="application-name" content="Marge"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="default"><meta name="apple-mobile-web-app-title" content="Marge">
+<meta name="marge-version" content="147a5f5c2b1d8a43"><meta name="application-name" content="Marge"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="default"><meta name="apple-mobile-web-app-title" content="Marge">
 <link rel="manifest" href="./manifest.webmanifest"><link rel="icon" type="image/svg+xml" href="./icons/icon.svg"><link rel="apple-touch-icon" sizes="180x180" href="./icons/apple-touch-icon.png">
 <style>/* Marge 2 — a quiet monthly ledger. */
 :root{color-scheme:light;--paper:#f6f4ef;--ink:#252b29;--muted:#686f68;--line:#dcded6;--soft:#eeeee6;--accent:#bd4f2b;--accent-soft:#f3e5dc;--ca:#47715b;--r:#6f6c78;--danger:#ad3f34;--warning:#805628;--surface:var(--paper);--surface-soft:var(--soft);--bg:var(--paper);--blue:#657d85;--gold:#b17d42;--panel:#fffdfa;--panel-line:#c8cdc3;--panel-action:#edf0e9;--panel-buffer:#f4e7db;--panel-savings:#e7eee4}
@@ -151,6 +151,66 @@ body[data-theme=dark] .pacing-marker{box-shadow:0 0 0 1px var(--panel)}
 }
 @media(prefers-reduced-motion:reduce){.pacing-fill{transition:none}}
 @media print{.account-card{break-inside:avoid}.pacing-track,.pacing-fill,.pacing-marker{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
+
+/* A checkpoint reconciles bank balances and transfers before showing spending. */
+.account-balance small{display:block;max-width:27ch;white-space:normal;line-height:1.5}
+.checkpoint-budget-line{display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:4px 15px;margin:12px 0 0;color:var(--muted);font-size:11px;line-height:1.6;font-variant-numeric:tabular-nums}
+.checkpoint-budget-line strong{color:var(--ink);font-size:11px;font-weight:500;white-space:nowrap}
+.checkpoint-budget-line + .checkpoint-tracking{margin-top:16px}
+.checkpoint-repair-note{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:5px 18px;margin:0 0 18px;padding:9px 12px;border-left:2px solid var(--warning);background:var(--soft);color:var(--muted);font-size:11px;line-height:1.7}
+.checkpoint-repair-note > p,.checkpoint-repair-note > span{flex:1;min-width:170px;margin:0}
+.checkpoint-repair-note strong{color:var(--ink);font-weight:550}
+.checkpoint-repair-note .inline-link{min-height:44px;flex-shrink:0;padding:9px 0;color:var(--accent);font-size:11px}
+.checkpoint-transfers{margin:20px 0;padding:17px 0;border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+.checkpoint-transfers h3{margin:0 0 8px;font-size:13px;font-weight:550}
+.checkpoint-transfers > .help{margin:0 0 12px;font-size:11px;line-height:1.7}
+.checkpoint-transfer-choice{display:grid;grid-template-columns:19px minmax(0,1fr) auto;align-items:center;gap:11px;min-height:48px;padding:9px 0;color:var(--ink);font-size:12px;line-height:1.5;cursor:pointer}
+.checkpoint-transfer-choice + .checkpoint-transfer-choice,.checkpoint-transfer-confirmed + .checkpoint-transfer-choice,.checkpoint-transfer-choice + .checkpoint-transfer-confirmed,.checkpoint-transfer-confirmed + .checkpoint-transfer-confirmed{border-top:1px solid var(--line)}
+.checkpoint-transfer-choice > input[type=checkbox]{width:18px;height:18px;margin:0;accent-color:var(--ca)}
+.checkpoint-transfer-choice > span{min-width:0}
+.checkpoint-transfer-choice strong{font-size:12px;font-weight:550;text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
+.checkpoint-transfer-choice small{display:block;margin-top:3px;color:var(--muted);font-size:10px;line-height:1.5}
+.checkpoint-transfer-choice:has(input:disabled){cursor:default;color:var(--muted)}
+.checkpoint-transfer-choice:focus-within{outline:2px solid var(--accent);outline-offset:3px;border-radius:2px}
+.checkpoint-transfer-choice input:focus-visible{outline:0}
+.checkpoint-transfer-confirmed{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:11px;min-height:44px;padding:10px 0;color:var(--ca);font-size:11px;line-height:1.6}
+.checkpoint-transfer-confirmed:has(> svg){grid-template-columns:19px minmax(0,1fr) auto}
+.checkpoint-transfer-confirmed > svg{width:16px;height:16px}
+.checkpoint-transfer-confirmed > span{min-width:0}
+.checkpoint-transfer-confirmed strong{color:var(--ink);font-size:12px;font-weight:500;text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
+.checkpoint-transfer-confirmed small{display:block;color:var(--muted);font-size:10px}
+.checkpoint-preview{margin:19px 0;padding:14px 15px;border:1px solid var(--line);border-radius:4px;background:var(--soft)}
+.checkpoint-preview h3{margin:0 0 8px;color:var(--ink);font-size:12px;font-weight:550}
+.checkpoint-preview > p:first-child{margin-bottom:9px;font-size:12px}
+.checkpoint-preview-row{display:grid;grid-template-columns:minmax(0,1fr) minmax(70px,auto) minmax(43px,auto);align-items:baseline;gap:10px;padding:10px 0;border-bottom:1px solid var(--line);font-size:11px;line-height:1.6;font-variant-numeric:tabular-nums}
+.checkpoint-preview-row > :first-child{min-width:0;color:var(--muted)}
+.checkpoint-preview-row > :nth-child(2),.checkpoint-preview-row > :nth-child(3){text-align:right;white-space:nowrap}
+.checkpoint-preview-row strong{font-size:12px;font-weight:550}
+.checkpoint-preview-row:last-child{border-bottom:0;padding-bottom:0}
+.checkpoint-preview .help,.checkpoint-preview-note{margin:11px 0 0;color:var(--muted);font-size:10px;line-height:1.7}
+.checkpoint-transfers .checkpoint-preview-note{font-size:11px}
+@media(max-width:700px){
+  .checkpoint-repair-note{gap:0 12px;padding:9px 11px;font-size:10px}
+  .checkpoint-repair-note > p,.checkpoint-repair-note > span{min-width:145px}
+  .checkpoint-budget-line{font-size:10px}
+  .checkpoint-budget-line strong{font-size:11px}
+}
+@media(max-width:560px){
+  .checkpoint-transfers{margin:18px 0;padding:15px 0}
+  .checkpoint-transfer-choice{column-gap:9px;font-size:11px}
+  .checkpoint-transfer-choice strong{font-size:11px}
+  .checkpoint-transfer-confirmed{column-gap:9px;font-size:10px}
+  .checkpoint-transfer-confirmed strong{font-size:11px}
+  .checkpoint-preview{padding:12px}
+  .checkpoint-preview-row{gap:8px;font-size:10px}
+  .checkpoint-preview-row strong{font-size:11px}
+}
+@media(max-width:370px){
+  .checkpoint-transfer-choice{grid-template-columns:19px minmax(0,1fr);row-gap:3px}
+  .checkpoint-transfer-choice > strong{grid-column:2;text-align:left}
+  .checkpoint-preview-row{grid-template-columns:minmax(0,1fr) auto auto;gap:6px}
+  .checkpoint-repair-note .inline-link{font-size:10px}
+}
 </style>
 </head>
 <body><div id="app"></div><dialog id="dialog" aria-label="Modifier les informations"></dialog><div id="toast" class="toast hidden" role="status" aria-live="polite"></div><input type="file" id="import-file" accept="application/json,.json" hidden>
@@ -516,12 +576,100 @@ body[data-theme=dark] .pacing-marker{box-shadow:0 0 0 1px var(--panel)}
   }
 
   /**
+   * checkpointTransferState(month, last = null) ->
+   * {valid,errors,source,executed,targets,pending,complete,snapshot,
+   *  snapshotSource,changedSinceCheckpoint}.
+   * source: 'executed' for explicit cumulative movements (always authoritative),
+   * 'legacy-done' if an old done:true flag supplies a missing executed history,
+   * otherwise 'none'. Legacy checked flags mean the corresponding full target;
+   * the app must materialize that migration before changing a legacy plan.
+   * executed/targets/pending are {r,savings} in signed euros; complete holds
+   * booleans. pending = targets - executed, calculated with whole cents.
+   * last may be an existing checkpoint (only its date is required here).
+   * snapshot is null without last, otherwise the recorded snapshot or executed
+   * fallback. snapshotSource is 'checkpoint' / 'executed-fallback' / null.
+   * changedSinceCheckpoint compares the recorded movements to current executed.
+   * No mutation, coercion or transfer execution. Invalid input returns false,
+   * French errors and null amount maps. Snapshot/history validation remains
+   * available separately through validateCheckpoints().
+   */
+  function checkpointTransferState(month, last) {
+    var plan = calculate(month);
+    var errors = plan.errors.slice();
+    var result = { valid: false, errors: errors, source: null, executed: null,
+      targets: null, pending: null, complete: null, snapshot: null,
+      snapshotSource: null, changedSinceCheckpoint: false };
+    if (!object(month)) return result;
+    if (last === undefined) last = null;
+    if (last !== null && (!object(last) || !parseCheckpointDate(last.date))) {
+      errors.push('Le relevé de référence doit porter une date ISO valide.');
+    }
+    var done = month.done;
+    if (done !== undefined && (!object(done) || typeof done.r !== 'boolean' || typeof done.savings !== 'boolean')) {
+      errors.push('Les anciens pointages doivent préciser vrai ou faux pour Revolut et le Livret A.');
+    }
+    if (month.checkpointTransfers !== undefined && !object(month.checkpointTransfers)) {
+      errors.push('Les instantanés de virements doivent être un objet.');
+    }
+    if (errors.length) return result;
+
+    var targetR = Math.round(plan.transferR * 100);
+    var targetSavings = Math.round(plan.savingsAdd * 100);
+    var paidR, paidSavings, source;
+    if (month.executed !== undefined) {
+      source = 'executed';
+      if (!object(month.executed)) {
+        errors.push('Les virements effectués doivent préciser Revolut et le Livret A.');
+        return result;
+      }
+      paidR = money(month.executed.r, 'Le virement Revolut effectué', errors, true);
+      paidSavings = money(month.executed.savings, 'Le virement Livret A effectué', errors, true);
+    } else {
+      source = done && (done.r || done.savings) ? 'legacy-done' : 'none';
+      paidR = done && done.r ? targetR : 0;
+      paidSavings = done && done.savings ? targetSavings : 0;
+    }
+    if (errors.length) return result;
+
+    var snapshot = null, snapshotSource = null, changed = false;
+    if (last !== null) {
+      var snapshots = month.checkpointTransfers;
+      var hasSnapshot = snapshots && Object.prototype.hasOwnProperty.call(snapshots, last.date);
+      var savedR = paidR, savedSavings = paidSavings;
+      if (hasSnapshot) {
+        var saved = snapshots[last.date];
+        if (!object(saved)) {
+          errors.push('Les virements du relevé doivent préciser Revolut et le Livret A.');
+          return result;
+        }
+        savedR = money(saved.r, 'Le virement Revolut du relevé', errors, true);
+        savedSavings = money(saved.savings, 'Le virement Livret A du relevé', errors, true);
+      }
+      if (errors.length) return result;
+      snapshot = { r: euros(savedR), savings: euros(savedSavings) };
+      snapshotSource = hasSnapshot ? 'checkpoint' : 'executed-fallback';
+      changed = savedR !== paidR || savedSavings !== paidSavings;
+    }
+    result.valid = true;
+    result.source = source;
+    result.executed = { r: euros(paidR), savings: euros(paidSavings) };
+    result.targets = { r: euros(targetR), savings: euros(targetSavings) };
+    result.pending = { r: euros(targetR - paidR), savings: euros(targetSavings - paidSavings) };
+    result.complete = { r: targetR === paidR, savings: targetSavings === paidSavings };
+    result.snapshot = snapshot;
+    result.snapshotSource = snapshotSource;
+    result.changedSinceCheckpoint = changed;
+    return result;
+  }
+
+  /**
    * checkpointTracking(month, now = new Date()) ->
    * {valid,errors,latest,elapsedPct,transferSnapshotSource,transferSnapshot,accounts}.
    * latest is a shallow copy of the most recent checkpoint by instant, not array
    * order. With no checkpoint latest/accounts/snapshot/source are null.
    * transferSnapshotSource is 'checkpoint' or 'executed-fallback'. Missing
-   * snapshots explicitly fall back to month.executed (absent amounts -> zero).
+   * snapshots explicitly fall back to checkpointTransferState().executed,
+   * including legacy done:true flags when no explicit executed history exists.
    * Transfers are cumulative actual movements: r > 0 CA->R; savings > 0 CA->livret.
    * Negative values represent the reverse movement. Future pointages do not
    * change a checkpoint that already has its own snapshot.
@@ -546,11 +694,15 @@ body[data-theme=dark] .pacing-marker{box-shadow:0 0 0 1px var(--panel)}
     }, null);
     var snapshots = month.checkpointTransfers;
     var hasSnapshot = snapshots && Object.prototype.hasOwnProperty.call(snapshots, latest.date);
-    var snapshot = hasSnapshot ? snapshots[latest.date] : month.executed;
-    if (snapshot !== undefined && !object(snapshot)) errors.push('Les virements effectués doivent préciser Revolut et le Livret A.');
-    if (errors.length) return result;
-    var transferR = money(snapshot && snapshot.r !== undefined ? snapshot.r : 0, 'Le virement Revolut effectué', errors, true);
-    var transferSavings = money(snapshot && snapshot.savings !== undefined ? snapshot.savings : 0, 'Le virement Livret A effectué', errors, true);
+    var snapshot;
+    if (hasSnapshot) snapshot = snapshots[latest.date];
+    else {
+      var transfers = checkpointTransferState(month, latest);
+      if (!transfers.valid) { Array.prototype.push.apply(errors, transfers.errors); return result; }
+      snapshot = transfers.executed;
+    }
+    var transferR = money(snapshot.r, 'Le virement Revolut effectué', errors, true);
+    var transferSavings = money(snapshot.savings, 'Le virement Livret A effectué', errors, true);
     if (errors.length) return result;
     var spentCA = Math.round(plan.openingCANormalized * 100) + Math.round(month.salary * 100)
       - transferR - transferSavings - Math.round(latest.balanceCA * 100);
@@ -567,7 +719,8 @@ body[data-theme=dark] .pacing-marker{box-shadow:0 0 0 1px var(--panel)}
   }
 
   return Object.freeze({ calculate: calculate, closeMonth: closeMonth,
-    validateCheckpoints: validateCheckpoints, elapsedMonthPct: elapsedMonthPct, checkpointTracking: checkpointTracking });
+    validateCheckpoints: validateCheckpoints, elapsedMonthPct: elapsedMonthPct,
+    checkpointTracking: checkpointTracking, checkpointTransferState: checkpointTransferState });
 });
 </script>
 <script>/* Marge — immutable, chronological monthly carry-forward. */
@@ -854,7 +1007,7 @@ body[data-theme=dark] .pacing-marker{box-shadow:0 0 0 1px var(--panel)}
 <script>/* Marge PWA integration. Load before app.js; the app owns the explicit busy flag. */
 (function () {
   'use strict';
-  const VERSION = '8a14ee6a10515d2b';
+  const VERSION = '147a5f5c2b1d8a43';
   const BASE = new URL('./', document.baseURI);
   const supported = 'serviceWorker' in navigator && window.isSecureContext && /^https?:$/.test(location.protocol);
   let busy = true, registration = null, installPrompt = null, installed = false;
@@ -1004,8 +1157,17 @@ const rules=()=>({threshold:500,savingPct:80,rPct:70,caPct:0,tPct:30});
 const blankBudget=()=>[['ca','Logement','Fixes'],['ca','Assurances','Administratif'],['ca','Santé','Santé'],['ca','Autres charges','Fixes'],['r','Abonnements','Abonnements'],['r','Courses & repas','Repas'],['r','Loisirs & sorties','Loisirs'],['r','Imprévus','Imprévus']].map(([account,name,category])=>({id:uid(),account,name,category,amount:0,enabled:true}));
 const fresh=()=>({version:1,selectedMonth:today(),settings:{goal:1500,theme:'light'},plans:[{from:'1900-01',budget:blankBudget(),rules:rules()}],months:{},achievements:{},lastExport:null});
 let persistent=fresh(),loadError=false,saveFailed=false,storageConflict=false;
-try{const raw=localStorage.getItem(KEY);if(raw){const loaded=JSON.parse(raw);validateState(loaded);persistent=loaded;}}catch(e){loadError=true;}
-let state=persistent,demo=false,page='overview',budgetAccount='ca',draft=null,dirty=false,activeForm=null,toastTimer;
+try{const raw=localStorage.getItem(KEY);if(raw){const loaded=JSON.parse(raw);validateState(loaded);persistent=normalizeTransfers(loaded);}}catch(e){loadError=true;}
+let state=persistent,demo=false,page='overview',budgetAccount='ca',draft=null,dirty=false,activeForm=null,checkpointContext=null,toastTimer;
+// Freeze the amounts represented by old checkmarks before a later budget edit.
+function normalizeTransfers(data){
+  const months={...data.months};
+  for(const [key,m] of Object.entries(months)){
+    const transfers=E.checkpointTransferState(m);
+    if(transfers.valid&&transfers.source==='legacy-done')months[key]={...m,executed:{...transfers.executed}};
+  }
+  return {...data,months};
+}
 const app=$('#app'),dialog=$('#dialog');
 function syncPWA(){window.MargePWA?.setBusy(dirty||dialog.open||saveFailed||storageConflict||loadError);}
 function pwaStatusText(){const s=window.MargePWA?.getStatus();if(!s)return 'Ouvre la version hébergée pour installer Marge.';if(s.error)return s.error;if(s.updateAvailable)return 'Mise à jour prête : elle s’appliquera après fermeture des fenêtres et enregistrement des saisies.';if(s.offlineReady)return 'Disponible hors connexion. Les mises à jour sont vérifiées automatiquement.';return s.supported?'Préparation du mode hors connexion…':'L’installation nécessite la version HTTPS et un navigateur compatible.';}
@@ -1051,24 +1213,81 @@ function heroMoney(value){return new Intl.NumberFormat('fr-FR',{maximumFractionD
 function checkpointDate(){const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;}
 function checkpointEligible(m){const c=calc(m);return m.prepared&&!m.closed&&!m.forecast&&m.key===today()&&c.valid&&(c.budgetTotal>0||m.budgetConfirmed===true);}
 function checkpointReason(m){return m.closed?'Le mois est clôturé.':m.key!==today()?'Les relevés se font pendant le mois en cours.':m.forecast?'Confirme le salaire reçu avant de faire le point.':'Prépare le mois et valide le budget avant de faire le point.';}
-function checkpointDialog(){
+function checkpointLabel(date){return new Date(`${date.slice(0,10)}T12:00:00`).toLocaleDateString('fr-FR',{day:'numeric',month:'long'});}
+function transferRoute(id,value){return id==='r'?(value>=0?'CA → Revolut':'Revolut → CA'):(value>=0?'CA → Livret A':'Livret A → CA');}
+function checkpointDialog(repair=false){
   const m=current();if(!checkpointEligible(m))return toast(checkpointReason(m),true);
   if(writesBlocked())return;
   const tracking=E.checkpointTracking(m,new Date()),last=tracking.latest;
-  openDialog('Faire le point',`<p class="dialog-intro">${esc(monthName(m.key))} · Saisis les soldes affichés par tes banques, tampon compris.</p><form id="checkpoint-form"><div class="fields-grid">${numberField('checkpointCA','Solde actuel du CA',last?last.balanceCA:m.openingCA,last?'Dernier relevé : à actualiser.':'Solde d’ouverture : à actualiser.',{moneyClass:true})}${numberField('checkpointR','Solde actuel de Revolut',last?last.balanceR:m.openingR,last?'Dernier relevé : à actualiser.':'Solde d’ouverture : à actualiser.',{moneyClass:true})}</div><p class="help">Pointe d’abord les virements réellement effectués dans « À faire ». Ils seront exclus des dépenses. Le salaire renseigné doit avoir été reçu.</p><p class="help">Un nouveau point aujourd’hui remplace celui du même jour. Les autres relevés sont conservés.</p><div class="form-error banner warning hidden" role="alert"></div></form>`,`<button class="btn secondary" data-action="close-dialog">Annuler</button><button class="btn primary" data-action="save-checkpoint">Enregistrer le point ${icon('check')}</button>`,'checkpoint');
+  if(repair&&!last)return;
+  const transfers=E.checkpointTransferState(m,repair?last:null);
+  if(!transfers.valid)return toast(transfers.errors.join(' '),true);
+  const base={...(repair?transfers.snapshot:transfers.executed)},choices={};
+  for(const id of ['r','savings']){
+    const alreadyPointed=repair&&transfers.executed[id]!==base[id];
+    const proposed=alreadyPointed?transfers.executed[id]:transfers.targets[id];
+    const delta=Math.round((proposed-base[id])*100)/100;
+    if(delta!==0)choices[id]={proposed,delta,alreadyPointed};
+  }
+  checkpointContext={key:m.key,date:repair?last.date:checkpointDate(),repair,point:repair?{...last}:null,base,choices};
+  const movements=['r','savings'].map(id=>{
+    const choice=choices[id];
+    if(choice)return `<label class="checkpoint-transfer-choice"><input type="checkbox" name="checkpoint-transfer-${id}"><span>${transferRoute(id,choice.delta)}<small>${choice.alreadyPointed?'Déjà pointé : effectué avant ce relevé ?':'Déjà effectué avant ces soldes ?'}</small></span><strong>${eur(Math.abs(choice.delta))}</strong></label>`;
+    return base[id]!==0?`<div class="checkpoint-transfer-confirmed">${icon('check')}<span>${transferRoute(id,base[id])}<small>${repair?'Inclus dans ce relevé':'Déjà pointé'}</small></span><strong>${eur(Math.abs(base[id]))}</strong></div>`:'';
+  }).join('');
+  const dateLabel=last?checkpointLabel(last.date):'';
+  openDialog(repair?'Vérifier ce relevé':'Faire le point',`<p class="dialog-intro">${repair?`Relevé du ${esc(dateLabel)} · Confirme les virements effectués avant ces soldes.`:`${esc(monthName(m.key))} · Saisis les soldes affichés par tes banques, tampon compris.`}</p><form id="checkpoint-form"><div class="fields-grid">${numberField('checkpointCA',repair?'Solde relevé du CA':'Solde actuel du CA',last?last.balanceCA:m.openingCA,repair?'Solde conservé.':last?`Relevé du ${esc(dateLabel)} : à actualiser.`:'Solde d’ouverture : à actualiser.',{moneyClass:true,disabled:repair})}${numberField('checkpointR',repair?'Solde relevé de Revolut':'Solde actuel de Revolut',last?last.balanceR:m.openingR,repair?'Solde conservé.':last?`Relevé du ${esc(dateLabel)} : à actualiser.`:'Solde d’ouverture : à actualiser.',{moneyClass:true,disabled:repair})}</div>${movements?`<section class="checkpoint-transfers"><h3>Les virements</h3><p class="help">Coche seulement les mouvements déjà réalisés à la banque. Ils seront exclus des dépenses.</p>${movements}<p class="checkpoint-preview-note">Ces cases enregistrent un pointage ; elles ne déclenchent aucun virement.</p></section>`:''}<div id="checkpoint-preview" class="checkpoint-preview" aria-live="polite"></div><p class="help">${repair?'La date et les soldes de ce relevé sont conservés. Seuls les virements confirmés ci-dessus seront corrigés.':'Le salaire renseigné doit avoir été reçu. Un nouveau point aujourd’hui remplace celui du même jour ; les autres relevés sont conservés.'}</p><div class="form-error banner warning hidden" role="alert"></div></form>`,`<button class="btn secondary" data-action="close-dialog">Annuler</button><button class="btn primary" data-action="save-checkpoint">${repair?'Enregistrer la correction':'Enregistrer le point'} ${icon('check')}</button>`,'checkpoint');
+  updateCheckpointPreview();
+}
+function checkpointCandidate(m){
+  const context=checkpointContext;
+  if(!context||context.key!==m.key)throw Error('Rouvre « Faire le point » pour saisir ce mois.');
+  if(context.repair&&!m.checkpoints?.some(p=>p.date===context.date))throw Error('Ce relevé n’existe plus. Rouvre « Faire le point ».');
+  const transfers=E.checkpointTransferState(m);
+  if(!transfers.valid)throw Error(transfers.errors.join(' '));
+  const snapshot={...context.base},executed={...transfers.executed};
+  for(const [id,choice] of Object.entries(context.choices)){
+    if(dialog.querySelector(`[name="checkpoint-transfer-${id}"]`)?.checked){
+      snapshot[id]=choice.proposed;
+      if(!choice.alreadyPointed)executed[id]=choice.proposed;
+    }
+  }
+  const point=context.repair?{...context.point}:{date:context.date,balanceCA:fieldValue('checkpointCA'),balanceR:fieldValue('checkpointR')};
+  const replaced=p=>context.repair?p.date===context.date:p.date.slice(0,10)===context.date;
+  const checkpoints=[...(m.checkpoints||[]).filter(p=>!replaced(p)),point].sort((a,b)=>a.date.localeCompare(b.date));
+  const checkpointTransfers={...m.checkpointTransfers};
+  for(const old of m.checkpoints||[])if(replaced(old))delete checkpointTransfers[old.date];
+  checkpointTransfers[point.date]=snapshot;
+  const done={r:executed.r===transfers.targets.r,savings:executed.savings===transfers.targets.savings};
+  return {...m,executed,done,checkpoints,checkpointTransfers};
+}
+function updateCheckpointPreview(){
+  const el=dialog.querySelector('#checkpoint-preview');if(!el)return;
+  let tracking;
+  try{tracking=E.checkpointTracking(checkpointCandidate(current()),new Date());}catch(e){el.innerHTML=`<p class="help">${esc(e.message)}</p>`;return;}
+  if(!tracking.valid){el.innerHTML='<p class="help">Saisis deux soldes valides pour afficher le calcul.</p>';return;}
+  const pct=n=>new Intl.NumberFormat('fr-FR',{maximumFractionDigits:1}).format(n);
+  el.innerHTML=`<h3>Consommation calculée</h3>${[['ca','Crédit Agricole'],['r','Revolut']].map(([id,label])=>{const a=tracking.accounts[id];return `<div class="checkpoint-preview-row"><span>${label}</span><strong>${a.spent<0?'+ ':''}${eur(Math.abs(a.spent))}${a.spent<0?' entrants':''}</strong><span>${a.spentPct===null?'Sans budget':`${pct(Math.max(0,a.spentPct))} %`}</span></div>`;}).join('')}<p class="help">Si le résultat paraît incohérent, vérifie les virements ci-dessus et les soldes de départ du mois.</p>`;
 }
 function saveCheckpoint(){
   if(writesBlocked())return;
   const m=current();if(!checkpointEligible(m))return errorBox(checkpointReason(m));
-  const date=checkpointDate(),point={date,balanceCA:fieldValue('checkpointCA'),balanceR:fieldValue('checkpointR')};
-  const checkpoints=[...(m.checkpoints||[]).filter(p=>p.date.slice(0,10)!==date),point].sort((a,b)=>a.date.localeCompare(b.date));
-  const checkpointTransfers={...m.checkpointTransfers};
-  for(const old of m.checkpoints||[])if(old.date.slice(0,10)===date)delete checkpointTransfers[old.date];
-  checkpointTransfers[date]={r:m.executed?.r||0,savings:m.executed?.savings||0};
-  const candidate={...m,checkpoints,checkpointTransfers};
+  let candidate;try{candidate=checkpointCandidate(m);}catch(e){return errorBox(e.message);}
   const errors=E.validateCheckpoints(candidate);if(errors.length)return errorBox(errors.join(' '));
   if(!commitMonth(candidate)){render();return errorBox('Ce point n’est pas sauvegardé. Exporte les données avant de fermer la page.');}
-  dialog.close();render();toast('Point enregistré. Tes jauges sont à jour.');
+  const repaired=checkpointContext.repair;checkpointContext=null;
+  dialog.close();render();toast(repaired?'Relevé corrigé. Tes jauges sont à jour.':'Point enregistré. Tes jauges sont à jour.');
+}
+function checkpointRepair(m,tracking){
+  if(!tracking.latest||!checkpointEligible(m))return '';
+  const t=E.checkpointTransferState(m,tracking.latest),needsReview=t.valid&&(t.changedSinceCheckpoint||Object.values(t.pending).some(v=>v!==0));
+  if(!needsReview&&tracking.transferSnapshotSource!=='executed-fallback')return '';
+  return `<div class="checkpoint-repair-note"><p>Un virement déjà effectué manque dans ce relevé ?</p><button class="inline-link" data-action="repair-checkpoint">Vérifier ce relevé ${icon('arrow')}</button></div>`;
+}
+function checkpointAccount(id,name,total,bonus,ready,m,tracking){
+  const last=tracking.valid?tracking.latest:null;
+  const value=last?(id==='ca'?last.balanceCA:last.balanceR):total;
+  return `<article class="account-card ${id}"><div class="account-card-head"><div><i class="account-dot ${id}"></i><span>${name}</span>${!last&&ready&&bonus>0?`<small>dont ${eur(bonus)} de surplus</small>`:''}</div><strong class="account-balance">${last||ready?eur(value):'—'}<small>${last?`Solde relevé · ${esc(checkpointLabel(last.date))}`:'Budget du mois'}</small></strong></div>${last?`<div class="checkpoint-budget-line"><span>Budget alloué au mois${bonus>0?` · dont ${eur(bonus)} de surplus`:""}</span><strong>${ready?eur(total):'—'}</strong></div>`:''}${checkpointGauge(id,name,m,tracking)}</article>`;
 }
 function checkpointGauge(id,name,m,tracking){
   const a=tracking.accounts?.[id],time=tracking.elapsedPct,pct=n=>new Intl.NumberFormat('fr-FR',{maximumFractionDigits:1}).format(n),hasPoint=!!tracking.latest;
@@ -1096,7 +1315,7 @@ function overview(m,s){
   ${ready&&c.bufferUsed>0&&!m.closed?`<div class="inline-notice"><span>${eur(c.bufferUsed)} du tampon financent ce mois.</span><button data-action="cancel-buffer">Annuler ce choix</button></div>`:''}
   ${m.salaryReference?`<p class="salary-reference">${m.forecast?'Estimation':'Référence'} : paie de ${esc(monthName(m.salaryReference.sourcePayroll))} · ${eur(m.salaryReference.salary)} net payé.</p>`:''}
   ${carryDescription(m)}
-  <section class="month-body"><div class="spending-focus"><div class="section-label checkpoint-heading"><h2>Mes comptes ce mois-ci</h2><button class="btn small secondary" data-action="checkpoint" ${checkpointEligible(m)?'':`disabled title="${esc(checkpointReason(m))}"`}>Faire le point ${icon('plus')}</button></div><p class="section-kicker">${m.closed?'Budget prévu':ready&&c.funded?'Budget utilisable':'Budget à finaliser'}</p><div class="hero-amount">${ready?heroMoney(c.availableCA+c.availableR):'—'}<span>€</span></div><div class="account-ledger">${[['ca','Crédit Agricole',c.availableCA,c.caBonus],['r','Revolut',c.availableR,c.rBonus]].map(([id,name,total,bonus])=>`<article class="account-card ${id}"><div class="account-card-head"><div><i class="account-dot ${id}"></i><span>${name}</span>${ready&&bonus>0?`<small>dont ${eur(bonus)} de surplus</small>`:''}</div><strong class="account-balance">${ready?eur(total):'—'}</strong></div>${checkpointGauge(id,name,m,tracking)}</article>`).join('')}</div><p class="checkpoint-note">${tracking.transferSnapshotSource==='executed-fallback'?'Ce relevé importé utilise les virements actuellement pointés. Refais le point pour figer cette référence. ':''}${m.key!==today()?'Les points se saisissent pendant le mois en cours. ':''}Le rythme est indicatif : les charges fixes peuvent tomber en début de mois. Les remboursements réduisent le consommé.</p><button class="inline-link" data-action="budget">Ajuster les enveloppes ${icon('arrow')}</button></div>
+  <section class="month-body"><div class="spending-focus"><div class="section-label checkpoint-heading"><h2>Mes comptes ce mois-ci</h2><button class="btn small secondary" data-action="checkpoint" ${checkpointEligible(m)?'':`disabled title="${esc(checkpointReason(m))}"`}>Faire le point ${icon('plus')}</button></div><p class="section-kicker">${m.closed?'Budget prévu':ready&&c.funded?'Budget alloué au mois':'Budget à finaliser'}</p><div class="hero-amount">${ready?heroMoney(c.availableCA+c.availableR):'—'}<span>€</span></div><div class="account-ledger">${[['ca','Crédit Agricole',c.availableCA,c.caBonus],['r','Revolut',c.availableR,c.rBonus]].map(([id,name,total,bonus])=>checkpointAccount(id,name,total,bonus,ready,m,tracking)).join('')}</div>${checkpointRepair(m,tracking)}<p class="checkpoint-note">${tracking.transferSnapshotSource==='executed-fallback'?'Ce relevé importé utilise les virements actuellement pointés. Refais le point pour figer cette référence. ':''}${m.key!==today()?'Les points se saisissent pendant le mois en cours. ':''}Le rythme est indicatif : les charges fixes peuvent tomber en début de mois. Les remboursements réduisent le consommé.</p><button class="inline-link" data-action="budget">Ajuster les enveloppes ${icon('arrow')}</button></div>
   <div class="next-actions"><div class="section-label"><h2>${m.closed?'Les virements':'À faire'}</h2><span>${ready&&c.funded?`${Number(operation(m,'r',c).complete)+Number(operation(m,'savings',c).complete)} / 2 effectués`:'Après répartition'}</span></div>${ready&&c.funded?`<div class="action-list">${operationRow(m,'r',c)}${operationRow(m,'savings',c)}</div><p class="action-footnote">${c.tamponBonus>0?`${eur(c.tamponBonus)} sont réservés au tampon sur CA.`:'Le tampon reste réservé sur CA.'}</p>`:`<div class="actions-unavailable"><p>${ready?'Équilibre le budget pour connaître les montants à virer.':'Renseigne les dépenses prévues pour calculer tes virements.'}</p><button class="inline-link" data-action="budget">Ouvrir le budget ${icon('arrow')}</button></div>`}</div></section>
   <section class="reserves" aria-label="Mes réserves"><div class="reserve-block buffer-block"><div class="section-label"><h2>Le tampon</h2><button class="goal-edit" data-action="goal" aria-label="Modifier l’objectif tampon">Objectif ${eur(state.settings.goal)} ${icon('edit')}</button></div><div class="reserve-amount">${heroMoney(buffer)}<span>€</span></div><div class="reserve-meta"><span>${m.closed?'Solde réel en fin de mois':'Après répartition'}</span><strong>${Math.round(pct)} % de l’objectif</strong></div><div class="progress" role="progressbar" aria-label="Objectif tampon" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${Math.round(pct)}"><div class="progress-fill" style="width:${pct}%"></div></div><p class="reserve-note">${m.closed?`${eur(buffer-c.openingTotal)} d’évolution sur le mois.`:c.bufferUsed>0?`${eur(c.bufferUsed)} utilisés pour compléter le budget.`:`+ ${eur(ready?c.tamponBonus:0)} réservés ce mois-ci.`}</p></div><div class="reserve-block savings-block"><div class="section-label"><h2>Le Livret A</h2><span>Crédit Agricole</span></div><div class="reserve-amount">${heroMoney(savings)}<span>€</span></div><div class="reserve-meta"><span>${m.closed?'Solde réel en fin de mois':'Après versement prévu'}</span><strong>+ ${eur(ready?c.savingsAdd:0)}</strong></div><div class="savings-caption">${m.closed?'L’épargne réellement mise de côté.':'Ton épargne, séparée de l’argent du mois.'}</div></div></section>
   <details class="calculation-details"><summary><span>Le détail de la répartition</span>${icon('plus')}</summary><div class="calculation-body"><div class="details-table">${detailRow('Soldes de départ CA + Revolut, avant salaire',c.openingTotal)}${detailRow('Salaire net',m.salary)}${detailRow('Budget Crédit Agricole',c.budgetCA)}${detailRow('Budget Revolut',c.budgetR)}${detailRow('Reste hors budget',c.remainder)}${c.openingTotal<0?detailRow('Découvert de départ à couvrir',-c.openingTotal):''}${detailRow('Livret A reporté au début du mois',m.savingsOpening)}${detailRow('Vers le Livret A',c.savingsAdd)}${detailRow('Surplus à répartir',c.surplus)}${detailRow('Supplément Revolut',c.rBonus)}${detailRow('Supplément CA',c.caBonus)}${detailRow('Ajout au tampon',c.tamponBonus)}</div><p class="help">À partir de ${eur(m.rules.threshold)} de reste finançable : ${m.rules.savingPct} % vers le Livret A, ${round(100-m.rules.savingPct)} % de surplus. En dessous : tout vers le Livret A. Le tampon précédent est déjà inclus dans les soldes de départ.</p></div></details>
@@ -1141,7 +1360,7 @@ function showClosing(){const m=current();if(!m.closed)return;const c=calc(m),t=m
 function history(){const ms=Object.values(state.months).filter(m=>m.prepared).sort((a,b)=>b.key.localeCompare(a.key));openDialog('Mon historique',ms.length?`<p class="dialog-intro">Les budgets et les règles de chaque mois sont conservés.</p>${ms.map(m=>{const c=calc(getMonth(m.key));return `<button class="history-row" data-action="open-history" data-key="${m.key}"><div><strong>${esc(monthName(m.key))}</strong><span>${m.closed?'Clôturé':'En cours'} · Salaire ${eur(m.salary)}</span></div><div><strong>${eur(m.closed?m.closing.closingCA+m.closing.closingR:c.bufferEndPlan)}</strong><span>Tampon ${m.closed?'réel':'prévu'}</span></div>${icon('chevron')}</button>`;}).join('')}`:`<div class="empty-state">${icon('history')}<h3>Ton histoire commence ici.</h3><p>Prépare ton premier mois pour le retrouver dans cet espace.</p></div>`);}
 function trophies(){const s=stats(),awards=[['first','Premier cap','Préparer son premier mois.','spark'],['closed','Mois bouclé','Clôturer son premier mois.','check'],['regular','Bonne habitude','Clôturer trois mois.','history'],['goal','Une belle marge','Atteindre son objectif tampon à la clôture.','shield']];openDialog('Chaque petit pas compte',`<div class="progress-header"><div class="level-badge">${icon('trophy')}</div><div><span class="mini-label">NIVEAU ${s.level}</span><h3>${levelName(s.level)}</h3><p class="muted">${s.xp} points gagnés</p></div></div><div class="progress"><div class="progress-fill" style="width:${s.progress/150*100}%"></div></div><p class="help">Encore ${150-s.progress} points jusqu’au niveau suivant.</p><div class="trophy-grid">${awards.map(([id,title,desc,ic])=>`<div class="trophy ${state.achievements[id]?'unlocked':''}"><div>${icon(ic)}</div><strong>${title}</strong><p>${desc}</p><span>${state.achievements[id]?'Débloqué':'À découvrir'}</span></div>`).join('')}</div><div class="info-note">${icon('leaf')} +30 points par mois préparé, +70 par clôture, +100 pour ton objectif atteint. Les modifications ne rapportent pas de points supplémentaires. Utiliser ton tampon ne te pénalise pas.</div>`);}
 function moreMenu(){openDialog('À portée de main',`<div class="utility-menu"><button data-action="forecast">${icon('up')}<span>Prévisions sur les prochains mois</span>${icon('arrow')}</button><button data-action="history">${icon('history')}<span>Historique des mois</span>${icon('arrow')}</button><button data-action="trophies">${icon('trophy')}<span>Mes progrès</span><small>Niveau ${stats().level}</small></button><button data-action="settings">${icon('settings')}<span>Préférences & sauvegardes</span>${icon('arrow')}</button>${!demo?'<button data-action="demo">'+icon('spark')+'<span>Voir un exemple</span>'+icon('arrow')+'</button>':''}</div>`);}
-function settings(){openDialog('Mes préférences',`<div class="form-section"><h3>Marge sur cet appareil</h3><p class="help" data-pwa-status>${esc(pwaStatusText())}</p><div class="settings-buttons"><button class="btn secondary" data-action="install-app">${icon('download')} Installer Marge</button><button class="btn text-btn" data-action="check-update">Vérifier les mises à jour</button></div></div><div class="form-section"><h3>Affichage</h3><div class="settings-row"><div><strong>Mode sombre</strong><p class="help">Un affichage plus doux en soirée.</p></div><button class="btn secondary" data-action="theme">${icon('moon')} ${state.settings.theme==='dark'?'Activé':'Désactivé'}</button></div></div><div class="form-section"><h3>Mes données</h3><p class="help">La sauvegarde est automatique sur cet appareil. Téléphone et ordinateur ont chacun leurs données : utilise l’export et l’import pour les transférer. Aucune connexion bancaire n’est effectuée.</p><div class="settings-buttons"><button class="btn secondary" data-action="export">${icon('download')} Exporter une sauvegarde</button><button class="btn secondary" data-action="import">Importer une sauvegarde</button></div><p class="help">${state.lastExport?'Dernier export : '+new Date(state.lastExport).toLocaleString('fr-FR'):'Pense à exporter après une clôture mensuelle.'}</p>${loadError?'<button class="btn secondary" data-action="export-raw">Exporter la sauvegarde illisible</button>':''}</div><div class="form-section"><h3>Découvrir l’application</h3><button class="btn secondary" data-action="${demo?'exit-demo':'demo'}">${icon('spark')} ${demo?'Quitter la démonstration':'Ouvrir une démonstration'}</button></div><div class="form-section"><h3>Repartir de zéro</h3><p class="help">Efface les mois et les réglages de cet appareil. Exporte tes données avant de continuer.</p><button class="btn danger" data-action="reset-confirm">Réinitialiser mes données</button></div><p class="help version-line">Marge · Version 2.3 · Points d’étape</p>`);}
+function settings(){openDialog('Mes préférences',`<div class="form-section"><h3>Marge sur cet appareil</h3><p class="help" data-pwa-status>${esc(pwaStatusText())}</p><div class="settings-buttons"><button class="btn secondary" data-action="install-app">${icon('download')} Installer Marge</button><button class="btn text-btn" data-action="check-update">Vérifier les mises à jour</button></div></div><div class="form-section"><h3>Affichage</h3><div class="settings-row"><div><strong>Mode sombre</strong><p class="help">Un affichage plus doux en soirée.</p></div><button class="btn secondary" data-action="theme">${icon('moon')} ${state.settings.theme==='dark'?'Activé':'Désactivé'}</button></div></div><div class="form-section"><h3>Mes données</h3><p class="help">La sauvegarde est automatique sur cet appareil. Téléphone et ordinateur ont chacun leurs données : utilise l’export et l’import pour les transférer. Aucune connexion bancaire n’est effectuée.</p><div class="settings-buttons"><button class="btn secondary" data-action="export">${icon('download')} Exporter une sauvegarde</button><button class="btn secondary" data-action="import">Importer une sauvegarde</button></div><p class="help">${state.lastExport?'Dernier export : '+new Date(state.lastExport).toLocaleString('fr-FR'):'Pense à exporter après une clôture mensuelle.'}</p>${loadError?'<button class="btn secondary" data-action="export-raw">Exporter la sauvegarde illisible</button>':''}</div><div class="form-section"><h3>Découvrir l’application</h3><button class="btn secondary" data-action="${demo?'exit-demo':'demo'}">${icon('spark')} ${demo?'Quitter la démonstration':'Ouvrir une démonstration'}</button></div><div class="form-section"><h3>Repartir de zéro</h3><p class="help">Efface les mois et les réglages de cet appareil. Exporte tes données avant de continuer.</p><button class="btn danger" data-action="reset-confirm">Réinitialiser mes données</button></div><p class="help version-line">Marge · Version 2.4 · Soldes et points d’étape</p>`);}
 function exportData(raw=false){if(loadError&&!demo&&!raw)return exportData(true);const content=raw?localStorage.getItem(KEY)||'':JSON.stringify({...state,lastExport:new Date().toISOString()},null,2);download(content,`Marge_${raw?'recuperation':today()}_${new Date().toISOString().slice(0,10)}.json`,'application/json');if(!raw){state.lastExport=new Date().toISOString();if(!storageConflict)persist();toast('Sauvegarde exportée. Garde ce fichier en lieu sûr.');}}
 function download(content,name,type){const url=URL.createObjectURL(new Blob([content],{type})),a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
 function validateState(x){if(!x||x.version!==1||!x.settings||!Number.isFinite(x.settings.goal)||x.settings.goal<=0||x.settings.goal>1e9||!['light','dark'].includes(x.settings.theme)||!/^\d{4}-(0[1-9]|1[0-2])$/.test(x.selectedMonth)||!Array.isArray(x.plans)||!x.plans.length||!x.months||typeof x.months!=='object'||Array.isArray(x.months)||!x.achievements||typeof x.achievements!=='object')throw Error('Format de sauvegarde non reconnu.');if(x.incomePlan!==undefined)validateIncomePlan(x.incomePlan);if(x.plans.length>1200||Object.keys(x.months).length>1200)throw Error('Sauvegarde trop volumineuse.');for(const p of x.plans){if(!/^\d{4}-(0[1-9]|1[0-2])$/.test(p.from))throw Error('Date de budget invalide.');checkBudget(p.budget);const c=E.calculate({salary:0,openingCA:0,openingR:0,salaryIncluded:false,savingsOpening:0,budget:p.budget,rules:p.rules,useBuffer:false});if(c.errors.length)throw Error(c.errors.join(' '));}for(const [key,m] of Object.entries(x.months)){if(!/^\d{4}-(0[1-9]|1[0-2])$/.test(key)||m.key!==key||typeof m.prepared!=='boolean'||typeof m.closed!=='boolean'||!m.done||typeof m.done.r!=='boolean'||typeof m.done.savings!=='boolean')throw Error('Mois invalide dans la sauvegarde.');if(m.forecast!==undefined&&typeof m.forecast!=='boolean')throw Error('Prévision mensuelle invalide.');if(m.salaryReference!==undefined)validateIncomeEntry(m.salaryReference);if(m.carry!==undefined&&(!m.carry||typeof m.carry!=='object'||Array.isArray(m.carry)||typeof m.carry.buffer!=='boolean'||typeof m.carry.savings!=='boolean'))throw Error('Reports mensuels invalides.');if(m.executed!==undefined){if(!m.executed||typeof m.executed!=='object'||Array.isArray(m.executed)||!['r','savings'].every(id=>typeof m.executed[id]==='number'&&Number.isFinite(m.executed[id])&&Math.abs(m.executed[id])<=1e9&&Math.abs(m.executed[id]*100-Math.round(m.executed[id]*100))<1e-6)||m.executed.savings<0)throw Error('Historique des virements invalide.');}const checkpointErrors=E.validateCheckpoints(m);if(checkpointErrors.length)throw Error(checkpointErrors.join(' '));checkBudget(m.budget);const c=E.calculate(m);if(c.errors.length)throw Error(c.errors.join(' '));if(m.closed){if(!m.prepared||!m.closing)throw Error('Clôture invalide.');const r=E.closeMonth(m,m.closing);if(r.errors.length)throw Error(r.errors.join(' '));}}M.validateReports(x);}
@@ -1185,10 +1404,10 @@ function leaveDemo(){state=persistent;demo=false;draft=null;dirty=false;page='ov
 function navigate(p){if(dirty&&p!==page)return toast('Enregistre les modifications du budget avant de changer de vue.',true);page=p;render();window.scrollTo({top:0,behavior:'instant'});}
 function changeMonth(key){if(dirty)return toast('Enregistre le budget avant de changer de mois.',true);if(!/^\d{4}-(0[1-9]|1[0-2])$/.test(key))return;state.selectedMonth=key;draft=null;if(!loadError&&!storageConflict)persist();dialog.close();render();}
 const writeActions=new Set(['save-checkpoint','save-month','save-budget','save-closing','reopen','confirm-buffer','cancel-buffer','toggle-done','save-goal','theme','confirm-import','confirm-income-import','reset']);
-async function action(name,el){if(writeActions.has(name)&&writesBlocked(name==='reset'||name==='confirm-import'))return;const m=current();switch(name){case'checkpoint':checkpointDialog();break;case'save-checkpoint':saveCheckpoint();break;case'more':moreMenu();break;case'forecast':dialog.close();navigate('forecast');break;case'confirm-income-import':importIncomePlan();break;case'forecast-start':changeMonth(today());navigate('overview');prepare();break;case'overview':navigate('overview');break;case'budget':navigate('budget');break;case'prev-month':changeMonth(moveMonth(state.selectedMonth,-1));break;case'next-month':changeMonth(moveMonth(state.selectedMonth,1));break;case'choose-month':openDialog('Choisir un mois',`<label class="field"><span>Mois à consulter</span><input id="month-choice" type="month" value="${state.selectedMonth}"></label>`,`<button class="btn primary" data-action="select-month">Afficher ce mois</button>`);break;case'select-month':changeMonth($('#month-choice').value);break;case'prepare':prepare();break;case'save-month':saveMonth();break;case'close-dialog':dialog.close();break;case'close-month':closeMonthDialog();break;case'save-closing':saveClosing();break;case'show-closing':showClosing();break;case'reopen':if(!Object.values(state.months).some(o=>o.key>m.key&&o.prepared&&(!o.forecast||o.closed))){m.closed=false;delete m.closing;commitMonth(m);dialog.close();render();toast('Mois rouvert. Tu peux corriger puis clôturer à nouveau.');}break;case'use-buffer':if(m.closed)return;openDialog('Utiliser une partie du tampon',`<p>Pour maintenir tes budgets, <strong>${eur(Math.min(calc(m).deficit,calc(m).bufferAvailable))}</strong> seront pris sur ta réserve.</p><p class="help">Le reste disponible sera affiché séparément. Aucun versement d’épargne ni bonus ne sera prévu pendant ce déficit.</p>`,`<button class="btn secondary" data-action="close-dialog">Annuler</button><button class="btn primary" data-action="confirm-buffer">Utiliser le tampon</button>`);break;case'confirm-buffer':m.useBuffer=true;m.done={r:false,savings:false};commitMonth(m);dialog.close();render();break;case'cancel-buffer':m.useBuffer=false;m.done={r:false,savings:false};commitMonth(m);render();break;case'toggle-done':if(!m.closed&&['r','savings'].includes(el.dataset.id)){const id=el.dataset.id,o=operation(m,id);m.executed={r:0,savings:0,...m.executed};m.executed[id]=o.complete?0:o.target;m.done[id]=!o.complete;commitMonth(m);render();}break;case'budget-ca':budgetAccount='ca';render();break;case'budget-r':budgetAccount='r';render();break;case'add-line':if(!m.closed){if(draft.budget.length>=300)return toast('Le budget contient déjà 300 postes.',true);draft.budget.push({id:uid(),account:el.dataset.account,name:'',category:'Autres',amount:0,enabled:true});dirty=true;render();const rows=app.querySelectorAll(`.budget-panel.${el.dataset.account} .name-input`);rows[rows.length-1]?.focus();}break;case'remove-line':if(!m.closed){draft.budget=draft.budget.filter(b=>b.id!==el.dataset.id);dirty=true;render();}break;case'preset':if(!m.closed){const sets={buffer:[70,0,30],balance:[60,20,20],available:[90,10,0]},[r,ca,t]=sets[el.dataset.id];Object.assign(draft.rules,{rPct:r,caPct:ca,tPct:t});dirty=true;render();const fold=app.querySelector('.rules-fold');if(fold)fold.open=true;}break;case'save-budget':saveBudget();break;case'goal':openDialog('Mon objectif tampon',`<p class="dialog-intro">Choisis la réserve avec laquelle tu te sentiras à l’aise. Tu peux la faire évoluer à tout moment.</p>${numberField('goal','Objectif à atteindre',state.settings.goal)}<div class="form-error banner warning hidden"></div>`,`<button class="btn primary" data-action="save-goal">Enregistrer mon objectif</button>`);break;case'save-goal':{const value=fieldValue('goal');if(!Number.isFinite(value)||value<=0||value>1e9||round(value)!==value)return errorBox('Indique un montant positif, avec deux décimales maximum.');state.settings.goal=value;award();persist();dialog.close();render();break;}case'history':history();break;case'open-history':changeMonth(el.dataset.key);navigate('overview');break;case'trophies':trophies();break;case'settings':settings();break;case'install-app':await installApp();break;case'check-update':await window.MargePWA?.checkForUpdates(true);refreshPWAStatus();break;case'theme':state.settings.theme=state.settings.theme==='dark'?'light':'dark';persist();render();settings();break;case'export':exportData();break;case'export-raw':exportData(true);break;case'import':$('#import-file').click();break;case'confirm-import':if(pendingImport){const previous={state,persistent,demo,loadError};state=pendingImport;demo=false;loadError=false;if(!persist()){state=previous.state;persistent=previous.persistent;demo=previous.demo;loadError=previous.loadError;render();return;}pendingImport=null;dirty=false;draft=null;page='overview';dialog.close();render();toast('Sauvegarde importée. Tes mois sont restaurés.');}break;case'demo':startDemo();break;case'exit-demo':leaveDemo();break;case'reset-confirm':openDialog('Réinitialiser cet appareil ?',`<p>Tous les mois, budgets et réglages seront supprimés de cet appareil.</p><label class="field"><span>Écris EFFACER pour confirmer</span><input id="reset-word" autocomplete="off" placeholder="EFFACER"></label>`,`<button class="btn secondary" data-action="close-dialog">Annuler</button><button class="btn danger" data-action="reset">Effacer les données</button>`);break;case'reset':if($('#reset-word').value!=='EFFACER')return toast('Écris EFFACER pour confirmer.',true);{const previous={state,persistent,loadError};state=fresh();loadError=false;if(!persist()){state=previous.state;persistent=previous.persistent;loadError=previous.loadError;render();return;}dirty=false;draft=null;page='overview';dialog.close();render();toast('Tu peux préparer ton premier mois.');}break;}}
+async function action(name,el){if(writeActions.has(name)&&writesBlocked(name==='reset'||name==='confirm-import'))return;const m=current();switch(name){case'checkpoint':checkpointDialog();break;case'repair-checkpoint':checkpointDialog(true);break;case'save-checkpoint':saveCheckpoint();break;case'more':moreMenu();break;case'forecast':dialog.close();navigate('forecast');break;case'confirm-income-import':importIncomePlan();break;case'forecast-start':changeMonth(today());navigate('overview');prepare();break;case'overview':navigate('overview');break;case'budget':navigate('budget');break;case'prev-month':changeMonth(moveMonth(state.selectedMonth,-1));break;case'next-month':changeMonth(moveMonth(state.selectedMonth,1));break;case'choose-month':openDialog('Choisir un mois',`<label class="field"><span>Mois à consulter</span><input id="month-choice" type="month" value="${state.selectedMonth}"></label>`,`<button class="btn primary" data-action="select-month">Afficher ce mois</button>`);break;case'select-month':changeMonth($('#month-choice').value);break;case'prepare':prepare();break;case'save-month':saveMonth();break;case'close-dialog':dialog.close();break;case'close-month':closeMonthDialog();break;case'save-closing':saveClosing();break;case'show-closing':showClosing();break;case'reopen':if(!Object.values(state.months).some(o=>o.key>m.key&&o.prepared&&(!o.forecast||o.closed))){m.closed=false;delete m.closing;commitMonth(m);dialog.close();render();toast('Mois rouvert. Tu peux corriger puis clôturer à nouveau.');}break;case'use-buffer':if(m.closed)return;openDialog('Utiliser une partie du tampon',`<p>Pour maintenir tes budgets, <strong>${eur(Math.min(calc(m).deficit,calc(m).bufferAvailable))}</strong> seront pris sur ta réserve.</p><p class="help">Le reste disponible sera affiché séparément. Aucun versement d’épargne ni bonus ne sera prévu pendant ce déficit.</p>`,`<button class="btn secondary" data-action="close-dialog">Annuler</button><button class="btn primary" data-action="confirm-buffer">Utiliser le tampon</button>`);break;case'confirm-buffer':m.useBuffer=true;m.done={r:false,savings:false};commitMonth(m);dialog.close();render();break;case'cancel-buffer':m.useBuffer=false;m.done={r:false,savings:false};commitMonth(m);render();break;case'toggle-done':if(!m.closed&&['r','savings'].includes(el.dataset.id)){const id=el.dataset.id,o=operation(m,id);m.executed={r:0,savings:0,...m.executed};m.executed[id]=o.complete?0:o.target;m.done[id]=!o.complete;commitMonth(m);render();}break;case'budget-ca':budgetAccount='ca';render();break;case'budget-r':budgetAccount='r';render();break;case'add-line':if(!m.closed){if(draft.budget.length>=300)return toast('Le budget contient déjà 300 postes.',true);draft.budget.push({id:uid(),account:el.dataset.account,name:'',category:'Autres',amount:0,enabled:true});dirty=true;render();const rows=app.querySelectorAll(`.budget-panel.${el.dataset.account} .name-input`);rows[rows.length-1]?.focus();}break;case'remove-line':if(!m.closed){draft.budget=draft.budget.filter(b=>b.id!==el.dataset.id);dirty=true;render();}break;case'preset':if(!m.closed){const sets={buffer:[70,0,30],balance:[60,20,20],available:[90,10,0]},[r,ca,t]=sets[el.dataset.id];Object.assign(draft.rules,{rPct:r,caPct:ca,tPct:t});dirty=true;render();const fold=app.querySelector('.rules-fold');if(fold)fold.open=true;}break;case'save-budget':saveBudget();break;case'goal':openDialog('Mon objectif tampon',`<p class="dialog-intro">Choisis la réserve avec laquelle tu te sentiras à l’aise. Tu peux la faire évoluer à tout moment.</p>${numberField('goal','Objectif à atteindre',state.settings.goal)}<div class="form-error banner warning hidden"></div>`,`<button class="btn primary" data-action="save-goal">Enregistrer mon objectif</button>`);break;case'save-goal':{const value=fieldValue('goal');if(!Number.isFinite(value)||value<=0||value>1e9||round(value)!==value)return errorBox('Indique un montant positif, avec deux décimales maximum.');state.settings.goal=value;award();persist();dialog.close();render();break;}case'history':history();break;case'open-history':changeMonth(el.dataset.key);navigate('overview');break;case'trophies':trophies();break;case'settings':settings();break;case'install-app':await installApp();break;case'check-update':await window.MargePWA?.checkForUpdates(true);refreshPWAStatus();break;case'theme':state.settings.theme=state.settings.theme==='dark'?'light':'dark';persist();render();settings();break;case'export':exportData();break;case'export-raw':exportData(true);break;case'import':$('#import-file').click();break;case'confirm-import':if(pendingImport){const previous={state,persistent,demo,loadError};state=normalizeTransfers(pendingImport);demo=false;loadError=false;if(!persist()){state=previous.state;persistent=previous.persistent;demo=previous.demo;loadError=previous.loadError;render();return;}pendingImport=null;dirty=false;draft=null;page='overview';dialog.close();render();toast('Sauvegarde importée. Tes mois sont restaurés.');}break;case'demo':startDemo();break;case'exit-demo':leaveDemo();break;case'reset-confirm':openDialog('Réinitialiser cet appareil ?',`<p>Tous les mois, budgets et réglages seront supprimés de cet appareil.</p><label class="field"><span>Écris EFFACER pour confirmer</span><input id="reset-word" autocomplete="off" placeholder="EFFACER"></label>`,`<button class="btn secondary" data-action="close-dialog">Annuler</button><button class="btn danger" data-action="reset">Effacer les données</button>`);break;case'reset':if($('#reset-word').value!=='EFFACER')return toast('Écris EFFACER pour confirmer.',true);{const previous={state,persistent,loadError};state=fresh();loadError=false;if(!persist()){state=previous.state;persistent=previous.persistent;loadError=previous.loadError;render();return;}dirty=false;draft=null;page='overview';dialog.close();render();toast('Tu peux préparer ton premier mois.');}break;}}
 for(const root of [app,dialog])root.addEventListener('click',ev=>{const el=ev.target.closest('[data-action]');if(!el)return;ev.preventDefault();action(el.dataset.action,el);});
 app.addEventListener('input',ev=>{const el=ev.target;if(current().closed)return;if(el.dataset.budgetId){const b=draft.budget.find(b=>b.id===el.dataset.budgetId),p=el.dataset.prop;if(b){b[p]=p==='enabled'?el.checked:p==='amount'?num(el.value):el.value;refreshDraft();}}if(el.dataset.rule){draft.rules[el.dataset.rule]=num(el.value);app.querySelectorAll('.preset').forEach(p=>p.classList.remove('active'));refreshDraft();}});
-dialog.addEventListener('input',ev=>{if(activeForm==='month')syncCarryFields(ev.target.name);if(activeForm==='closing'){const a=fieldValue('closingCA'),b=fieldValue('closingR');const el=$('#close-preview');if(el)el.textContent=`Nouveau tampon : ${Number.isFinite(a+b)?eur(a+b):'—'}`;}});
+dialog.addEventListener('input',ev=>{if(activeForm==='checkpoint')updateCheckpointPreview();if(activeForm==='month')syncCarryFields(ev.target.name);if(activeForm==='closing'){const a=fieldValue('closingCA'),b=fieldValue('closingR');const el=$('#close-preview');if(el)el.textContent=`Nouveau tampon : ${Number.isFinite(a+b)?eur(a+b):'—'}`;}});
 dialog.addEventListener('submit',e=>{e.preventDefault();if(activeForm==='month')saveMonth();if(activeForm==='checkpoint')saveCheckpoint();});
 dialog.addEventListener('close',syncPWA);
 window.addEventListener('marge:pwa-status',refreshPWAStatus);

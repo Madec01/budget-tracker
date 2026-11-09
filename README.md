@@ -33,16 +33,18 @@ Les projections démarrent après un point de départ réellement préparé avec
 
 ## Points d’étape : suivre sans saisir les dépenses
 
-Dans **Vue d’ensemble → Mes comptes ce mois-ci → Faire le point**, saisir uniquement les soldes actuels du CA et de Revolut, tampon compris. Deux ou trois relevés dans le mois suffisent pour un repère ponctuel. Les champs reprennent le dernier relevé, ou les soldes d’ouverture s’il n’y en a pas. Un nouveau point le même jour corrige le précédent ; les autres jours sont conservés.
+Dans **Vue d’ensemble → Mes comptes ce mois-ci → Faire le point**, saisir les soldes actuels du CA et de Revolut, tampon compris. Si des virements ont déjà été réalisés mais pas encore pointés, les confirmer dans cette même fenêtre. Les cases restent décochées par défaut : aucune opération bancaire n’est supposée effectuée. Deux ou trois relevés dans le mois suffisent pour un repère ponctuel. Les champs reprennent le dernier relevé, ou les soldes d’ouverture s’il n’y en a pas. Un nouveau point le même jour corrige le précédent ; les autres jours sont conservés.
 
 Le mois doit être préparé, son salaire confirmé et son budget validé. Les nouveaux points sont saisis pendant le mois courant, avant clôture. Les mois passés restent consultables et les mois futurs restent prévisionnels.
 
-Chaque compte affiche le montant net consommé et son pourcentage du budget utilisable, surplus compris. La barre conserve la couleur du compte ; elle devient rouge si la consommation dépasse la part du mois écoulée. Le trait représente le jour courant inclus : jour / nombre de jours du mois. Il est à 100 % pour un mois passé et à 0 % pour un mois futur. Le pourcentage réel reste visible au-delà de 100 %, même si la barre est bornée. Un compte sans budget affiche « Sans budget » ; aucun pourcentage trompeur n’est calculé.
+Chaque compte affiche en grand **le dernier solde relevé et sa date**, puis le budget alloué au mois séparément. Sans relevé, le montant reste explicitement nommé « Budget du mois ». Chaque compte affiche aussi le montant net consommé et son pourcentage du budget utilisable, surplus compris. La barre conserve la couleur du compte ; elle devient rouge si la consommation dépasse la part du mois écoulée. Le trait représente le jour courant inclus : jour / nombre de jours du mois. Il est à 100 % pour un mois passé et à 0 % pour un mois futur. Le pourcentage réel reste visible au-delà de 100 %, même si la barre est bornée. Un compte sans budget affiche « Sans budget » ; aucun pourcentage trompeur n’est calculé.
 
-**Pointer les virements réellement réalisés avant de relever les comptes.** Les montants de `executed` sont figés pour chaque point, afin qu’un virement effectué plus tard ne change pas le relevé précédent. Les formules en centimes sont :
+**Confirmer les virements réellement réalisés avant les soldes saisis**, dans « À faire » ou directement dans « Faire le point ». Un aperçu de consommation se recalcule pendant la saisie et le pointage, avant enregistrement. Les montants de `executed` sont figés pour chaque point, afin qu’un virement effectué plus tard ne change pas le relevé précédent. Les formules en centimes sont :
 
 - CA consommé = ouverture CA hors salaire + salaire reçu − virement net vers Revolut − épargne virée − solde CA relevé.
 - Revolut consommé = ouverture Revolut + virement net reçu du CA − solde Revolut relevé.
+
+Si un virement manque dans un point existant, **Vérifier ce relevé** permet de confirmer qu’il avait été effectué avant ce relevé. Cette correction garde sa date et ses soldes, ainsi que les autres points. Un virement pointé plus tard n’est jamais ajouté rétroactivement sans cette confirmation.
 
 Un retour Revolut → CA est un virement négatif ; il est neutralisé de la même façon. L’option « salaire déjà inclus » évite de compter le salaire deux fois. Le Livret A initial n’est pas une dépense. Le tampon reste dans les soldes et s’annule naturellement dans le calcul.
 
@@ -52,11 +54,11 @@ Les points ne modifient ni les budgets, ni les soldes d’ouverture, ni les repo
 
 ### Structure et emplacement du code
 
-Les nouveaux mois contiennent `checkpoints: []`. Chaque relevé respecte `{date, balanceCA, balanceR}`, avec une date ISO locale `YYYY-MM-DD`. Le champ facultatif `checkpointTransfers[date] = {r, savings}` conserve les virements cumulés pointés à cette date. L’import accepte les anciennes sauvegardes sans ces champs et valide les dates, les montants et les liens entre relevés et virements. Les points importés sans instantané des virements utilisent les montants pointés actuels comme repli ; une nouvelle saisie fige leur référence.
+Les nouveaux mois contiennent `checkpoints: []`. Chaque relevé respecte `{date, balanceCA, balanceR}`, avec une date ISO locale `YYYY-MM-DD`. Le champ facultatif `checkpointTransfers[date] = {r, savings}` conserve les virements cumulés pointés à cette date. L’import accepte les anciennes sauvegardes sans ces champs et valide les dates, les montants et les liens entre relevés et virements. Les points importés sans instantané des virements utilisent les montants pointés actuels comme repli ; une nouvelle saisie ou vérification fige leur référence. Les anciennes cases `done:true` sans montants `executed` sont converties une fois en montants à l’ouverture ou à l’import, avant toute modification du budget ; un `executed` existant reste prioritaire.
 
-- `dist/engine.js` : fonctions pures `validateCheckpoints`, `elapsedMonthPct`, `checkpointTracking`, ajoutées à l’export de `BudgetEngine`.
+- `dist/engine.js` : fonctions pures `validateCheckpoints`, `elapsedMonthPct`, `checkpointTransferState`, `checkpointTracking`, ajoutées à l’export de `BudgetEngine`.
 - `dist/months.js` : `checkpoints: []` dans le nouvel objet créé par `resolveCandidate`.
-- `dist/app.js` : `checkpointDialog`, `saveCheckpoint`, `checkpointGauge` avant `overview` ; bouton et cartes dans `overview` ; validation dans `validateState` ; actions `checkpoint` / `save-checkpoint` et soumission du formulaire.
+- `dist/app.js` : `checkpointDialog`, `saveCheckpoint`, `checkpointGauge` avant `overview` ; bouton et cartes dans `overview` ; validation dans `validateState` ; actions `checkpoint` / `repair-checkpoint` / `save-checkpoint` et soumission du formulaire.
 - `dist/styles.css` : bloc final « Account checkpoints », pour les cartes, les jauges, les marqueurs et les champs monétaires.
 
 Le `index.html` racine reste autonome et contient tous ces blocs CSS/JS. Modifier les sources ci-dessus puis exécuter `python3 publish.py` régénère ce fichier et la version PWA ; ne pas modifier uniquement la copie générée.

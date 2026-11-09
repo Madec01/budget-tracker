@@ -564,3 +564,161 @@ test('500 signed transfer scenarios conserve consumption at the cent', () => {
     assert.equal(cents(result.accounts.ca.spent) + cents(result.accounts.r.spent), spentCA + spentR);
   }
 });
+
+test('transfer state exposes exact targets, partial execution and remaining adjustments', () => {
+  const m = observed({ executed: { r: 100, savings: 123.45 } });
+  const r = Engine.checkpointTransferState(m);
+  assert.equal(r.valid, true);
+  assert.equal(r.source, 'executed');
+  assert.deepEqual(r.executed, { r: 100, savings: 123.45 });
+  assert.deepEqual(r.targets, { r: 584, savings: 480 });
+  assert.deepEqual(r.pending, { r: 484, savings: 356.55 });
+  assert.deepEqual(r.complete, { r: false, savings: false });
+  assert.equal(r.snapshot, null);
+  assert.equal(r.snapshotSource, null);
+  assert.equal(r.changedSinceCheckpoint, false);
+});
+
+test('lowered budgets and reverse movements retain signed pending amounts', () => {
+  const adjusted = observed({ budget: [row('ca', 'ca', 2000), row('r', 'r', 700)] });
+  const r = Engine.checkpointTransferState(adjusted);
+  assert.deepEqual(r.targets, { r: 500, savings: 300 });
+  assert.deepEqual(r.pending, { r: -84, savings: -180 });
+  const reversed = observed({ openingR: 1000, executed: { r: -100, savings: -50 } });
+  const reverse = Engine.checkpointTransferState(reversed);
+  assert.deepEqual(reverse.targets, { r: -216, savings: 480 });
+  assert.deepEqual(reverse.pending, { r: -116, savings: 530 });
+});
+
+test('legacy checked flags are recovered only when explicit execution is absent', () => {
+  const m = observed({ executed: undefined, done: { r: true, savings: true } });
+  const r = Engine.checkpointTransferState(m);
+  assert.equal(r.source, 'legacy-done');
+  assert.deepEqual(r.executed, { r: 584, savings: 480 });
+  assert.deepEqual(r.pending, { r: 0, savings: 0 });
+  assert.deepEqual(r.complete, { r: true, savings: true });
+  assert.equal(m.executed, undefined);
+  m.done.savings = false;
+  const partial = Engine.checkpointTransferState(m);
+  assert.deepEqual(partial.executed, { r: 584, savings: 0 });
+  m.done.r = false;
+  const none = Engine.checkpointTransferState(m);
+  assert.equal(none.source, 'none');
+  assert.deepEqual(none.executed, { r: 0, savings: 0 });
+});
+
+test('explicit zero or partial executed amounts always win over legacy checked flags', () => {
+  const m = observed({ executed: { r: 0, savings: 100 }, done: { r: true, savings: true } });
+  const r = Engine.checkpointTransferState(m);
+  assert.equal(r.source, 'executed');
+  assert.deepEqual(r.executed, { r: 0, savings: 100 });
+  assert.deepEqual(r.pending, { r: 584, savings: 380 });
+  assert.deepEqual(r.complete, { r: false, savings: false });
+});
+
+test('transfer state detects current movements changed since a frozen checkpoint', () => {
+  const m = observed({ executed: { r: 900, savings: 700 } });
+  const r = Engine.checkpointTransferState(m, m.checkpoints[0]);
+  assert.deepEqual(r.executed, { r: 900, savings: 700 });
+  assert.deepEqual(r.snapshot, { r: 584, savings: 480 });
+  assert.equal(r.snapshotSource, 'checkpoint');
+  assert.equal(r.changedSinceCheckpoint, true);
+  assert.equal(Engine.checkpointTransferState(observed(), m.checkpoints[0]).changedSinceCheckpoint, false);
+});
+
+test('missing checkpoint snapshots use legacy transfer recovery in tracking', () => {
+  const m = observed({ checkpointTransfers: {}, executed: undefined, done: { r: true, savings: true } });
+  const transfers = Engine.checkpointTransferState(m, m.checkpoints[0]);
+  assert.equal(transfers.source, 'legacy-done');
+  assert.equal(transfers.snapshotSource, 'executed-fallback');
+  assert.deepEqual(transfers.snapshot, { r: 584, savings: 480 });
+  assert.equal(transfers.changedSinceCheckpoint, false);
+  const tracking = Engine.checkpointTracking(m, '2026-11-09');
+  assert.equal(tracking.valid, true);
+  assert.equal(tracking.transferSnapshotSource, 'executed-fallback');
+  assert.equal(tracking.accounts.ca.spent, 1000);
+  assert.equal(tracking.accounts.r.spent, 400);
+});
+
+test('an existing zero snapshot remains authoritative after legacy recovery or new pointages', () => {
+  const m = observed({ executed: undefined, done: { r: true, savings: true },
+    checkpointTransfers: { '2026-11-09': { r: 0, savings: 0 } } });
+  const helper = Engine.checkpointTransferState(m, m.checkpoints[0]);
+  assert.equal(helper.changedSinceCheckpoint, true);
+  assert.deepEqual(helper.snapshot, { r: 0, savings: 0 });
+  let tracked = Engine.checkpointTracking(m, '2026-11-09');
+  assert.equal(tracked.accounts.ca.spent, 2064);
+  assert.equal(tracked.accounts.r.spent, -184);
+  m.executed = { r: 900, savings: 700 };
+  tracked = Engine.checkpointTracking(m, '2026-11-09');
+  assert.equal(tracked.accounts.ca.spent, 2064);
+  assert.equal(tracked.accounts.r.spent, -184);
+  // Historical observations can still be read independently of a malformed
+  // later execution record; full state import validation rejects that record.
+  m.executed = { r: NaN, savings: 700 };
+  assert.equal(Engine.checkpointTracking(m, '2026-11-09').valid, true);
+  assert.equal(Engine.checkpointTransferState(m, m.checkpoints[0]).valid, false);
+});
+
+test('legacy recovery supports a reverse Revolut target without changing its sign', () => {
+  const m = observed({ openingR: 1000, executed: undefined, done: { r: true, savings: false } });
+  const r = Engine.checkpointTransferState(m);
+  assert.equal(r.executed.r, -216);
+  assert.equal(r.pending.r, 0);
+  assert.equal(r.complete.r, true);
+  assert.equal(r.executed.savings, 0);
+});
+
+test('transfer state validates legacy booleans and finite signed cent amounts', () => {
+  const bad = [
+    observed({ done: null }), observed({ done: [] }), observed({ done: { r: 1, savings: false } }),
+    observed({ done: { r: true, savings: 'true' } }), observed({ done: { r: true } }),
+    observed({ executed: null }), observed({ executed: {} }),
+    observed({ executed: { r: Infinity, savings: 0 } }),
+    observed({ executed: { r: 0, savings: '100' } }),
+    observed({ executed: { r: 0.001, savings: 0 } }),
+    observed({ executed: { r: -1000000000.01, savings: 0 } }),
+    observed({ executed: { r: 0, savings: 1000000000.01 } }),
+    observed({ checkpointTransfers: [] })
+  ];
+  for (const m of bad) {
+    const r = Engine.checkpointTransferState(m);
+    assert.equal(r.valid, false);
+    assert.ok(r.errors.length);
+    assert.equal(r.executed, null);
+    assert.equal(r.targets, null);
+    assert.equal(r.pending, null);
+  }
+  assert.equal(Engine.checkpointTransferState(null).valid, false);
+  assert.equal(Engine.checkpointTransferState(observed(), { date: '2026-11-31' }).valid, false);
+  const badSnapshot = observed({ checkpointTransfers: { '2026-11-09': { r: 1, savings: 1.001 } } });
+  assert.equal(Engine.checkpointTransferState(badSnapshot, badSnapshot.checkpoints[0]).valid, false);
+});
+
+test('a plan with no execution or pointage metadata starts from zero explicitly', () => {
+  const r = Engine.checkpointTransferState(month());
+  assert.equal(r.valid, true);
+  assert.equal(r.source, 'none');
+  assert.deepEqual(r.executed, { r: 0, savings: 0 });
+  assert.deepEqual(r.targets, { r: 584, savings: 480 });
+});
+
+test('snapshot comparisons and pending adjustments use cents, not float equality', () => {
+  const m = observed({ executed: { r: 0.1 + 0.2, savings: 0.7 },
+    checkpointTransfers: { '2026-11-09': { r: 0.3, savings: 0.7 } } });
+  const r = Engine.checkpointTransferState(m, m.checkpoints[0]);
+  assert.equal(r.changedSinceCheckpoint, false);
+  assert.deepEqual(r.pending, { r: 583.7, savings: 479.3 });
+});
+
+test('transfer state is immutable and returns independent amount maps', () => {
+  const m = observed({ done: { r: true, savings: true } });
+  const before = JSON.stringify(m);
+  function freeze(value) { if (value && typeof value === 'object') { Object.values(value).forEach(freeze); Object.freeze(value); } }
+  freeze(m);
+  const r = Engine.checkpointTransferState(m, m.checkpoints[0]);
+  r.executed.r = 1;
+  r.snapshot.r = 2;
+  r.targets.r = 3;
+  assert.equal(JSON.stringify(m), before);
+});

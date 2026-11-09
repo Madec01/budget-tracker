@@ -145,3 +145,63 @@ body[data-theme=dark] .pacing-marker{box-shadow:0 0 0 1px var(--panel)}
 }
 @media(prefers-reduced-motion:reduce){.pacing-fill{transition:none}}
 @media print{.account-card{break-inside:avoid}.pacing-track,.pacing-fill,.pacing-marker{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
+
+/* A checkpoint reconciles bank balances and transfers before showing spending. */
+.account-balance small{display:block;max-width:27ch;white-space:normal;line-height:1.5}
+.checkpoint-budget-line{display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:4px 15px;margin:12px 0 0;color:var(--muted);font-size:11px;line-height:1.6;font-variant-numeric:tabular-nums}
+.checkpoint-budget-line strong{color:var(--ink);font-size:11px;font-weight:500;white-space:nowrap}
+.checkpoint-budget-line + .checkpoint-tracking{margin-top:16px}
+.checkpoint-repair-note{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:5px 18px;margin:0 0 18px;padding:9px 12px;border-left:2px solid var(--warning);background:var(--soft);color:var(--muted);font-size:11px;line-height:1.7}
+.checkpoint-repair-note > p,.checkpoint-repair-note > span{flex:1;min-width:170px;margin:0}
+.checkpoint-repair-note strong{color:var(--ink);font-weight:550}
+.checkpoint-repair-note .inline-link{min-height:44px;flex-shrink:0;padding:9px 0;color:var(--accent);font-size:11px}
+.checkpoint-transfers{margin:20px 0;padding:17px 0;border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+.checkpoint-transfers h3{margin:0 0 8px;font-size:13px;font-weight:550}
+.checkpoint-transfers > .help{margin:0 0 12px;font-size:11px;line-height:1.7}
+.checkpoint-transfer-choice{display:grid;grid-template-columns:19px minmax(0,1fr) auto;align-items:center;gap:11px;min-height:48px;padding:9px 0;color:var(--ink);font-size:12px;line-height:1.5;cursor:pointer}
+.checkpoint-transfer-choice + .checkpoint-transfer-choice,.checkpoint-transfer-confirmed + .checkpoint-transfer-choice,.checkpoint-transfer-choice + .checkpoint-transfer-confirmed,.checkpoint-transfer-confirmed + .checkpoint-transfer-confirmed{border-top:1px solid var(--line)}
+.checkpoint-transfer-choice > input[type=checkbox]{width:18px;height:18px;margin:0;accent-color:var(--ca)}
+.checkpoint-transfer-choice > span{min-width:0}
+.checkpoint-transfer-choice strong{font-size:12px;font-weight:550;text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
+.checkpoint-transfer-choice small{display:block;margin-top:3px;color:var(--muted);font-size:10px;line-height:1.5}
+.checkpoint-transfer-choice:has(input:disabled){cursor:default;color:var(--muted)}
+.checkpoint-transfer-choice:focus-within{outline:2px solid var(--accent);outline-offset:3px;border-radius:2px}
+.checkpoint-transfer-choice input:focus-visible{outline:0}
+.checkpoint-transfer-confirmed{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:11px;min-height:44px;padding:10px 0;color:var(--ca);font-size:11px;line-height:1.6}
+.checkpoint-transfer-confirmed:has(> svg){grid-template-columns:19px minmax(0,1fr) auto}
+.checkpoint-transfer-confirmed > svg{width:16px;height:16px}
+.checkpoint-transfer-confirmed > span{min-width:0}
+.checkpoint-transfer-confirmed strong{color:var(--ink);font-size:12px;font-weight:500;text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
+.checkpoint-transfer-confirmed small{display:block;color:var(--muted);font-size:10px}
+.checkpoint-preview{margin:19px 0;padding:14px 15px;border:1px solid var(--line);border-radius:4px;background:var(--soft)}
+.checkpoint-preview h3{margin:0 0 8px;color:var(--ink);font-size:12px;font-weight:550}
+.checkpoint-preview > p:first-child{margin-bottom:9px;font-size:12px}
+.checkpoint-preview-row{display:grid;grid-template-columns:minmax(0,1fr) minmax(70px,auto) minmax(43px,auto);align-items:baseline;gap:10px;padding:10px 0;border-bottom:1px solid var(--line);font-size:11px;line-height:1.6;font-variant-numeric:tabular-nums}
+.checkpoint-preview-row > :first-child{min-width:0;color:var(--muted)}
+.checkpoint-preview-row > :nth-child(2),.checkpoint-preview-row > :nth-child(3){text-align:right;white-space:nowrap}
+.checkpoint-preview-row strong{font-size:12px;font-weight:550}
+.checkpoint-preview-row:last-child{border-bottom:0;padding-bottom:0}
+.checkpoint-preview .help,.checkpoint-preview-note{margin:11px 0 0;color:var(--muted);font-size:10px;line-height:1.7}
+.checkpoint-transfers .checkpoint-preview-note{font-size:11px}
+@media(max-width:700px){
+  .checkpoint-repair-note{gap:0 12px;padding:9px 11px;font-size:10px}
+  .checkpoint-repair-note > p,.checkpoint-repair-note > span{min-width:145px}
+  .checkpoint-budget-line{font-size:10px}
+  .checkpoint-budget-line strong{font-size:11px}
+}
+@media(max-width:560px){
+  .checkpoint-transfers{margin:18px 0;padding:15px 0}
+  .checkpoint-transfer-choice{column-gap:9px;font-size:11px}
+  .checkpoint-transfer-choice strong{font-size:11px}
+  .checkpoint-transfer-confirmed{column-gap:9px;font-size:10px}
+  .checkpoint-transfer-confirmed strong{font-size:11px}
+  .checkpoint-preview{padding:12px}
+  .checkpoint-preview-row{gap:8px;font-size:10px}
+  .checkpoint-preview-row strong{font-size:11px}
+}
+@media(max-width:370px){
+  .checkpoint-transfer-choice{grid-template-columns:19px minmax(0,1fr);row-gap:3px}
+  .checkpoint-transfer-choice > strong{grid-column:2;text-align:left}
+  .checkpoint-preview-row{grid-template-columns:minmax(0,1fr) auto auto;gap:6px}
+  .checkpoint-repair-note .inline-link{font-size:10px}
+}

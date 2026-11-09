@@ -527,6 +527,11 @@ function checkpointFields(h,ca,r) {
   h.element('[name="checkpointCA"]').value=String(ca);
   h.element('[name="checkpointR"]').value=String(r);
 }
+function checkpointConfirmations(h,r=false,savings=false) {
+  h.element('[name="checkpoint-transfer-r"]').checked=r;
+  h.element('[name="checkpoint-transfer-savings"]').checked=savings;
+}
+const money = value => new Intl.NumberFormat('fr-FR',{style:'currency',currency:'EUR',maximumFractionDigits:2}).format(value);
 
 test('legacy exports without checkpoints remain readable and editable',()=>{
   const h=boot(),m=checkpointFixture(h);
@@ -687,4 +692,182 @@ test('reading a closed historical month preserves its checkpoint metadata unchan
   assert.equal(restored.control.writeCount,0);
   assert.equal(restored.storage.get(KEY),raw);
   assert.deepEqual(copy(restored.api.getMonth().checkpointTransfers),{[date]:{r:662,savings:640}});
+});
+
+test('checkpoint confirmations start unchecked and live previews never mutate balances or transfers',async()=>{
+  const h=boot(),m=checkpointFixture(h);
+  m.executed={r:0,savings:0};m.done={r:false,savings:false};
+  const before=JSON.stringify(h.api.getState());
+  await h.api.action('checkpoint',{});
+  const inputs=h.element('#dialog').innerHTML.match(/<input[^>]*name="checkpoint-transfer-(?:r|savings)"[^>]*>/g);
+  assert.equal(inputs.length,2);
+  for(const input of inputs)assert.doesNotMatch(input,/\bchecked\b/);
+  assert.equal(JSON.stringify(h.api.getState()),before);
+  checkpointFields(h,1948,612);
+  const dialog=h.element('#dialog');
+  dialog.listeners.input({target:h.element('[name="checkpointCA"]')});
+  assert.ok(h.element('#checkpoint-preview').innerHTML.includes(money(1502)));
+  assert.ok(h.element('#checkpoint-preview').innerHTML.includes(`+ ${money(462)} entrants`));
+  checkpointConfirmations(h,true,true);
+  dialog.listeners.input({target:h.element('[name="checkpoint-transfer-r"]')});
+  const confirmedPreview=h.element('#checkpoint-preview').innerHTML;
+  assert.equal(confirmedPreview.split(`<strong>${money(200)}</strong>`).length-1,2);
+  checkpointFields(h,1848,612);
+  dialog.listeners.input({target:h.element('[name="checkpointCA"]')});
+  assert.ok(h.element('#checkpoint-preview').innerHTML.includes(`<strong>${money(300)}</strong>`));
+  assert.equal(JSON.stringify(h.api.getState()),before);
+  assert.equal(h.control.writeCount,0);
+  await h.api.action('close-dialog',{});
+  assert.equal(JSON.stringify(h.api.getState()),before);
+  assert.equal(h.control.writeCount,0);
+});
+
+test('confirmed transfers are excluded from spending and persist with the checkpoint in one save',async()=>{
+  const h=boot(),m=checkpointFixture(h);
+  m.executed={r:0,savings:0};m.done={r:false,savings:false};
+  const before=copy(m),date=localDateKey(new Date());
+  await h.api.action('checkpoint',{});checkpointFields(h,1948,612);checkpointConfirmations(h,true,true);
+  await h.api.action('save-checkpoint',{});
+  const saved=h.api.getMonth(),tracking=E.checkpointTracking(saved);
+  assert.deepEqual(copy(saved.executed),{r:662,savings:640});
+  assert.deepEqual(copy(saved.done),{r:true,savings:true});
+  assert.deepEqual(copy(saved.checkpointTransfers),{[date]:{r:662,savings:640}});
+  assert.equal(tracking.accounts.ca.spent,200);
+  assert.equal(tracking.accounts.r.spent,200);
+  for(const prop of ['salary','openingCA','openingR','savingsOpening','salaryIncluded','carry','budget','rules'])assert.deepEqual(copy(saved[prop]),before[prop],prop);
+  assert.equal(h.control.writeCount,1);
+  const reloaded=boot(h.storage.get(KEY));
+  assert.equal(reloaded.api.flags().loadError,false);
+  assert.deepEqual(copy(reloaded.api.getMonth().executed),{r:662,savings:640});
+  assert.deepEqual(copy(reloaded.api.getMonth().checkpointTransfers),{[date]:{r:662,savings:640}});
+  assert.equal(E.checkpointTracking(reloaded.api.getMonth()).accounts.ca.spent,200);
+});
+
+test('confirming only Revolut leaves the Livret A movement unrecorded',async()=>{
+  const h=boot(),m=checkpointFixture(h);
+  m.executed={r:0,savings:0};m.done={r:false,savings:false};
+  await h.api.action('checkpoint',{});checkpointFields(h,1948,612);checkpointConfirmations(h,true,false);
+  await h.api.action('save-checkpoint',{});
+  const saved=h.api.getMonth(),tracking=E.checkpointTracking(saved);
+  assert.deepEqual(copy(saved.executed),{r:662,savings:0});
+  assert.deepEqual(copy(saved.done),{r:true,savings:false});
+  assert.deepEqual(copy(saved.checkpointTransfers[localDateKey(new Date())]),{r:662,savings:0});
+  assert.equal(tracking.accounts.ca.spent,840);
+  assert.equal(tracking.accounts.r.spent,200);
+});
+
+test('repairing a checkpoint keeps its original date, balances and earlier history',async()=>{
+  const h=boot(),m=checkpointFixture(h),early=m.key+'-01T08:30:00Z',last=m.key+'-01T09:30:00Z';
+  m.executed={r:0,savings:0};m.done={r:false,savings:false};
+  m.checkpoints=[{date:early,balanceCA:3440,balanceR:140},{date:last,balanceCA:1948,balanceR:612}];
+  m.checkpointTransfers={[early]:{r:0,savings:0},[last]:{r:0,savings:0}};
+  const points=copy(m.checkpoints),before=copy(m),stateBefore=JSON.stringify(h.api.getState());
+  await h.api.action('repair-checkpoint',{});
+  const html=h.element('#dialog').innerHTML;
+  assert.match(html,/Vérifier ce relevé/);
+  for(const name of ['checkpointCA','checkpointR'])assert.match(html,new RegExp(`<input[^>]*name="${name}"[^>]*disabled`));
+  assert.equal(JSON.stringify(h.api.getState()),stateBefore);
+  checkpointFields(h,1,2); // Even a forged disabled input cannot replace the saved balances.
+  checkpointConfirmations(h,true,true);
+  await h.api.action('save-checkpoint',{});
+  const saved=h.api.getMonth();
+  assert.deepEqual(copy(saved.checkpoints),points);
+  assert.deepEqual(copy(saved.checkpointTransfers[early]),{r:0,savings:0});
+  assert.deepEqual(copy(saved.checkpointTransfers[last]),{r:662,savings:640});
+  assert.deepEqual(copy(saved.executed),{r:662,savings:640});
+  for(const prop of ['salary','openingCA','openingR','savingsOpening','carry','budget','rules'])assert.deepEqual(copy(saved[prop]),before[prop],prop);
+  assert.equal(E.checkpointTracking(saved).accounts.ca.spent,200);
+  assert.equal(E.checkpointTracking(saved).accounts.r.spent,200);
+  assert.match(h.element('#toast').textContent,/Relevé corrigé/);
+});
+
+test('a movement marked after a checkpoint changes its snapshot only with explicit repair confirmation',async()=>{
+  const h=boot(),m=checkpointFixture(h),date=m.key+'-01T09:30:00Z';
+  m.executed={r:0,savings:0};m.done={r:false,savings:false};
+  m.checkpoints=[{date,balanceCA:1948,balanceR:612}];
+  m.checkpointTransfers={[date]:{r:0,savings:0}};
+  const originalPoints=copy(m.checkpoints),originalTracking=E.checkpointTracking(m);
+  await h.api.action('toggle-done',{dataset:{id:'r'}});
+  assert.deepEqual(copy(h.api.getMonth().executed),{r:662,savings:0});
+  assert.deepEqual(copy(h.api.getMonth().checkpointTransfers[date]),{r:0,savings:0});
+  assert.equal(E.checkpointTracking(h.api.getMonth()).accounts.ca.spent,originalTracking.accounts.ca.spent);
+  await h.api.action('repair-checkpoint',{});
+  assert.match(h.element('#dialog').innerHTML,/Déjà pointé : effectué avant ce relevé/);
+  checkpointConfirmations(h,false,false);
+  await h.api.action('save-checkpoint',{});
+  assert.deepEqual(copy(h.api.getMonth().checkpointTransfers[date]),{r:0,savings:0});
+  assert.deepEqual(copy(h.api.getMonth().executed),{r:662,savings:0});
+  assert.deepEqual(copy(h.api.getMonth().checkpoints),originalPoints);
+  await h.api.action('repair-checkpoint',{});checkpointConfirmations(h,true,false);
+  await h.api.action('save-checkpoint',{});
+  const saved=h.api.getMonth();
+  assert.deepEqual(copy(saved.checkpoints),originalPoints);
+  assert.deepEqual(copy(saved.checkpointTransfers[date]),{r:662,savings:0});
+  assert.deepEqual(copy(saved.executed),{r:662,savings:0});
+  assert.equal(E.checkpointTracking(saved).accounts.r.spent,200);
+});
+
+test('loading legacy checkmarks freezes their amounts before a later budget edit',()=>{
+  const initial=boot(),m=checkpointFixture(initial);
+  delete m.executed;m.done={r:true,savings:true};
+  const raw=JSON.stringify(initial.api.getState()),h=boot(raw);
+  assert.equal(h.api.flags().loadError,false);
+  assert.deepEqual(copy(h.api.getMonth().executed),{r:662,savings:640});
+  assert.equal(h.storage.get(KEY),raw);
+  assert.equal(h.control.writeCount,0);
+  editBudget(h,1400);h.api.saveBudget();
+  const edited=h.api.getMonth(),plan=h.api.calc(edited);
+  assert.deepEqual(copy(edited.executed),{r:662,savings:640});
+  assert.notEqual(plan.transferR,662);
+  assert.equal(h.api.operation(edited,'r').remaining,Math.round((plan.transferR-662)*100)/100);
+  assert.equal(h.api.operation(edited,'savings').remaining,Math.round((plan.savingsAdd-640)*100)/100);
+  assert.deepEqual(JSON.parse(h.storage.get(KEY)).months[m.key].executed,{r:662,savings:640});
+});
+
+test('importing legacy checkmarks materializes the original targets before changing the budget',async()=>{
+  const initial=boot(),m=checkpointFixture(initial);
+  delete m.executed;m.done={r:true,savings:true};
+  const raw=JSON.stringify(initial.api.getState()),h=boot();
+  await h.element('#import-file').listeners.change({target:{files:[{size:Buffer.byteLength(raw),text:async()=>raw}],value:'legacy.json'}});
+  await h.api.action('confirm-import',{});
+  assert.deepEqual(copy(h.api.getMonth().executed),{r:662,savings:640});
+  assert.deepEqual(JSON.parse(h.storage.get(KEY)).months[m.key].executed,{r:662,savings:640});
+  editBudget(h,1400);h.api.saveBudget();
+  assert.deepEqual(copy(h.api.getMonth().executed),{r:662,savings:640});
+  assert.equal(h.api.operation(h.api.getMonth(),'savings').paid,640);
+});
+
+test('explicit executed amounts take priority over old checkmarks on both load and import',async()=>{
+  for(const route of ['load','import']){
+    const initial=boot(),m=checkpointFixture(initial);
+    m.executed={r:0,savings:123.45};m.done={r:true,savings:true};
+    const raw=JSON.stringify(initial.api.getState()),h=boot(route==='load'?raw:null);
+    if(route==='import'){
+      await h.element('#import-file').listeners.change({target:{files:[{size:Buffer.byteLength(raw),text:async()=>raw}],value:'explicit.json'}});
+      await h.api.action('confirm-import',{});
+    }
+    assert.equal(h.api.flags().loadError,false,route);
+    assert.deepEqual(copy(h.api.getMonth().executed),{r:0,savings:123.45},route);
+    editBudget(h,1400);h.api.saveBudget();
+    assert.deepEqual(copy(h.api.getMonth().executed),{r:0,savings:123.45},route);
+    assert.equal(h.api.operation(h.api.getMonth(),'r').paid,0,route);
+    assert.equal(h.api.operation(h.api.getMonth(),'savings').paid,123.45,route);
+  }
+});
+
+test('account cards show the latest observed balance and date separately from the monthly budget',()=>{
+  const h=boot(),m=checkpointFixture(h),date=m.key+'-01T09:30:00Z';
+  m.checkpoints=[{date,balanceCA:1234.56,balanceR:321.09}];
+  m.checkpointTransfers={[date]:{r:662,savings:640}};
+  h.api.render();
+  const html=h.element('#app').innerHTML,label=new Date(`${date.slice(0,10)}T12:00:00`).toLocaleDateString('fr-FR',{day:'numeric',month:'long'}),plan=h.api.calc(m);
+  for(const [id,balance,budget] of [['ca',1234.56,plan.availableCA],['r',321.09,plan.availableR]]){
+    const card=html.match(new RegExp(`<article class="account-card ${id}">([\\s\\S]*?)<\\/article>`))?.[1];
+    assert.ok(card,id);
+    assert.ok(card.includes(`<strong class="account-balance">${money(balance)}<small>Solde relevé · ${label}</small>`),id);
+    const budgetLine=card.match(/<div class="checkpoint-budget-line">([\s\S]*?)<\/div>/)?.[1];
+    assert.ok(budgetLine,id);
+    assert.match(budgetLine,/Budget alloué au mois/);
+    assert.ok(budgetLine.includes(`<strong>${money(budget)}</strong>`),id);
+  }
 });

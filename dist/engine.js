@@ -360,12 +360,100 @@
   }
 
   /**
+   * checkpointTransferState(month, last = null) ->
+   * {valid,errors,source,executed,targets,pending,complete,snapshot,
+   *  snapshotSource,changedSinceCheckpoint}.
+   * source: 'executed' for explicit cumulative movements (always authoritative),
+   * 'legacy-done' if an old done:true flag supplies a missing executed history,
+   * otherwise 'none'. Legacy checked flags mean the corresponding full target;
+   * the app must materialize that migration before changing a legacy plan.
+   * executed/targets/pending are {r,savings} in signed euros; complete holds
+   * booleans. pending = targets - executed, calculated with whole cents.
+   * last may be an existing checkpoint (only its date is required here).
+   * snapshot is null without last, otherwise the recorded snapshot or executed
+   * fallback. snapshotSource is 'checkpoint' / 'executed-fallback' / null.
+   * changedSinceCheckpoint compares the recorded movements to current executed.
+   * No mutation, coercion or transfer execution. Invalid input returns false,
+   * French errors and null amount maps. Snapshot/history validation remains
+   * available separately through validateCheckpoints().
+   */
+  function checkpointTransferState(month, last) {
+    var plan = calculate(month);
+    var errors = plan.errors.slice();
+    var result = { valid: false, errors: errors, source: null, executed: null,
+      targets: null, pending: null, complete: null, snapshot: null,
+      snapshotSource: null, changedSinceCheckpoint: false };
+    if (!object(month)) return result;
+    if (last === undefined) last = null;
+    if (last !== null && (!object(last) || !parseCheckpointDate(last.date))) {
+      errors.push('Le relevé de référence doit porter une date ISO valide.');
+    }
+    var done = month.done;
+    if (done !== undefined && (!object(done) || typeof done.r !== 'boolean' || typeof done.savings !== 'boolean')) {
+      errors.push('Les anciens pointages doivent préciser vrai ou faux pour Revolut et le Livret A.');
+    }
+    if (month.checkpointTransfers !== undefined && !object(month.checkpointTransfers)) {
+      errors.push('Les instantanés de virements doivent être un objet.');
+    }
+    if (errors.length) return result;
+
+    var targetR = Math.round(plan.transferR * 100);
+    var targetSavings = Math.round(plan.savingsAdd * 100);
+    var paidR, paidSavings, source;
+    if (month.executed !== undefined) {
+      source = 'executed';
+      if (!object(month.executed)) {
+        errors.push('Les virements effectués doivent préciser Revolut et le Livret A.');
+        return result;
+      }
+      paidR = money(month.executed.r, 'Le virement Revolut effectué', errors, true);
+      paidSavings = money(month.executed.savings, 'Le virement Livret A effectué', errors, true);
+    } else {
+      source = done && (done.r || done.savings) ? 'legacy-done' : 'none';
+      paidR = done && done.r ? targetR : 0;
+      paidSavings = done && done.savings ? targetSavings : 0;
+    }
+    if (errors.length) return result;
+
+    var snapshot = null, snapshotSource = null, changed = false;
+    if (last !== null) {
+      var snapshots = month.checkpointTransfers;
+      var hasSnapshot = snapshots && Object.prototype.hasOwnProperty.call(snapshots, last.date);
+      var savedR = paidR, savedSavings = paidSavings;
+      if (hasSnapshot) {
+        var saved = snapshots[last.date];
+        if (!object(saved)) {
+          errors.push('Les virements du relevé doivent préciser Revolut et le Livret A.');
+          return result;
+        }
+        savedR = money(saved.r, 'Le virement Revolut du relevé', errors, true);
+        savedSavings = money(saved.savings, 'Le virement Livret A du relevé', errors, true);
+      }
+      if (errors.length) return result;
+      snapshot = { r: euros(savedR), savings: euros(savedSavings) };
+      snapshotSource = hasSnapshot ? 'checkpoint' : 'executed-fallback';
+      changed = savedR !== paidR || savedSavings !== paidSavings;
+    }
+    result.valid = true;
+    result.source = source;
+    result.executed = { r: euros(paidR), savings: euros(paidSavings) };
+    result.targets = { r: euros(targetR), savings: euros(targetSavings) };
+    result.pending = { r: euros(targetR - paidR), savings: euros(targetSavings - paidSavings) };
+    result.complete = { r: targetR === paidR, savings: targetSavings === paidSavings };
+    result.snapshot = snapshot;
+    result.snapshotSource = snapshotSource;
+    result.changedSinceCheckpoint = changed;
+    return result;
+  }
+
+  /**
    * checkpointTracking(month, now = new Date()) ->
    * {valid,errors,latest,elapsedPct,transferSnapshotSource,transferSnapshot,accounts}.
    * latest is a shallow copy of the most recent checkpoint by instant, not array
    * order. With no checkpoint latest/accounts/snapshot/source are null.
    * transferSnapshotSource is 'checkpoint' or 'executed-fallback'. Missing
-   * snapshots explicitly fall back to month.executed (absent amounts -> zero).
+   * snapshots explicitly fall back to checkpointTransferState().executed,
+   * including legacy done:true flags when no explicit executed history exists.
    * Transfers are cumulative actual movements: r > 0 CA->R; savings > 0 CA->livret.
    * Negative values represent the reverse movement. Future pointages do not
    * change a checkpoint that already has its own snapshot.
@@ -390,11 +478,15 @@
     }, null);
     var snapshots = month.checkpointTransfers;
     var hasSnapshot = snapshots && Object.prototype.hasOwnProperty.call(snapshots, latest.date);
-    var snapshot = hasSnapshot ? snapshots[latest.date] : month.executed;
-    if (snapshot !== undefined && !object(snapshot)) errors.push('Les virements effectués doivent préciser Revolut et le Livret A.');
-    if (errors.length) return result;
-    var transferR = money(snapshot && snapshot.r !== undefined ? snapshot.r : 0, 'Le virement Revolut effectué', errors, true);
-    var transferSavings = money(snapshot && snapshot.savings !== undefined ? snapshot.savings : 0, 'Le virement Livret A effectué', errors, true);
+    var snapshot;
+    if (hasSnapshot) snapshot = snapshots[latest.date];
+    else {
+      var transfers = checkpointTransferState(month, latest);
+      if (!transfers.valid) { Array.prototype.push.apply(errors, transfers.errors); return result; }
+      snapshot = transfers.executed;
+    }
+    var transferR = money(snapshot.r, 'Le virement Revolut effectué', errors, true);
+    var transferSavings = money(snapshot.savings, 'Le virement Livret A effectué', errors, true);
     if (errors.length) return result;
     var spentCA = Math.round(plan.openingCANormalized * 100) + Math.round(month.salary * 100)
       - transferR - transferSavings - Math.round(latest.balanceCA * 100);
@@ -411,5 +503,6 @@
   }
 
   return Object.freeze({ calculate: calculate, closeMonth: closeMonth,
-    validateCheckpoints: validateCheckpoints, elapsedMonthPct: elapsedMonthPct, checkpointTracking: checkpointTracking });
+    validateCheckpoints: validateCheckpoints, elapsedMonthPct: elapsedMonthPct,
+    checkpointTracking: checkpointTracking, checkpointTransferState: checkpointTransferState });
 });
